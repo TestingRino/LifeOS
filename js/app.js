@@ -9,7 +9,8 @@
   const app = document.getElementById('app');
 
   /* ---------- basics ---------- */
-  const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : process.env.REACT_APP_API_BASE || '';
+  const DEFAULT_API_BASE = 'https://lifeos-api.example.com';
+  const API_BASE = localStorage.getItem('api_base') || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : DEFAULT_API_BASE);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const qsToday = new URLSearchParams(location.search).get('today');
@@ -1043,13 +1044,15 @@
     const canNotify = typeof Notification !== 'undefined';
     const notifPerm = canNotify ? Notification.permission : null;
     const hasCalendar = !!localStorage.getItem('google_access_token');
+    const currentApiBase = localStorage.getItem('api_base') || API_BASE;
     const body = `
       <section class="box"><h2>Integrations</h2>
         <div class="row wrap">
           ${hasCalendar ? `<div style="flex:1"><p class="muted small">✓ Google Calendar connected</p><button class="btn small ghost danger" data-act="disconnectCalendar">Disconnect</button></div>` : `<button class="btn" data-act="connectCalendar">Connect Google Calendar</button>`}
           <button class="btn" data-act="uploadPhoto">Upload photo (OCR)</button>
         </div>
-        <p class="muted small">Sync your calendar, upload photos of your planner, and auto-fill your app.</p>
+        <label>Backend URL <input type="text" id="apiBaseInput" value="${esc(currentApiBase)}" placeholder="https://..." style="flex:1;"></label>
+        <p class="muted small">Connected to backend for Calendar sync and photo OCR. Ask your admin for the URL.</p>
       </section>
       <section class="box"><h2>Planner</h2>
         <div class="row wrap">
@@ -1372,6 +1375,17 @@
   const uploadInput = document.getElementById('uploadInput');
   const uploadDlg = document.getElementById('uploadDlg');
   const ocrResultDlg = document.getElementById('ocrResultDlg');
+
+  const apiBaseInput = document.getElementById('apiBaseInput');
+  if (apiBaseInput) {
+    apiBaseInput.addEventListener('blur', (e) => {
+      const url = e.target.value.trim();
+      if (url && url.startsWith('http')) {
+        localStorage.setItem('api_base', url);
+        toast('Backend URL updated');
+      }
+    });
+  }
 
   uploadInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];

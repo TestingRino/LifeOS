@@ -30,18 +30,26 @@ Weeks follow the planner's convention: a week belongs to the month its last day 
 (Sun Sep 27 – Sat Oct 3 is "Week 1 of October"). The planner year starts in October by default
 (change in ⚙ Settings).
 
-## Deploy Your Own Backend (Optional)
+## For Friends & Family
 
-Connect Life.OS to Google Calendar, upload photos with AI OCR, and sync bidirectionally. One-click setup:
+**Open Life.OS:** https://testingrino.github.io/LifeOS/
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/TestingRino/LifeOS&project-name=lifeos-api&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20credentials%20from%20Google%20Cloud%20and%20Anthropic)
+Everything works offline. No login, no signup, no accounts needed.
 
-**→ See [DEPLOY.md](DEPLOY.md) for 5-minute setup**
+Optionally: Calendar sync + photo OCR (if your admin set it up). See [USER_GUIDE.md](USER_GUIDE.md).
 
-Features when you deploy:
-- 📅 **Google Calendar sync** (pull events, create events)
-- 📸 **Photo OCR** (upload photos of your planner, auto-fill schedule/goals/habits)
-- 🔄 **Bidirectional sync** (changes flow both ways)
+---
+
+## For Admins: Deploy Shared Backend (One-Time)
+
+Want to provide Calendar sync and photo OCR to your friends/family?
+
+**[→ BACKEND_SETUP.md](BACKEND_SETUP.md)** — Deploy ONE shared backend (10 min)
+
+No friction for users — they just open the link and use it:
+- 📅 **Google Calendar sync** (events show up in their Week view)
+- 📸 **Photo OCR** (upload photos, auto-fill schedule/goals/habits)
+- 🔄 **No setup needed** — they don't know or care about the backend
 
 ## Running it
 
