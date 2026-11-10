@@ -97,6 +97,7 @@ tests/          node:test unit tests
 
 ```bash
 npm test
+npm run stamp   # before publishing: versions the css/js links so browsers never mix old and new files
 ```
 
 Append `?today=2026-11-10` to the URL to preview the app as of another date.
