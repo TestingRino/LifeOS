@@ -19,8 +19,8 @@ router.post('/google/token', async (req, res) => {
       grant_type: 'authorization_code',
     }));
 
-    const { access_token, refresh_token, expires_in } = response.data;
-    res.json({ access_token, refresh_token, expires_in });
+    const { access_token, refresh_token, expires_in, scope } = response.data;
+    res.json({ access_token, refresh_token, expires_in, scope });
   } catch (err) {
     console.error('OAuth token exchange failed:', err.response?.data || err.message);
     res.status(400).json({ error: 'Token exchange failed' });
@@ -49,8 +49,8 @@ router.post('/google/refresh', async (req, res) => {
 
 router.get('/google/url', (req, res) => {
   const scope = [
-    'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/calendar.readonly', // read events and the list of calendars
+    'https://www.googleapis.com/auth/calendar.events',   // create events (photo imports, ideal week, scheduled tasks)
   ].join(' ');
 
   const params = new URLSearchParams({
@@ -59,6 +59,7 @@ router.get('/google/url', (req, res) => {
     response_type: 'code',
     scope,
     access_type: 'offline',
+    include_granted_scopes: 'true',
     prompt: 'consent',
   });
 

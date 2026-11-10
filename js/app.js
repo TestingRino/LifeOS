@@ -341,6 +341,9 @@
   const gcal = { events: [], ranges: {}, busy: false, status: '', ok: true, listTried: false, listError: '' };
   const gcalConnected = () => !!localStorage.getItem('google_access_token');
   const gcalSelectedIds = () => { const sel = (state.settings.gcalSelected || []).filter(Boolean); return (sel.length ? sel : ['primary']).slice(0, 10); };
+  const gcalFriendly = (m) => (/insufficient authentication scopes|insufficientPermissions/i.test(m || '')
+    ? 'Google did not give Life.OS permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
+  const gcalNeedsReconnect = (m) => /permission to read your calendars/.test(m || '');
   const gcalPrimary = () => state.gcalCalendars.find((c) => c.primary);
   const gcalMeta = (id) => state.gcalCalendars.find((c) => c.id === id) || (id === 'primary' ? gcalPrimary() : null) || { id, name: id === 'primary' ? 'Primary' : id, color: GCAL_COLOR };
   const gcalIsSelected = (c) => { const ids = gcalSelectedIds(); return ids.includes(c.id) || (c.primary && ids.includes('primary')); };
@@ -396,7 +399,7 @@
       const results = await Promise.allSettled(ids.map((id) => gcalApi('/api/calendar/events', { from: timeMin, to: timeMax, calendarId: id }).then((r) => gcalNormalize(r.events, gcalMeta(id)))));
       const evs = [], failed = [];
       results.forEach((r, i) => (r.status === 'fulfilled' ? evs.push(...r.value) : failed.push({ name: gcalMeta(ids[i]).name, msg: r.reason && r.reason.message })));
-      if (failed.length === ids.length) throw new Error(failed[0].msg || 'Could not sync');
+      if (failed.length === ids.length) throw new Error(gcalFriendly(failed[0].msg) || 'Could not sync');
       gcal.events = gcal.events.filter((g) => g.date < fromIso || g.date >= toIso).concat(evs);
       gcal.ranges[key] = { ok: true, t: Date.now() };
       gcal.status = `Synced ${evs.length} event${evs.length === 1 ? '' : 's'}${ids.length > 1 ? ` from ${ids.length - failed.length} calendar${ids.length - failed.length === 1 ? '' : 's'}` : ''}`;
@@ -404,7 +407,7 @@
       if (failed.length) gcal.status += ` · could not read ${failed.map((f) => f.name).join(', ')}`;
     } catch (e) {
       gcal.ranges[key] = { ok: false, t: Date.now() };
-      gcal.status = e.message || 'Could not sync'; gcal.ok = false; console.error('Calendar sync failed:', e);
+      gcal.status = gcalFriendly(e.message) || 'Could not sync'; gcal.ok = false; console.error('Calendar sync failed:', e);
     } finally { gcal.busy = false; render(); }
   }
   async function loadCalendarList() {
@@ -413,7 +416,7 @@
     try {
       state.gcalCalendars = (await gcalApi('/api/calendar/list', {})).calendars || [];
       S.save(state);
-    } catch (e) { gcal.listError = e.message; console.error('Calendar list failed:', e); }
+    } catch (e) { gcal.listError = gcalFriendly(e.message); console.error('Calendar list failed:', e); }
     render();
   }
   function gcalReset() { gcal.events = []; gcal.ranges = {}; gcal.status = ''; }
@@ -429,7 +432,7 @@
     loadGcal(from, to);
   }
   const gcalStatusLine = (from, to) => gcalConnected()
-    ? `<p class="gcal-status ${gcal.ok ? 'muted small' : 'nudge'}">📅 Google Calendar · ${esc(gcal.status || 'loading…')} <button class="btn ghost small" data-act="gcalRefresh" data-from="${from}" data-to="${to}">↻ Refresh</button> <a href="#/settings">Choose calendars</a></p>`
+    ? `<p class="gcal-status ${gcal.ok ? 'muted small' : 'nudge'}">📅 Google Calendar · ${esc(gcal.status || 'loading…')} <button class="btn ghost small" data-act="gcalRefresh" data-from="${from}" data-to="${to}">↻ Refresh</button> ${gcalNeedsReconnect(gcal.status) ? '<button class="btn small" data-act="reconnectCalendar">Reconnect Google</button>' : '<a href="#/settings">Choose calendars</a>'}</p>`
     : '<p class="muted small gcal-status">📅 <a href="#/settings">Connect Google Calendar</a> to see your events here.</p>';
   const gcalChips = () => (state.gcalCalendars.length > 1 && gcalConnected()
     ? `<div class="chips gcal-chips">${state.gcalCalendars.map((c) => `<button type="button" class="chip cal-chip${gcalIsSelected(c) ? ' on' : ''}" style="${gcalVar(c.color)}" data-act="gcalToggle" data-id="${esc(c.id)}" aria-pressed="${gcalIsSelected(c)}"><span class="swatch"></span>${esc(c.name)}</button>`).join('')}</div>` : '');
@@ -1897,7 +1900,7 @@
     const calPicker = hasCalendar ? `<div class="gcal-picker"><h3>Calendars to show <small class="muted">· view only, nothing is ever changed in Google</small></h3>
       ${state.gcalCalendars.length ? `<ul class="checks compact">${state.gcalCalendars.map((c) => `<li><input type="checkbox" data-act="gcalToggle" data-id="${esc(c.id)}" ${gcalIsSelected(c) ? 'checked' : ''} aria-label="Show ${esc(c.name)}">
         <span class="swatch" style="background:${esc(c.color)}"></span><span class="grow">${esc(c.name)}${c.primary ? ' <small class="muted">primary</small>' : ''}</span></li>`).join('')}</ul>`
-        : gcal.listError ? `<p class="nudge">${esc(gcal.listError)}</p>` : '<p class="muted small">Loading your calendars…</p>'}
+        : gcal.listError ? `<p class="nudge">${esc(gcal.listError)} ${gcalNeedsReconnect(gcal.listError) ? '<button class="btn small" data-act="reconnectCalendar">Reconnect Google</button>' : ''}</p>` : '<p class="muted small">Loading your calendars…</p>'}
       <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
       <section class="box"><h2>Integrations</h2>
@@ -2149,6 +2152,11 @@
       if (!cur.size) { toast('Keep at least one calendar selected'); return; }
       if (cur.size > 10) { toast('You can show up to 10 calendars'); return; }
       state.settings.gcalSelected = [...cur]; gcalReset(); commit();
+    },
+    reconnectCalendar() {
+      ['google_access_token', 'google_refresh_token', 'google_scope'].forEach((k) => localStorage.removeItem(k));
+      gcalReset(); gcal.listTried = false; gcal.listError = '';
+      startGoogleOAuth();
     },
     gcalLoadCalendars() { loadCalendarList(); },
     gcalRefresh(el) { loadGcal(el.dataset.from, el.dataset.to, true); },
@@ -2875,7 +2883,9 @@
       const t = await res.json();
       localStorage.setItem('google_access_token', t.access_token);
       if (t.refresh_token) localStorage.setItem('google_refresh_token', t.refresh_token);
-      toast('Google Calendar connected');
+      if (t.scope) localStorage.setItem('google_scope', t.scope);
+      const canRead = !t.scope || /auth\/calendar(\.readonly|\.calendarlist(\.readonly)?)?(\s|$)/.test(t.scope);
+      toast(canRead ? 'Google Calendar connected' : 'Connected, but Google did not allow reading your calendars. Reconnect and tick every box.');
       render();
     } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
   })();
