@@ -5,6 +5,17 @@
   "description": "Purpose-based life planning that works alongside a physical planner.",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "start": "npx --yes http-server -p 8080 -c-1 ."
+    "start": "npx --yes http-server -p 8080 -c-1 .",
+    "build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.0",
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^118.0.0",
+    "@anthropic-ai/sdk": "^0.16.0",
+    "multer": "^1.4.5-lts.1",
+    "cors": "^2.8.5"
   }
 }
