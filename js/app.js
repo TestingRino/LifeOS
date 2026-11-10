@@ -655,6 +655,7 @@
         ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
         ${dayTimeline(iso, { height: 560 })}
       </section>
+      ${otherTasksHtml(iso)}
       </div><div class="today-right">
       <section class="box review${rvCount === 3 ? ' done' : ''}">
         <details data-keep="review"><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
@@ -1099,6 +1100,48 @@
     </div>`;
   }
 
+  /* ---------- tasks assigned to a day (weekly planning) ---------- */
+  function assignedTasks() {
+    const out = [];
+    Object.entries(state.weeks).forEach(([wk, w]) => {
+      (w.actions || []).forEach((a) => a.day && out.push({ day: a.day, kind: 'Priority', id: a.id, text: a.text, done: a.done, base: `weeks.${wk}.actions.@${a.id}`, goalId: a.goalId }));
+      (w.top3 || []).forEach((a) => a.day && out.push({ day: a.day, kind: 'Top 3', id: a.id, text: a.text, done: a.done, base: `weeks.${wk}.top3.@${a.id}`, goalId: a.goalId }));
+    });
+    Object.entries(state.months).forEach(([mk, m]) => (m.actions || []).forEach((a) => a.day && out.push({ day: a.day, kind: 'Month', id: a.id, text: a.text, done: a.done, base: `months.${mk}.actions.@${a.id}`, goalId: a.goalId })));
+    state.inbox.filter((x) => x.kind === 'todo' && x.day).forEach((x) => out.push({ day: x.day, kind: 'To-do', id: x.id, text: x.text, done: x.done, base: `inbox.@${x.id}`, goalId: '' }));
+    return out;
+  }
+  const tasksOn = (iso) => assignedTasks().filter((t) => t.day === iso);
+  /* Open items that have no day yet, relevant to the week/month of `iso`, plus focus-goal next steps. */
+  function taskPool(iso) {
+    const wk = U.weekKey(U.parseISO(iso), ws()), mk = U.monthKey(U.parseISO(iso)), out = [], w = state.weeks[wk] || {}, m = state.months[mk] || {};
+    (w.top3 || []).filter((a) => !a.done && !a.day).forEach((a) => out.push({ kind: 'Top 3', text: a.text, base: `weeks.${wk}.top3.@${a.id}` }));
+    (w.actions || []).filter((a) => !a.done && !a.day).forEach((a) => out.push({ kind: 'Priority', text: a.text, base: `weeks.${wk}.actions.@${a.id}` }));
+    (m.actions || []).filter((a) => !a.done && !a.day).forEach((a) => out.push({ kind: 'Month', text: a.text, base: `months.${mk}.actions.@${a.id}` }));
+    state.inbox.filter((x) => x.kind === 'todo' && !x.done && !x.day).forEach((x) => out.push({ kind: 'To-do', text: x.text, base: `inbox.@${x.id}` }));
+    focusGoals(iso).forEach((g) => { const ns = nextStep(g); out.push({ kind: 'Goal step', text: ns ? ns.text : `Work on: ${g.title}`, goal: g.id }); });
+    return out;
+  }
+  const taskRow = (t, iso, opts2) => `<div class="tray-item${t.done ? ' done' : ''}" ${dragAttr(t.text)}>${chk(`${t.base}.done`, 'Done')}
+    <input class="inline grow" data-bind="${t.base}.text" value="${esc(t.text)}" aria-label="Task">${schedBtn(t.text)}
+    <button class="x" data-act="unassignTask" data-path="${t.base}" title="${opts2 && opts2.late ? 'Drop it' : 'Take off this day'}" aria-label="Remove from this day">×</button></div>`;
+  const poolRow = (t, iso) => `<div class="tray-item"><span class="grow">${esc(t.text)} <small class="muted">${esc(t.kind)}</small></span>
+    ${t.base ? `<button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">+ Assign</button>` : `<button class="btn ghost small" data-act="assignStep" data-goal="${t.goal}" data-day="${iso}">+ Assign</button>`}</div>`;
+
+  function otherTasksHtml(iso) {
+    const mine = tasksOn(iso), late = assignedTasks().filter((t) => t.day < iso && !t.done).sort((a, b) => (a.day < b.day ? 1 : -1)).slice(0, 5), pool = taskPool(iso).slice(0, 6);
+    return `<section class="box other-tasks">
+      <h2>Other tasks <span class="muted">· ${mine.filter((t) => t.done).length}/${mine.length} done</span><a class="more" href="#/week">Plan the week →</a></h2>
+      ${late.length ? `<h4 class="tl-h">Carried over</h4>${late.map((t) => `<div class="tray-item late">${chk(`${t.base}.done`, 'Done')}<span class="grow">${esc(t.text)} <small class="muted">from ${U.fmtDate(t.day, { weekday: 'short', month: 'short', day: 'numeric' })}</small></span>
+        <button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">› Today</button></div>`).join('')}` : ''}
+      ${mine.length ? mine.map((t) => taskRow(t, iso)).join('') : '<p class="muted small">Nothing assigned to today yet. Add a task, or assign from your lists below.</p>'}
+      <form class="add" data-add="inbox"><input type="hidden" name="kind" value="todo"><input type="hidden" name="date" value="${iso}"><input type="hidden" name="day" value="${iso}">
+        <input name="text" placeholder="Add a task for today…" required aria-label="Task for today"><button aria-label="Add task">+</button></form>
+      ${pool.length ? `<details data-keep="pool"><summary class="muted small">Assign from your lists (${pool.length})</summary>${pool.map((t) => poolRow(t, iso)).join('')}</details>` : ''}
+    </section>`;
+  }
+  const weekSel = {};
+
   /* ---------- scheduling items from goals, tasks and priorities ---------- */
   function addScheduleItem(o) {
     if (state.schedule.some((x) => x.date === o.date && (x.time || '') === (o.time || '') && x.text === o.text)) return false;
@@ -1226,7 +1269,8 @@
 
     const strip = `<div class="strip">${days.map((d) => {
       const iso = U.toISO(d);
-      return `<div class="${iso === tIso ? 'today' : ''}"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
+      const picked = (weekSel[wk] || (tIso >= wk && tIso <= endIso ? tIso : wk)) === iso;
+      return `<div class="${iso === tIso ? 'today' : ''}${picked ? ' picked' : ''}" data-act="selectDay" data-key="${wk}" data-day="${iso}" data-scroll="1" title="Open this day in the planner"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
         ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${evIcon(e)}${esc(e.text)}</div>`).join('')}
         <ul class="sched">${gcalOn(iso).map((g) => `<li class="gcal" style="${gcalVar(g.color)}"><span class="grow">${g.time ? `<time>${esc(fmtTime(g.time))}</time> ` : ''}📅 ${esc(g.text)}${gcalTag(g)}</span></li>`).join('')}
           ${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
@@ -1294,12 +1338,30 @@
         ${inb.length || bl.length ? `<ul class="checks compact">${inb.map((x) => row('inbox', x.id, x.text)).join('')}${bl.map((b) => row('bucket', b.id, `Bucket list: ${b.text}`)).join('')}</ul>` : '<p class="muted">Nothing waiting. Capture to-dos on Today and add bucket-list items under <a href="#/lists/bucket">Lists</a>.</p>'}
         <p class="muted small"><a href="#/lists/inbox">Open your inbox & to-dos →</a></p></section>`;
     })();
+    const selIso = weekSel[wk] && days.some((d) => U.toISO(d) === weekSel[wk]) ? weekSel[wk] : (tIso >= wk && tIso <= endIso ? tIso : wk);
+    const dayPlanner = (() => {
+      const mineSel = tasksOn(selIso), poolSel = taskPool(selIso);
+      const tabs = days.map((d) => { const di = U.toISO(d), n = tasksOn(di).length;
+        return `<button type="button" class="chip${di === selIso ? ' on' : ''}" data-act="selectDay" data-key="${wk}" data-day="${di}" aria-pressed="${di === selIso}">${U.DAYS[d.getDay()].slice(0, 3)} ${d.getDate()}${n ? ` <small>· ${n}</small>` : ''}${di === tIso ? ' ·today' : ''}</button>`; }).join('');
+      return `<section class="box day-planner"><h2>Plan a day <span class="muted">· ${esc(U.fmtDate(selIso, { weekday: 'long', month: 'long', day: 'numeric' }))}</span></h2>
+        <p class="prompt">Pick a day to see its full calendar. Assign tasks to it ahead of time; they appear in that day's Other tasks, and you can drag any task onto a time.</p>
+        <div class="chips day-tabs">${tabs}</div>
+        <div class="day-cols"><div class="day-main">${dayTimeline(selIso, { height: 520 })}</div>
+          <aside class="tl-tray"><h3>Tasks for ${esc(U.fmtDate(selIso, { weekday: 'short', month: 'short', day: 'numeric' }))}</h3>
+            ${mineSel.length ? mineSel.map((t) => taskRow(t, selIso)).join('') : '<p class="muted small">Nothing assigned yet.</p>'}
+            <form class="add" data-add="inbox"><input type="hidden" name="kind" value="todo"><input type="hidden" name="date" value="${selIso}"><input type="hidden" name="day" value="${selIso}">
+              <input name="text" placeholder="New task for this day…" required aria-label="New task"><button aria-label="Add task">+</button></form>
+            <h4>Assign from your lists</h4>
+            ${poolSel.length ? poolSel.map((t) => poolRow(t, selIso)).join('') : '<p class="muted small">Everything is already assigned.</p>'}
+          </aside></div></section>`;
+    })();
     const body = `
       ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
       ${top3}
       <h2 class="section">Schedule</h2>
       ${strip}
       <details class="box" data-keep="grid"><summary><strong>Plan the week by the half hour</strong></summary>${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}${timeGrid(wk, dayOpts(defDay))}</details>
+      ${dayPlanner}
       <h2 class="section">Priority Actions for the Week</h2>
       ${roleWeekly.length ? `<div class="nudge role-nudge"><strong>Your weekly role commitments:</strong> ${roleWeekly.map((x) => `<span><em>${esc(x.r.name)}:</em> ${esc(x.t)}</span>`).join(' · ')}</div>` : ''}
       <div class="row">
@@ -2047,6 +2109,18 @@
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
+    assignTask(el) { const it = get(el.dataset.path); if (it) { it.day = el.dataset.day; commit(); } },
+    unassignTask(el) { const it = get(el.dataset.path); if (it) { it.day = ''; commit(); } },
+    assignStep(el) {
+      const g = state.goals.find((x) => x.id === el.dataset.goal); if (!g) return;
+      const ns = nextStep(g);
+      getWeek(U.weekKey(U.parseISO(el.dataset.day), ws())).actions.push({ id: S.uid(), area: g.area || 'work', text: ns ? ns.text : `Work on: ${g.title}`, goalId: g.id, done: false, day: el.dataset.day });
+      commit();
+    },
+    selectDay(el) {
+      weekSel[el.dataset.key] = el.dataset.day; render();
+      if (el.dataset.scroll) { const dp = document.querySelector('.day-planner'); if (dp) dp.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    },
     scheduleItem(el) { openScheduleDialog({ text: el.dataset.text, date: todayISO(), mins: Number(el.dataset.mins) || 30 }); },
     gcalToggle(el) {
       const prim = gcalPrimary();
@@ -2540,6 +2614,7 @@
         { id: 'grid', label: 'Plan the full week by the half hour', hint: 'Calls, meetings, appointments, workouts, family time.', href: `#/week/${c.wk}`, auto: state.schedule.filter((x) => x.time && x.date >= c.wk && x.date <= end).length >= 3 },
         { id: 'top3', label: 'Pick your top 3 for the week', hint: 'The three things that would make the week a win.', href: `#/week/${c.wk}`, auto: (w.top3 || []).length > 0 },
         { id: 'actions', label: 'Set weekly actions toward your goals', hint: 'Link each to a goal.', href: `#/week/${c.wk}`, auto: (w.actions || []).length > 0 },
+        { id: 'assign', label: 'Assign tasks to days', hint: 'Use "Plan a day" on the Week page.', href: `#/week/${c.wk}`, auto: assignedTasks().some((t) => t.day >= c.wk && t.day <= end) },
         { id: 'pull', label: 'Pull in items from your bucket list and to-dos', hint: 'Use the "Pull in" box on the Week page.', href: `#/week/${c.wk}` },
         { id: 'buy', label: 'Document items to buy', hint: 'Add to your shopping list.', href: '#/lists/shopping' },
         { id: 'progress', label: 'Track progress toward your goals', hint: 'Check the goal pulse and tick milestones.', href: `#/week/${c.wk}`, auto: Object.keys(w.pulse || {}).length > 0 },
