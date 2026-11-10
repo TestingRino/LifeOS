@@ -655,7 +655,6 @@
         ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
         ${dayTimeline(iso, { height: 560 })}
       </section>
-      ${otherTasksHtml(iso)}
       </div><div class="today-right">
       <section class="box review${rvCount === 3 ? ' done' : ''}">
         <details data-keep="review"><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
@@ -680,6 +679,7 @@
           <button class="btn ghost" data-act="migrateBig3" data-id="${b.id}" ${bigToday.length >= 3 ? 'disabled title="Today already has 3"' : ''}>› Today</button>
           <button class="x" data-act="dropBig3" data-id="${b.id}" aria-label="Let go">×</button></li>`).join('')}</ul>` : ''}
       </section>
+      ${otherTasksHtml(iso)}
       ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/setup/5">Add your habits</a> (like "Read a book, 7 days a week") and they will appear here each day.</p></section>` : ''}
       ${tks.length ? `<section class="box">
         <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
@@ -2806,7 +2806,7 @@
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
     today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
     const [, name = 'today', arg] = (location.hash || '#/today').split('/');
