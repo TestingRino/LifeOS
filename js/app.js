@@ -148,10 +148,25 @@
     if (added) { state.bigAuto[iso] = true; S.save(state); }
   }
 
-  /* ---------- ideal week ---------- */
+  /* ---------- ideal week (set per quarter) ---------- */
+  const qParts = (qk) => { const [y, q] = qk.split('-Q'); return [Number(y), Number(q)]; };
+  const qStart = (qk) => { const [y, q] = qParts(qk); return U.toISO(new Date(y, (q - 1) * 3, 1)); };
+  const qEnd = (qk) => { const [y, q] = qParts(qk); return U.toISO(new Date(y, q * 3, 0)); };
+  const shiftQ = (qk, n) => { const [y, q] = qParts(qk); const i = y * 4 + (q - 1) + n; return `${Math.floor(i / 4)}-Q${(i % 4) + 1}`; };
+  const qLabel = (qk) => qk.replace(/^(\d{4})-(Q\d)$/, '$2 $1');
+  const idealFor = (qk) => state.idealWeek.filter((i) => i.quarter === qk);
+  /* A new quarter starts from the most recent earlier one, flagged for review. */
+  function carryIdeal(qk) {
+    if (idealFor(qk).length) return;
+    const prev = [...new Set(state.idealWeek.map((i) => i.quarter))].filter((k) => k && k < qk).sort().pop();
+    if (!prev) return;
+    idealFor(prev).forEach((i) => state.idealWeek.push({ ...i, id: S.uid(), quarter: qk }));
+    state.idealCarried[qk] = prev;
+    S.save(state);
+  }
   const idealOn = (iso) => {
-    const dow = U.parseISO(iso).getDay(), log = state.idealLog[iso] || {};
-    return state.idealWeek.filter((i) => Number(i.dow) === dow && log[i.id] !== 'skip')
+    const dow = U.parseISO(iso).getDay(), log = state.idealLog[iso] || {}, qk = quarterKey(iso);
+    return state.idealWeek.filter((i) => i.quarter === qk && Number(i.dow) === dow && log[i.id] !== 'skip')
       .sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
   };
   const idealDone = (it, iso) => (state.idealLog[iso] || {})[it.id] === true;
@@ -251,6 +266,8 @@
     }
     if (!focusGoals(todayISO()).length && state.goals.some((g) => g.status === 'active' && g.kind !== 'habit'))
       out.push({ t: 'Choose your quarterly focus', d: 'Pick the 3–4 goals that get your best energy this quarter.', h: '#/goals', hot: true });
+    const qNow = quarterKey(todayISO());
+    if (state.idealCarried[qNow]) out.push({ t: `Review your ideal week for ${qLabel(qNow)}`, d: `Copied from ${qLabel(state.idealCarried[qNow])}. Adjust it for the new quarter.`, h: '#/ideal', hot: true });
     const lastWheel = state.wheel.map((x) => x.date).sort().pop();
     if (state.cycles.length && (!lastWheel || U.daysBetween(U.parseISO(lastWheel), t) >= 90))
       out.push({ t: 'Wheel of Life check-in', d: 'Score the seven areas of your life and see how balanced you are.', h: '#/wheel' });
@@ -499,6 +516,7 @@
     const cyc = cycleAt(iso);
     const goals = cyc ? cycleGoals(cyc.id) : [];
     const week = state.weeks[wk];
+    carryIdeal(quarterKey(iso));
     const due = rituals();
     const vision = state.foundation.vision.trim();
     const tks = trackers();
@@ -1366,11 +1384,16 @@
     return page('Wheel of Life', 'Seven areas, scored over time', body);
   }
 
-  function viewIdeal() {
+  function viewIdeal(arg) {
+    const cur = quarterKey(todayISO());
+    const qk = /^\d{4}-Q[1-4]$/.test(arg || '') ? arg : cur;
+    if (qk === cur) carryIdeal(qk);
     const order = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + ws()) % 7);
     const goals = (currentCycle() ? cycleGoals(currentCycle().id) : []).filter((g) => g.kind !== 'habit');
+    const mine = idealFor(qk);
+    const prevQ = [...new Set(state.idealWeek.map((i) => i.quarter))].filter((k) => k && k < qk).sort().pop();
     const day = (d) => {
-      const items = state.idealWeek.filter((i) => Number(i.dow) === d).sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
+      const items = mine.filter((i) => Number(i.dow) === d).sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
       return `<section class="box ideal-day"><h3>${U.DAYS[d]}</h3>
         <ul class="checks compact ideal-edit">${items.map((i) => { const p = `idealWeek.@${i.id}`; return `<li>
           <input class="inline" type="time" data-bind="${p}.time" value="${esc(i.time || '')}" aria-label="Time">
@@ -1378,15 +1401,20 @@
           <button class="x" data-act="del" data-path="idealWeek" data-id="${i.id}" aria-label="Remove">×</button>
           <select class="link" data-bind="${p}.goalId" data-rerender aria-label="Linked goal">${goalOpts(goals, i.goalId)}</select>
           <label class="inline-check small"><input type="checkbox" data-bind="${p}.workout" data-rerender ${i.workout ? 'checked' : ''}> workout</label></li>`; }).join('')}</ul>
-        <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input type="time" name="time" aria-label="Time">
+        <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input type="hidden" name="quarter" value="${qk}"><input type="time" name="time" aria-label="Time">
           <input name="text" placeholder="Add a block (e.g. Family night)…" required><button aria-label="Add">+</button></form></section>`;
     };
+    const tabs = [shiftQ(cur, -1), cur, shiftQ(cur, 1), shiftQ(cur, 2)];
+    if (!tabs.includes(qk)) tabs.unshift(qk);
     const body = `
-      <p class="lead">Your ideal week is the template for how you want your time to flow. Give each day a purpose. Every block appears on that day in Today and Week, ready to check off. Tick "workout" to log a workout when you complete it.</p>
-      <div class="row"><button class="btn ghost" data-act="pushIdeal">Add to Google Calendar (repeats weekly)</button>
+      <p class="lead">Your ideal week is set each quarter: the rhythm you want your days to follow for these three months. Every block appears on that weekday in Today and Week, ready to check off. Tick "workout" to log a workout when you complete it.</p>
+      <nav class="tabs">${tabs.map((k) => `<a href="#/ideal/${k}" class="${k === qk ? 'sel' : ''}">${qLabel(k)}${k === cur ? ' · now' : ''}</a>`).join('')}</nav>
+      ${state.idealCarried[qk] ? `<p class="nudge">Copied from ${qLabel(state.idealCarried[qk])}. Adjust it for ${qLabel(qk)}, then <button class="chip" data-act="idealReviewed" data-q="${qk}">Looks good ✓</button></p>` : ''}
+      ${!mine.length && prevQ ? `<p class="nudge">Nothing set for ${qLabel(qk)} yet. <button class="chip" data-act="copyIdeal" data-from="${prevQ}" data-to="${qk}">Copy from ${qLabel(prevQ)}</button></p>` : ''}
+      <div class="row"><button class="btn ghost" data-act="pushIdeal" data-q="${qk}">Add to Google Calendar (repeats weekly until ${U.fmtDate(qEnd(qk), { month: 'short', day: 'numeric' })})</button>
         <a class="btn ghost" href="#/week">See this week →</a></div>
       <div class="ideal-grid">${order.map(day).join('')}</div>`;
-    return page('Ideal Week', 'A purposeful rhythm for every day', body);
+    return page('Ideal Week', `${qLabel(qk)} · a purposeful rhythm for every day`, body);
   }
 
   function viewLists(tab) {
@@ -1682,20 +1710,28 @@
       commit();
     },
     idealSkip(el) { const log = (state.idealLog[el.dataset.date] = state.idealLog[el.dataset.date] || {}); log[el.dataset.id] = 'skip'; commit(); },
-    pushIdeal() {
+    pushIdeal(el) {
+      const qk = (el && el.dataset.q) || quarterKey(todayISO()), items = idealFor(qk).filter((i) => i.text);
       if (!localStorage.getItem('google_access_token')) { toast('Connect Google Calendar in Settings first'); return; }
-      if (!state.idealWeek.length) { toast('Add some blocks to your ideal week first'); return; }
-      if (!confirm(`Add ${state.idealWeek.length} weekly repeating events to your Google Calendar? Do this once; running it again creates duplicates.`)) return;
+      if (!items.length) { toast('Add some blocks to this quarter first'); return; }
+      if (!confirm(`Add ${items.length} weekly repeating events to your Google Calendar through the end of ${qLabel(qk)}? Do this once per quarter; running it again creates duplicates.`)) return;
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const t0 = today();
+      const t0 = U.parseISO(qStart(qk) > todayISO() ? qStart(qk) : todayISO());
+      const until = `${qEnd(qk).replace(/-/g, '')}T235959Z`;
       const localIso = (d) => `${U.toISO(d)}T${U.pad(d.getHours())}:${U.pad(d.getMinutes())}:00`;
-      pushToGoogleCalendar(state.idealWeek.filter((i) => i.text).map((i) => {
+      pushToGoogleCalendar(items.map((i) => {
         const first = U.addDays(t0, (Number(i.dow) - t0.getDay() + 7) % 7), date = U.toISO(first);
-        const raw = { text: i.text, date, recurrence: ['RRULE:FREQ=WEEKLY'] };
+        const raw = { text: i.text, date, recurrence: [`RRULE:FREQ=WEEKLY;UNTIL=${until}`] };
         if (i.time) { const st = new Date(`${date}T${i.time}`); raw.start = localIso(st); raw.end = localIso(new Date(st.getTime() + 3600000)); raw.timeZone = tz; }
         return { raw };
       }));
     },
+    copyIdeal(el) {
+      const { from, to } = el.dataset;
+      idealFor(from).forEach((i) => state.idealWeek.push({ ...i, id: S.uid(), quarter: to }));
+      commit(); toast(`Copied from ${qLabel(from)}`);
+    },
+    idealReviewed(el) { delete state.idealCarried[el.dataset.q]; commit(); },
     toggleFocus(el) {
       const qk = quarterKey(todayISO());
       const list = (state.focus[qk] = (state.focus[qk] || []).filter((id) => state.goals.some((g) => g.id === id)));
@@ -1731,14 +1767,14 @@
     addSuggestedHabit(el) { addSuggestedGoal(SUGGEST.habits[Number(el.dataset.idx)], 'habit'); commit(); },
     addIdealBlock(el) {
       const b = SUGGEST.ideal[Number(el.dataset.idx)];
-      if (b) state.idealWeek.push({ id: S.uid(), dow: Number(el.dataset.dow), time: b.time || '', text: b.text, goalId: '', workout: !!b.workout });
+      if (b) state.idealWeek.push({ id: S.uid(), quarter: quarterKey(todayISO()), dow: Number(el.dataset.dow), time: b.time || '', text: b.text, goalId: '', workout: !!b.workout });
       commit();
     },
     idealStarter() {
       Object.entries(SUGGEST.starterWeek).forEach(([dow, names]) => names.forEach((nm) => {
-        if (state.idealWeek.some((i) => Number(i.dow) === Number(dow) && i.text === nm)) return;
+        if (idealFor(quarterKey(todayISO())).some((i) => Number(i.dow) === Number(dow) && i.text === nm)) return;
         const b = SUGGEST.ideal.find((x) => x.text === nm) || { text: nm };
-        state.idealWeek.push({ id: S.uid(), dow: Number(dow), time: b.time || '', text: nm, goalId: '', workout: !!b.workout });
+        state.idealWeek.push({ id: S.uid(), quarter: quarterKey(todayISO()), dow: Number(dow), time: b.time || '', text: nm, goalId: '', workout: !!b.workout });
       }));
       commit();
     },
@@ -1980,7 +2016,7 @@
       { step: 3, label: 'Annual goals', done: state.goals.some((g) => g.kind !== 'habit' && g.status === 'active') },
       { step: 4, label: 'Quarterly focus', done: focusGoals(todayISO()).length > 0 },
       { step: 5, label: 'Habits', done: state.goals.some((g) => g.kind === 'habit') },
-      { step: 6, label: 'Ideal week', done: state.idealWeek.length > 0 },
+      { step: 6, label: 'Ideal week', done: idealFor(quarterKey(todayISO())).length > 0 },
     ];
   }
   function roleIdFor(name) {
@@ -2056,15 +2092,15 @@
     } else {
       const order = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + ws()) % 7);
       body += `<section class="box"><h2>Your ideal week</h2>
-        <p class="prompt">Give each day a purpose. These blocks appear on that day in Today and Week, ready to check off.</p>
+        <p class="prompt">Give each day a purpose for this quarter (${qLabel(quarterKey(todayISO()))}). These blocks appear on that day in Today and Week, ready to check off. You will revisit it each quarter.</p>
         <p><button type="button" class="btn" data-act="idealStarter">Fill in a starter week</button> <span class="muted small">workout Mon–Fri, plus a theme each weekday. Edit anything afterwards.</span></p></section>
         <div class="ideal-grid">${order.map((d) => {
-          const items = state.idealWeek.filter((i) => Number(i.dow) === d).sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
+          const items = idealFor(quarterKey(todayISO())).filter((i) => Number(i.dow) === d).sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
           const have = new Set(items.map((i) => i.text.toLowerCase()));
           return `<section class="box ideal-day"><h3>${U.DAYS[d]}</h3>
             <ul class="checks compact">${items.map((i) => `<li><span class="grow">${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span><button class="x" data-act="del" data-path="idealWeek" data-id="${i.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
             <div class="chips">${SUGGEST.ideal.map((b, i) => (have.has(b.text.toLowerCase()) ? '' : `<button type="button" class="chip" data-act="addIdealBlock" data-dow="${d}" data-idx="${i}">+ ${esc(b.text)}</button>`)).join('')}</div>
-            <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input name="text" placeholder="Your own block…" required><button aria-label="Add">+</button></form></section>`;
+            <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input type="hidden" name="quarter" value="${quarterKey(todayISO())}"><input name="text" placeholder="Your own block…" required><button aria-label="Add">+</button></form></section>`;
         }).join('')}</div>`;
     }
     return page('Set up Life.OS', `Step ${n} of 6 · about 5 minutes. Skip anything and come back later.`, body + nav);
@@ -2177,6 +2213,7 @@
     addOCRDataToApp(s.route, s.data);
   });
 
+  if (state.idealWeek.some((i) => !i.quarter)) { state.idealWeek.forEach((i) => { if (!i.quarter) i.quarter = quarterKey(todayISO()); }); if (!firstRun) S.save(state); }
   if (firstRun) location.hash = '#/setup/1';
   render();
   checkNotifications();
