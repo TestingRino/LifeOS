@@ -24,10 +24,10 @@ async function getCalendarEvents(accessToken, timeMin, timeMax, calendarId = 'pr
   }
 }
 
-async function createCalendarEvent(accessToken, event) {
+async function createCalendarEvent(accessToken, event, calendarId = 'primary') {
   try {
     const response = await axios.post(
-      `${CALENDAR_API}/calendars/primary/events`,
+      `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
       event,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
@@ -84,7 +84,7 @@ router.get('/events', async (req, res) => {
 });
 
 router.post('/events', async (req, res) => {
-  const { accessToken, event } = req.body;
+  const { accessToken, event, calendarId } = req.body;
   if (!accessToken || !event) return res.status(400).json({ error: 'Missing parameters' });
 
   try {
@@ -96,10 +96,10 @@ router.post('/events', async (req, res) => {
       ...(Array.isArray(event.recurrence) && { recurrence: event.recurrence }),
       location: event.location || '',
       reminders: { useDefault: true },
-    });
+    }, calendarId || 'primary');
     res.json({ event: created });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: err.response?.data?.error?.message || err.message });
   }
 });
 

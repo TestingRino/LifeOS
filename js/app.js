@@ -344,6 +344,14 @@
   const gcalFriendly = (m) => (/insufficient authentication scopes|insufficientPermissions/i.test(m || '')
     ? 'Google did not give Life.OS permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
   const gcalNeedsReconnect = (m) => /permission to read your calendars/.test(m || '');
+  const gcalWritable = (c) => ['owner', 'writer'].includes(c.accessRole);
+  const gcalMasterId = () => state.settings.gcalMaster || 'primary';
+  const gcalMasterMeta = () => { const m = gcalMeta(gcalMasterId()); return { id: gcalMasterId() === 'primary' && gcalPrimary() ? gcalPrimary().id : gcalMasterId(), name: m.name === 'primary' ? 'Primary calendar' : m.name }; };
+  function gcalEnsureSelected(id) {
+    const prim = gcalPrimary(), want = id === 'primary' && prim ? prim.id : id;
+    const cur = gcalSelectedIds().map((x) => (x === 'primary' && prim ? prim.id : x));
+    if (!cur.includes(want)) { state.settings.gcalSelected = [...cur, want].slice(0, 10); gcalReset(); }
+  }
   const gcalPrimary = () => state.gcalCalendars.find((c) => c.primary);
   const gcalMeta = (id) => state.gcalCalendars.find((c) => c.id === id) || (id === 'primary' ? gcalPrimary() : null) || { id, name: id === 'primary' ? 'Primary' : id, color: GCAL_COLOR };
   const gcalIsSelected = (c) => { const ids = gcalSelectedIds(); return ids.includes(c.id) || (c.primary && ids.includes('primary')); };
@@ -472,23 +480,27 @@
     } catch (e) { console.error('OAuth error:', e); toast('Failed to start login'); }
   }
 
-  async function pushToGoogleCalendar(items) {
+  async function pushToGoogleCalendar(items, calendarId) {
     const token = localStorage.getItem('google_access_token');
-    if (!token) { toast('Connect Google Calendar in Settings first'); return; }
-    let ok = 0;
+    if (!token) { toast('Connect Google Calendar in Settings first'); return items.map(() => false); }
+    const target = calendarId || gcalMasterMeta().id, targetName = (state.gcalCalendars.find((c) => c.id === target) || gcalMasterMeta()).name;
+    const results = [];
     for (const e of items) {
-      if (!e.raw && (!e.date || !e.text)) continue;
+      if (!e.raw && (!e.date || !e.text)) { results.push(false); continue; }
       const event = e.raw || { text: e.text, date: e.date };
       if (!e.raw && e.time) {
         const start = new Date(`${e.date}T${e.time}`);
         if (!isNaN(start)) { event.start = start.toISOString(); event.end = new Date(start.getTime() + (Number(e.mins) || 60) * 60000).toISOString(); }
       }
       try {
-        const r = await fetch(`${API_BASE}/api/calendar/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token, event }) });
-        if (r.ok) ok++;
-      } catch (err) { console.warn('Calendar create failed', err); }
+        const r = await fetch(`${API_BASE}/api/calendar/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token, calendarId: target, event }) });
+        results.push(r.ok);
+      } catch (err) { console.warn('Calendar create failed', err); results.push(false); }
     }
-    toast(ok ? `Created ${ok} calendar event${ok === 1 ? '' : 's'}` : 'Could not create calendar events');
+    const ok = results.filter(Boolean).length;
+    toast(ok ? `Added ${ok} event${ok === 1 ? '' : 's'} to ${targetName}` : `Could not create events on ${targetName}`);
+    if (ok) { gcalEnsureSelected(target); gcalReset(); render(); }
+    return results;
   }
 
   const OCR_DEST = { schedule: '#/week', goals: '#/goals', workouts: '#/track/workouts', weights: '#/track/weight', habits: '#/today', shopping: '#/lists/shopping',
@@ -1148,8 +1160,9 @@
   /* ---------- scheduling items from goals, tasks and priorities ---------- */
   function addScheduleItem(o) {
     if (state.schedule.some((x) => x.date === o.date && (x.time || '') === (o.time || '') && x.text === o.text)) return false;
-    state.schedule.push({ id: S.uid(), date: o.date, time: o.time || '', mins: o.mins || 30, text: o.text, src: o.src || 'plan' });
-    return true;
+    const item = { id: S.uid(), date: o.date, time: o.time || '', mins: o.mins || 30, text: o.text, src: o.src || 'plan' };
+    state.schedule.push(item);
+    return item;
   }
   function busyOn(iso) {
     const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; }, iv = [];
@@ -1400,7 +1413,7 @@
   }
 
   /* ---------- tracking helpers & charts ---------- */
-  const scheduleOn = (iso) => state.schedule.filter((s) => s.date === iso)
+  const scheduleOn = (iso) => state.schedule.filter((s) => s.date === iso && !(s.pushed && gcal.events.some((g) => g.date === iso && g.time === (s.time || '') && g.text.toLowerCase() === s.text.toLowerCase())))
     .sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
   function fmtTime(t) {
     if (!t) return '';
@@ -1899,7 +1912,9 @@
     if (hasCalendar && !state.gcalCalendars.length && !gcal.listTried) setTimeout(loadCalendarList, 0);
     const calPicker = hasCalendar ? `<div class="gcal-picker"><h3>Calendars to show <small class="muted">· view only, nothing is ever changed in Google</small></h3>
       ${state.gcalCalendars.length ? `<ul class="checks compact">${state.gcalCalendars.map((c) => `<li><input type="checkbox" data-act="gcalToggle" data-id="${esc(c.id)}" ${gcalIsSelected(c) ? 'checked' : ''} aria-label="Show ${esc(c.name)}">
-        <span class="swatch" style="background:${esc(c.color)}"></span><span class="grow">${esc(c.name)}${c.primary ? ' <small class="muted">primary</small>' : ''}</span></li>`).join('')}</ul>`
+        <span class="swatch" style="background:${esc(c.color)}"></span><span class="grow">${esc(c.name)}${c.primary ? ' <small class="muted">primary</small>' : ''}</span>
+        ${c.id === gcalMasterMeta().id ? '<span class="chip on small">★ Master</span>' : gcalWritable(c) ? `<button type="button" class="chip small" data-act="gcalMaster" data-id="${esc(c.id)}">Make master</button>` : '<small class="muted">read-only</small>'}</li>`).join('')}</ul>
+      <p class="muted small">The <strong>master calendar</strong> is where Life.OS creates events: photo imports, scheduled tasks and your ideal week. Currently: <strong>${esc(gcalMasterMeta().name)}</strong>.</p>`
         : gcal.listError ? `<p class="nudge">${esc(gcal.listError)} ${gcalNeedsReconnect(gcal.listError) ? '<button class="btn small" data-act="reconnectCalendar">Reconnect Google</button>' : ''}</p>` : '<p class="muted small">Loading your calendars…</p>'}
       <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
@@ -2157,6 +2172,10 @@
       ['google_access_token', 'google_refresh_token', 'google_scope'].forEach((k) => localStorage.removeItem(k));
       gcalReset(); gcal.listTried = false; gcal.listError = '';
       startGoogleOAuth();
+    },
+    gcalMaster(el) {
+      state.settings.gcalMaster = el.dataset.id; gcalEnsureSelected(el.dataset.id); gcalReset(); commit();
+      toast(`Master calendar: ${gcalMasterMeta().name}`);
     },
     gcalLoadCalendars() { loadCalendarList(); },
     gcalRefresh(el) { loadGcal(el.dataset.from, el.dataset.to, true); },
@@ -3039,28 +3058,38 @@
       <td><input type="number" class="num" min="0" step="5" value="${esc(e.mins)}" placeholder="min" aria-label="Minutes"></td>
       <td><input class="rev-text" value="${esc(e.text)}" aria-label="Title"></td>
       <td>${e.approx ? '<span title="Estimated or cut off. Please check">⚠</span>' : ''}</td></tr>`).join('')}</tbody></table>` : '';
-    document.getElementById('routeButtons').innerHTML = events.length
-      ? `<button type="button" class="btn primary" data-cal-act="local">Add selected to my calendar</button>${gcalConnected() ? '<button type="button" class="btn" data-cal-act="google">Add to my calendar + Google Calendar</button>' : ''}` : '';
+    const writable = state.gcalCalendars.filter(gcalWritable), masterId = gcalMasterMeta().id;
+    document.getElementById('routeButtons').innerHTML = !events.length ? '' : gcalConnected()
+      ? `<label class="field">Create the meetings on <select id="revCal">${(writable.length ? writable : [{ id: 'primary', name: 'Primary calendar' }]).map((c) => `<option value="${esc(c.id)}"${c.id === masterId ? ' selected' : ''}>${esc(c.name)}${c.id === masterId ? ' (master)' : ''}</option>`).join('')}</select></label>
+        <button type="button" class="btn primary" data-cal-act="google">Add to Google Calendar</button>
+        <button type="button" class="btn ghost" data-cal-act="local">Life.OS only</button>`
+      : '<button type="button" class="btn primary" data-cal-act="local">Add selected to my calendar</button>';
     ocrSuggestions = [];
     uploadDlg.close(); ocrResultDlg.showModal();
   }
 
-  function addReviewedEvents(mode) {
+  async function addReviewedEvents(mode) {
     const rows = [...document.querySelectorAll('#ocrPreview .rev-row')].filter((r) => r.querySelector('input[type=checkbox]').checked).map((r) => ({
       date: r.querySelector('input[type=date]').value, time: r.querySelector('input[type=time]').value,
       mins: Number(r.querySelector('input[type=number]').value) || '', text: r.querySelector('input.rev-text').value.trim(),
     })).filter((x) => x.date && x.text);
     if (!rows.length) { toast('Nothing selected'); return; }
     const batch = S.uid(), batchName = `${calReviewName || 'Photo'} · ${U.fmtDate(todayISO(), { month: 'short', day: 'numeric' })}`;
+    let toLocal = rows;
+    if (mode === 'google') {
+      const sel = document.getElementById('revCal'), calId = sel ? sel.value : gcalMasterMeta().id;
+      const results = await pushToGoogleCalendar(rows, calId);
+      toLocal = rows.filter((_, i) => !results[i]);           // anything Google refused is kept in Life.OS
+      if (toLocal.length) toast(`${results.length - toLocal.length} added to Google; ${toLocal.length} could not be, so they were saved in Life.OS instead`);
+    }
     let added = 0;
-    rows.forEach((x) => {
+    toLocal.forEach((x) => {
       if (state.schedule.some((s) => s.date === x.date && (s.time || '') === x.time && s.text.toLowerCase() === x.text.toLowerCase())) return;
       state.schedule.push({ id: S.uid(), date: x.date, time: x.time, mins: x.mins, text: x.text, cal: calReviewName, batch, batchName }); added++;
     });
-    if (mode === 'google') pushToGoogleCalendar(rows);
     ocrResultDlg.close();
     S.save(state);
-    toast(added ? `Added ${added} event${added === 1 ? '' : 's'} to your calendar` : 'Those events were already on your calendar');
+    if (mode !== 'google') toast(added ? `Added ${added} event${added === 1 ? '' : 's'} to Life.OS` : 'Those events were already on your calendar');
     location.hash = `#/calendar/week:${U.weekKey(U.parseISO(rows[0].date), ws())}`;
     render();
   }
@@ -3115,6 +3144,7 @@
     if (![...schEl.mins.options].some((x) => x.value === schEl.mins.value)) schEl.mins.value = '30';
     schTouched = false; schSuggest();
     schEl.gWrap.hidden = !gcalConnected(); schEl.google.checked = false;
+    document.getElementById('schGoogleLabel').textContent = `Also add to ${gcalMasterMeta().name}`;
     schDlg.showModal();
   }
   schEl.date.addEventListener('change', schSuggest);
@@ -3126,7 +3156,7 @@
     const o = { text: schEl.text.value.trim(), date: schEl.date.value, time: schEl.time.value, mins: Number(schEl.mins.value) || 30 };
     if (!o.text || !o.date) return;
     const added = addScheduleItem(o);
-    if (added && schEl.google.checked && o.time) pushToGoogleCalendar([o]);
+    if (added && schEl.google.checked && o.time) pushToGoogleCalendar([o]).then((r) => { if (r[0]) { added.pushed = true; S.save(state); render(); } });
     schDlg.close(); commit();
     toast(added ? `Scheduled${o.time ? ` for ${fmtTime(o.time)}` : ''} on ${U.fmtDate(o.date, { weekday: 'short', month: 'short', day: 'numeric' })}` : 'Already on your calendar');
   });

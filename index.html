@@ -14,7 +14,7 @@
   <meta name="description" content="Purpose-based life planning that works alongside a physical planner.">
   <meta name="theme-color" content="#2f3352">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261110203022">
+  <link rel="stylesheet" href="css/style.css?v=20261110203733">
 </head>
 <body>
   <header class="topbar">
@@ -125,7 +125,7 @@
         <label>Start <input type="time" id="schTime" step="900"></label>
         <label>Length <select id="schMins"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">1 hr</option><option value="90">1.5 hr</option><option value="120">2 hr</option><option value="180">3 hr</option></select></label>
       </div>
-      <label class="inline-check" id="schGoogleWrap" hidden><input type="checkbox" id="schGoogle"> Also add to Google Calendar</label>
+      <label class="inline-check" id="schGoogleWrap" hidden><input type="checkbox" id="schGoogle"> <span id="schGoogleLabel">Also add to Google Calendar</span></label>
       <p class="muted small">We suggest the next free time. Clear the time to keep it as an anytime item that day.</p>
       <div class="row end"><button type="button" class="btn ghost" id="schCancel">Cancel</button><button class="btn primary">Add to calendar</button></div>
     </form>
@@ -145,8 +145,8 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/util.js?v=20261110203022"></script>
-  <script src="js/store.js?v=20261110203022"></script>
-  <script src="js/app.js?v=20261110203022"></script>
+  <script src="js/util.js?v=20261110203733"></script>
+  <script src="js/store.js?v=20261110203733"></script>
+  <script src="js/app.js?v=20261110203733"></script>
 </body>
 </html>
