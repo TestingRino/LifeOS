@@ -337,7 +337,7 @@
 
   /* ---------- backend integration ---------- */
   /* ---------- Google Calendar events (read-only overlay, any number of calendars) ---------- */
-  const GCAL_COLOR = '#2f6fb0';
+  const GCAL_COLOR = '#6f8296';
   const gcal = { events: [], ranges: {}, busy: false, status: '', ok: true, listTried: false, listError: '' };
   const gcalConnected = () => !!localStorage.getItem('google_access_token');
   const gcalSelectedIds = () => { const sel = (state.settings.gcalSelected || []).filter(Boolean); return (sel.length ? sel : ['primary']).slice(0, 10); };
@@ -2698,14 +2698,14 @@
 
   /* ---------- welcome: an interactive demo with sample data (never touches your real data) ---------- */
   const DEMO_GOALS = [
-    { id: 'dad', title: 'Build a closer relationship with Dad', color: '#c0782f', why: 'He will not always be a phone call away.', steps: ['Pick a regular call day and time', 'Plan a weekend visit'], actions: ['Pick a call day and time with Dad', 'Plan a weekend visit to see Dad'], routine: { text: 'Call Dad', per: 'once a week' } },
-    { id: 'spouse', title: 'Deepen my marriage', color: '#cc3366', why: 'Our kids learn love by watching ours.', steps: ['Plan a monthly date night', 'Book a weekend away'], actions: ['Pick a date-night restaurant', 'Book childcare for Saturday'], routine: { text: 'Daily check-in with my spouse', per: 'every day' } },
-    { id: 'kids', title: 'One-on-one time with each kid', color: '#7a5cc0', why: 'They will remember the time, not the stuff.', steps: ['Pick an activity for each child', 'Put it on the calendar'], actions: ['Take Emma to breakfast', 'Build Legos with Sam'], routine: { text: 'Bedtime talk with one child', per: '3× a week' } },
-    { id: 'friend', title: 'Reconnect with a close friend', color: '#339966', why: 'Friendships fade unless I tend them.', steps: ['Text Alex to set a coffee', 'Send a birthday card'], actions: ['Text Alex about coffee', 'Mail the birthday card'] },
-    { id: 'run', title: 'Run a 10K', color: '#2f6fb0', why: 'Health gives me energy for everyone else.', steps: ['Run 5K without stopping', 'Register for a race'], actions: ['Plan three runs this week', 'Register for the 10K race'] },
-    { id: 'trip', title: 'Take a family trip', color: '#b8671f', why: 'Shared adventures become family stories.', steps: ['Pick the destination and dates', 'Set the trip budget'], actions: ['Choose trip dates', 'Set the trip budget'] },
-    { id: 'course', title: 'Finish a skill course', color: '#4a7a8c', why: 'Growing opens the next opportunity.', steps: ['Choose the course', 'Block weekly study time'], actions: ['Pick the course', 'Block study time'] },
-    { id: 'fund', title: 'Save an emergency fund', color: '#7a7a7a', why: 'Peace of mind for my family.', steps: ['Total up 3 months of expenses', 'Open a savings account'], actions: ['Open the savings account', 'Set up auto-transfer'] },
+    { id: 'dad', title: 'Build a closer relationship with Dad', color: '#b5603c', why: 'He will not always be a phone call away.', steps: ['Pick a regular call day and time', 'Plan a weekend visit'], actions: ['Pick a call day and time with Dad', 'Plan a weekend visit to see Dad'], routine: { text: 'Call Dad', per: 'once a week' } },
+    { id: 'spouse', title: 'Deepen my marriage', color: '#a9697a', why: 'Our kids learn love by watching ours.', steps: ['Plan a monthly date night', 'Book a weekend away'], actions: ['Pick a date-night restaurant', 'Book childcare for Saturday'], routine: { text: 'Daily check-in with my spouse', per: 'every day' } },
+    { id: 'kids', title: 'One-on-one time with each kid', color: '#8a76a8', why: 'They will remember the time, not the stuff.', steps: ['Pick an activity for each child', 'Put it on the calendar'], actions: ['Take Emma to breakfast', 'Build Legos with Sam'], routine: { text: 'Bedtime talk with one child', per: '3× a week' } },
+    { id: 'friend', title: 'Reconnect with a close friend', color: '#5b7a5a', why: 'Friendships fade unless I tend them.', steps: ['Text Alex to set a coffee', 'Send a birthday card'], actions: ['Text Alex about coffee', 'Mail the birthday card'] },
+    { id: 'run', title: 'Run a 10K', color: '#6f8296', why: 'Health gives me energy for everyone else.', steps: ['Run 5K without stopping', 'Register for a race'], actions: ['Plan three runs this week', 'Register for the 10K race'] },
+    { id: 'trip', title: 'Take a family trip', color: '#c29a3f', why: 'Shared adventures become family stories.', steps: ['Pick the destination and dates', 'Set the trip budget'], actions: ['Choose trip dates', 'Set the trip budget'] },
+    { id: 'course', title: 'Finish a skill course', color: '#4f8a8b', why: 'Growing opens the next opportunity.', steps: ['Choose the course', 'Block weekly study time'], actions: ['Pick the course', 'Block study time'] },
+    { id: 'fund', title: 'Save an emergency fund', color: '#8a8074', why: 'Peace of mind for my family.', steps: ['Total up 3 months of expenses', 'Open a savings account'], actions: ['Open the savings account', 'Set up auto-transfer'] },
   ];
   const DEMO_HABITS = [{ id: 'read', text: 'Read to the kids before bed', per: 'every day' }, { id: 'work', text: 'Workout', per: '5× a week' }];
   const DEMO_DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri']];
@@ -2723,7 +2723,7 @@
     if (dow >= 1 && dow <= 5) b.push({ cls: 'ideal', start: 390, mins: 60, time: '06:30', html: '🏃 Workout' });
     const themed = { 1: ['Home & car maintenance', 1050], 2: ['Family night', 1080], 3: ['Activities', 960], 4: ['Community impact', 1050], 5: ['Plan next week', 900] }[dow];
     if (themed) b.push({ cls: 'ideal', start: themed[1], mins: 60, time: hhmm24(themed[1]), html: themed[0] });
-    if (dow === 2 || dow === 4) b.push({ cls: 'gcal', start: 600, mins: 60, time: '10:00', html: '📅 Team meeting', c: '#2f6fb0' });
+    if (dow === 2 || dow === 4) b.push({ cls: 'gcal', start: 600, mins: 60, time: '10:00', html: '📅 Team meeting', c: '#6f8296' });
     (demo.scheduled[dow] || []).forEach((x) => b.push({ cls: 'sched', start: x.start, mins: x.mins, time: hhmm24(x.start), html: `${esc(x.text)}`, c: x.color }));
     return b;
   };
@@ -2751,7 +2751,7 @@
     } else if (n === 2) {
       const tasks = demoTasks();
       body += `<section class="box"><h2>2 · Your focus goals become the weekly plan</h2>
-          <p class="prompt">In your weekly planning session, each focus goal turns into a Top 3 and priority actions. Assign each action to a day. Notice how every item stays tied to its goal by colour.</p></section>
+          <p class="prompt">In your weekly planning session, each focus goal turns into a Top 3 and priority actions. Assign each action to a day. Notice how every item stays tied to its goal by color.</p></section>
         <div class="grid2"><section class="box"><h3>Top 3 for the week</h3>
             <ul class="plain-list">${fg.slice(0, 3).map((g) => `<li>${gtag(g)} ${esc(g.steps[0])}</li>`).join('') || '<li class="muted">No focus goals chosen.</li>'}</ul>
             <h3>Priority actions <small class="muted">tap a day to assign</small></h3>

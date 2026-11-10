@@ -88,7 +88,7 @@ Use **⚙ Settings → Export backup** regularly, and **Import backup** to resto
 
 ```
 index.html      shell + navigation
-css/style.css   styles (light & dark)
+css/style.css   styles (warm paper light theme)
 js/util.js      pure date/planning helpers (unit-tested)
 js/store.js     state shape, persistence, path helpers
 js/app.js       router, views, interactions
