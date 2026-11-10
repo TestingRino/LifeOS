@@ -119,9 +119,33 @@
   function focusGoals(iso) {
     return ((state.focus || {})[quarterKey(iso)] || []).map((id) => state.goals.find((g) => g.id === id)).filter((g) => g && g.status === 'active');
   }
-  function nextStep(g) {
-    return [...(g.objectives || []), ...(g.milestones || [])].filter((i) => !i.done && i.text)
+  function nextStep(g, exclude) {
+    const items = [];
+    ['objectives', 'milestones'].forEach((k) => (g[k] || []).forEach((i) => items.push({ ...i, ref: `goals.@${g.id}.${k}.@${i.id}` })));
+    return items.filter((i) => !i.done && i.text && !(exclude && exclude.has(i.ref)))
       .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1))[0];
+  }
+  /* Pre-populate today's Big 3: carry unfinished items forward, then take each focus goal's next step. */
+  function autoFillBig3(iso) {
+    if (state.bigAuto[iso]) return;
+    state.big3.filter((b) => b.done && b.stepRef).forEach((b) => { const it = get(b.stepRef); if (it && !it.done) it.done = true; });
+    const have = state.big3.filter((b) => b.date === iso);
+    if (have.length >= 3) { state.bigAuto[iso] = true; return; }
+    const used = new Set(state.big3.filter((b) => b.stepRef && (b.done || b.date === iso)).map((b) => b.stepRef));
+    let added = 0;
+    const room = () => 3 - have.length - added;
+    state.big3.filter((b) => b.date < iso && !b.done && !b.migrated).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, room()).forEach((b) => {
+      b.migrated = true; state.big3.push({ id: S.uid(), date: iso, text: b.text, goalId: b.goalId, stepRef: b.stepRef, done: false }); added++;
+      if (b.stepRef) used.add(b.stepRef);
+    });
+    focusGoals(iso).forEach((g) => {
+      if (room() <= 0 || state.big3.some((b) => b.date === iso && b.goalId === g.id)) return;
+      const ns = nextStep(g, used);
+      state.big3.push({ id: S.uid(), date: iso, text: ns ? ns.text : `Make progress on: ${g.title}`, goalId: g.id, stepRef: ns ? ns.ref : '', done: false });
+      if (ns) used.add(ns.ref);
+      added++;
+    });
+    if (added) { state.bigAuto[iso] = true; S.save(state); }
   }
 
   /* ---------- ideal week ---------- */
@@ -481,8 +505,11 @@
     const pending = (key) => (focusGoals(iso).length ? focusGoals(iso) : goals).flatMap((g) => (g[key] || []).filter((i) => !i.done && i.text)
       .map((i) => ({ text: i.text, due: i.due, goal: g.title, base: `goals.@${g.id}.${key}.@${i.id}` })))
       .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
+    autoFillBig3(iso);
     const fgoals = focusGoals(iso);
     const idealToday = idealOn(iso);
+    const st = setupStatus(), stDone = st.filter((x) => x.done).length, stNext = st.find((x) => !x.done);
+    const setupBanner = !state.settings.setupDone && !state.settings.setupDismissed && stNext ? `<section class="box setup-banner"><div class="grow"><strong>Finish setting up Life.OS</strong> <span class="muted">· ${stDone} of ${st.length} · next: ${esc(stNext.label)}</span><br>${progressBar((stDone / st.length) * 100)}</div><a class="btn primary" href="#/setup/${stNext.step}">Continue</a><button class="x" data-act="dismissSetup" aria-label="Hide setup">×</button></section>` : '';
     const rv = state.reviews[iso] || {};
     const rvCount = ['purpose', 'goals', 'ideal'].filter((k) => rv[k]).length;
     let rvStreak = 0;
@@ -511,9 +538,9 @@
     const shopOpen = state.shopping.filter((x) => !x.done).length;
 
     const body = `
-      ${vision ? `<blockquote class="vision"><span>Who I'm becoming</span>${esc(vision.split('\n')[0])}</blockquote>` : ''}
+      ${setupBanner}
       <section class="box review${rvCount === 3 ? ' done' : ''}">
-        <details ${rvCount === 3 ? '' : 'open'}><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
+        <details><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
           <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.purpose`, 'Reviewed my purpose')} <strong>My purpose</strong></label>
             ${purposeText ? `<blockquote class="vision small">${esc(purposeText.split('\n').slice(0, 3).join(' '))}</blockquote>` : '<p class="muted small">Write your purpose statement on <a href="#/foundation">Foundation</a> so you can read it here each day.</p>'}</div>
           <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.goals`, 'Reviewed my goals')} <strong>My goals</strong></label>
@@ -522,14 +549,6 @@
           <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.ideal`, 'Reviewed my ideal week')} <strong>My ideal week</strong> <small class="muted">${U.DAYS[t.getDay()]}</small></label>
             ${idealToday.length ? `<ul class="plain">${idealToday.map((i) => `<li>${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</li>`).join('')}</ul>` : '<p class="muted small">Nothing in your ideal week for today. <a href="#/ideal">Set up your ideal week →</a></p>'}</div>
         </details>
-      </section>
-      <section class="box focus">
-        <h2>Quarterly focus <span class="muted">· ${quarterLabel(iso)}</span><a class="more" href="#/goals">Choose →</a></h2>
-        ${fgoals.length ? `<ul class="focus-list">${fgoals.map((g) => { const ns = nextStep(g); return `<li>
-          <div class="grow"><strong>${g.tier === 'purpose' ? '<span class="star">★</span> ' : ''}${esc(g.title)}</strong> ${progressBar(g.progress)} <small>${Number(g.progress) || 0}%</small>
-            <br><small class="muted">Next: ${ns ? esc(ns.text) : 'add a milestone or objective'}</small></div>
-          <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button></li>`; }).join('')}</ul>`
-          : '<p class="muted">Of your annual goals, pick the 3–4 that deserve your best energy this quarter. <a href="#/goals">Choose your focus →</a></p>'}
       </section>
       <section class="box">
         <h2>Today's Big 3 <span class="muted">· ${bigToday.filter((b) => b.done).length}/${bigToday.length} done</span></h2>
@@ -543,18 +562,7 @@
           <button class="btn ghost" data-act="migrateBig3" data-id="${b.id}" ${bigToday.length >= 3 ? 'disabled title="Today already has 3"' : ''}>› Today</button>
           <button class="x" data-act="dropBig3" data-id="${b.id}" aria-label="Let go">×</button></li>`).join('')}</ul>` : ''}
       </section>
-      ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/goals">Add a habit goal</a> (like "Read a book, 7 days a week") and it will appear here each day.</p></section>` : ''}
-      ${tks.length ? `<section class="box">
-        <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
-        <ul class="trackers">${tks.map((k) => trackerRow(k, wk, iso)).join('')}</ul>
-      </section>` : ''}
-      ${openObjs.length || nextMs.length ? `<section class="box">
-        <h2>Milestones &amp; objectives <a class="more" href="#/goals">Plan →</a></h2>
-        <ul class="checks compact">${nextMs.map((x) => `<li>${chk(`${x.base}.done`, 'Done')}<span class="grow"><strong>Milestone:</strong> ${esc(x.text)} <small class="muted">${esc(x.goal)}${x.due ? ` · due ${U.fmtDate(x.due, { month: 'short', day: 'numeric' })}` : ''}</small></span></li>`).join('')}
-          ${openObjs.map((x) => `<li>${chk(`${x.base}.done`, 'Done')}<span class="grow">${esc(x.text)} <small class="muted">${esc(x.goal)}${x.due ? ` · due ${U.fmtDate(x.due, { month: 'short', day: 'numeric' })}` : ''}</small></span></li>`).join('')}</ul>
-      </section>` : ''}
-      <div class="grid2">
-        <section class="box">
+      <section class="box">
           <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
           ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${esc(e.text)}</li>`).join('')}</ul>` : ''}
           ${idealToday.length ? `<ul class="checks compact">${idealToday.map((i) => idealRow(i, iso, true)).join('')}</ul>` : ''}
@@ -563,12 +571,30 @@
           ${!todayEvents.length && !todaySched.length && !todayWos.length && !idealToday.length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
           <form class="add" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" aria-label="Time"><input name="text" placeholder="Add to today…" required><button aria-label="Add">+</button></form>
         </section>
+      ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/setup/5">Add your habits</a> (like "Read a book, 7 days a week") and they will appear here each day.</p></section>` : ''}
+      ${tks.length ? `<section class="box">
+        <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
+        <ul class="trackers">${tks.map((k) => trackerRow(k, wk, iso)).join('')}</ul>
+      </section>` : ''}
+      <section class="box focus">
+        <h2>Quarterly focus <span class="muted">· ${quarterLabel(iso)}</span><a class="more" href="#/goals">Choose →</a></h2>
+        ${fgoals.length ? `<ul class="focus-list">${fgoals.map((g) => { const ns = nextStep(g); return `<li>
+          <div class="grow"><strong>${g.tier === 'purpose' ? '<span class="star">★</span> ' : ''}${esc(g.title)}</strong> ${progressBar(g.progress)} <small>${Number(g.progress) || 0}%</small>
+            <br><small class="muted">Next: ${ns ? esc(ns.text) : 'add a milestone or objective'}</small></div>
+          <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button></li>`; }).join('')}</ul>`
+          : '<p class="muted">Of your annual goals, pick the 3–4 that deserve your best energy this quarter. <a href="#/goals">Choose your focus →</a></p>'}
+      </section>
+      <details class="box more-today"><summary><strong>More for today</strong> <span class="muted">rituals, milestones, this week, goals, journal</span></summary>
         <section class="box">
           <h2>Rituals due</h2>
           ${due.length ? `<ul class="rituals">${due.map((r) => `<li class="${r.hot ? 'hot' : ''}"><a href="${r.h}"><strong>${r.t}</strong><span>${r.d}</span></a></li>`).join('')}</ul>`
             : '<p class="muted">You\'re caught up. Go live it.</p>'}
         </section>
-      </div>
+      ${openObjs.length || nextMs.length ? `<section class="box">
+        <h2>Milestones &amp; objectives <a class="more" href="#/goals">Plan →</a></h2>
+        <ul class="checks compact">${nextMs.map((x) => `<li>${chk(`${x.base}.done`, 'Done')}<span class="grow"><strong>Milestone:</strong> ${esc(x.text)} <small class="muted">${esc(x.goal)}${x.due ? ` · due ${U.fmtDate(x.due, { month: 'short', day: 'numeric' })}` : ''}</small></span></li>`).join('')}
+          ${openObjs.map((x) => `<li>${chk(`${x.base}.done`, 'Done')}<span class="grow">${esc(x.text)} <small class="muted">${esc(x.goal)}${x.due ? ` · due ${U.fmtDate(x.due, { month: 'short', day: 'numeric' })}` : ''}</small></span></li>`).join('')}</ul>
+      </section>` : ''}
       <div class="tiles">
         <a class="tile" href="#/week/${wk}"><span>Priority actions</span><strong>${weekActs.length - openActs.length}/${weekActs.length}</strong><small>this week</small></a>
         <a class="tile" href="#/track/workouts"><span>Workouts</span><strong>${wkWos.filter((x) => x.done).length}/${Number(state.settings.workoutTarget) || wkWos.length}</strong><small>this week</small></a>
@@ -610,7 +636,8 @@
       <section class="box">
         <h2>Today's journal <a class="more" href="#/lists/journal">All entries →</a></h2>
         ${state.journals.find((j) => j.date === iso) ? `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Add to today's thoughts…"></textarea><button aria-label="Save">+</button></form>` : `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Today's thoughts and reflections…"></textarea><button aria-label="Save">+</button></form>`}
-      </section>`;
+      </section>
+      </details>`;
     return page('Today', U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body);
   }
 
@@ -1480,7 +1507,7 @@
         <p>Everything is stored only in this browser. Export a backup regularly, and use it to move between devices.</p>
         <div class="row wrap">
           <button class="btn" data-act="export">Export backup (.json)</button>
-          <button class="btn ghost" data-act="loadSamples">Load sample goals</button>
+          <a class="btn ghost" href="#/setup/1">Run setup guide</a>
           ${state.goals.some((g) => g.seed) ? '<button class="btn ghost" data-act="removeSamples">Remove sample goals</button>' : ''}
           <label class="btn ghost file">Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
           <button class="btn ghost danger" data-act="reset">Erase all data</button>
@@ -1682,8 +1709,8 @@
       const iso = todayISO();
       if (state.big3.filter((b) => b.date === iso).length >= 3) { toast('Today already has 3. Finish or remove one first.'); return; }
       const g = state.goals.find((x) => x.id === el.dataset.goal);
-      const ns = g && nextStep(g);
-      state.big3.push({ id: S.uid(), date: iso, text: ns ? ns.text : `Make progress on: ${g.title}`, goalId: g.id, done: false });
+      const ns = g && nextStep(g, new Set(state.big3.filter((b) => b.stepRef && (b.done || b.date === iso)).map((b) => b.stepRef)));
+      state.big3.push({ id: S.uid(), date: iso, text: ns ? ns.text : `Make progress on: ${g.title}`, goalId: g.id, stepRef: ns ? ns.ref : '', done: false });
       commit();
     },
     migrateBig3(el) {
@@ -1691,14 +1718,32 @@
       const b = state.big3.find((x) => x.id === el.dataset.id);
       if (!b || state.big3.filter((x) => x.date === iso).length >= 3) return;
       b.migrated = true;
-      state.big3.push({ id: S.uid(), date: iso, text: b.text, goalId: b.goalId, done: false });
+      state.big3.push({ id: S.uid(), date: iso, text: b.text, goalId: b.goalId, stepRef: b.stepRef, done: false });
       commit();
     },
     dropBig3(el) { const b = state.big3.find((x) => x.id === el.dataset.id); if (b) b.migrated = true; commit(); },
-    loadSamples() {
-      if (state.goals.some((g) => g.seed) && !confirm('Sample goals are already loaded. Add them again?')) return;
-      seedStarter(); commit(); toast('Sample goals added. See Roles & Goals.');
+    addSuggestedRole(el) {
+      const r = SUGGEST.roles[Number(el.dataset.idx)];
+      if (r && !state.roles.some((x) => x.name.toLowerCase() === r.name.toLowerCase())) state.roles.push({ id: S.uid(), name: r.name, why: r.why });
+      commit();
     },
+    addSuggestedGoal(el) { addSuggestedGoal(SUGGEST.goals[Number(el.dataset.idx)], 'achievement'); commit(); },
+    addSuggestedHabit(el) { addSuggestedGoal(SUGGEST.habits[Number(el.dataset.idx)], 'habit'); commit(); },
+    addIdealBlock(el) {
+      const b = SUGGEST.ideal[Number(el.dataset.idx)];
+      if (b) state.idealWeek.push({ id: S.uid(), dow: Number(el.dataset.dow), time: b.time || '', text: b.text, goalId: '', workout: !!b.workout });
+      commit();
+    },
+    idealStarter() {
+      Object.entries(SUGGEST.starterWeek).forEach(([dow, names]) => names.forEach((nm) => {
+        if (state.idealWeek.some((i) => Number(i.dow) === Number(dow) && i.text === nm)) return;
+        const b = SUGGEST.ideal.find((x) => x.text === nm) || { text: nm };
+        state.idealWeek.push({ id: S.uid(), dow: Number(dow), time: b.time || '', text: nm, goalId: '', workout: !!b.workout });
+      }));
+      commit();
+    },
+    finishSetup() { state.settings.setupDone = true; commit(); location.hash = '#/today'; },
+    dismissSetup() { state.settings.setupDismissed = true; commit(); },
     removeSamples() {
       if (!confirm('Remove the sample roles and goals? Your own goals are kept.')) return;
       removeSamples(); commit();
@@ -1873,75 +1918,162 @@
   }
 
 
-  /* ---------- starter goals (first run, or Settings -> Load sample goals) ---------- */
-  function seedStarter() {
-    const t = today();
-    let cyc = currentCycle();
-    if (!cyc) {
-      const dates = U.makeCycleDates(U.toISO(new Date(t.getFullYear(), t.getMonth(), 1)), Number(state.settings.cycleMonths) || 6);
-      cyc = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
-      state.cycles.push(cyc);
-    }
-    const inDays = (n) => U.toISO(U.addDays(t, n));
-    const role = (name, why) => { const r = { id: S.uid(), name, why, seed: true }; state.roles.push(r); return r.id; };
-    const parent = role('Parent', 'Be present and intentional with my kids while they are young.');
-    const healthy = role('Healthy person', 'Energy and health let me show up well for everything else.');
-    const pro = role('Professional', 'Grow in skill and contribute work I am proud of.');
-    const goal = (roleId, o) => { const g = {
-      id: S.uid(), cycleId: cyc.id, roleId, area: 'health', tier: 'pursuit', progress: 0, status: 'active', target: cyc.end, doneBy: cyc.end,
-      measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [], seed: true, ...o }; state.goals.push(g); return g; };
-    const item = (text, due) => ({ id: S.uid(), text, due: due || '', done: false });
-    const routine = (text, perWeek) => ({ id: S.uid(), text, perWeek, log: {} });
-
-    // Habit goals: tracked daily on Today
-    goal(parent, { kind: 'habit', title: 'Read to the kids before bed', perWeek: 7, area: 'home', tier: 'purpose', why: 'Bedtime stories build connection and a love of reading.', measure: 'At least one book or chapter together' });
-    goal(parent, { kind: 'habit', title: 'Spend time outside with the kids', perWeek: 7, area: 'fun', why: 'Fresh air and shared adventures make the best memories.', measure: '20+ minutes outdoors together' });
-    goal(healthy, { kind: 'habit', title: 'Workout', perWeek: 5, area: 'health', tier: 'purpose', why: 'Strength and stamina for the life I want to live.', measure: '30+ minutes of intentional exercise' });
-    goal(healthy, { kind: 'habit', title: 'Ride horses', perWeek: 5, area: 'fun', why: 'It is my time to recharge and do something I love.' });
-    goal(pro, { kind: 'habit', title: 'Read a book', perWeek: 7, area: 'projects', why: 'Reading keeps me learning and curious.', measure: '20+ pages' });
-
-    // Ten annual goals; three are chosen as this quarter's focus (with a full plan), the rest are ready to plan later
-    const focusIds = [];
-    const focus = (roleId, o) => { const g = goal(roleId, o); focusIds.push(g.id); };
-    focus(healthy, { title: 'Run a 10K', area: 'health', why: 'Proving to myself that I can build a hard thing step by step.', measure: 'Finish a 10K race without walking',
-      milestones: [item('Run 5K without stopping', inDays(30)), item('Run 8K', inDays(75)), item('Register for a 10K race', inDays(45)), item('Finish the 10K', inDays(120))],
-      objectives: [item('Build to 12 miles per week', inDays(75)), item('Complete a 4-week base plan', inDays(28))],
-      routines: [routine('Run', 3)] });
-    focus(parent, { title: 'Take a family trip together', area: 'fun', tier: 'purpose', why: 'Shared experiences become the stories we tell for years.', measure: 'Trip taken and photos printed',
-      milestones: [item('Pick the destination and dates', inDays(21)), item('Book travel and lodging', inDays(45)), item('Plan activities with the kids', inDays(80))],
-      objectives: [item('Set aside the trip budget', inDays(30))] });
-    focus(pro, { title: 'Complete one skill-building course', area: 'work', why: 'Investing in skills opens the next opportunity.', measure: 'Certificate or finished project',
-      milestones: [item('Choose the course', inDays(14)), item('Finish half the lessons', inDays(60)), item('Finish the final project', inDays(110))],
-      objectives: [item('Block recurring study time on the calendar', inDays(7))],
-      routines: [routine('Study session', 3)] });
-    goal(parent, { title: 'Plan a weekend away with my spouse', area: 'friends', why: 'Our relationship deserves focused time together.', measure: 'Weekend taken, phones away' });
-    goal(healthy, { title: 'Build a daily spiritual practice', area: 'health', tier: 'purpose', why: 'Purpose and peace steady everything else.', measure: 'A reading plan completed' });
-    goal(healthy, { title: 'Complete 10 riding lessons toward my next level', area: 'fun', why: 'Skill in something I love.', measure: '10 lessons logged' });
-    goal(pro, { title: 'Save a three-month emergency fund', area: 'home', why: 'Financial peace of mind for my family.', measure: 'Three months of expenses saved' });
-    goal(parent, { title: 'Declutter and organize the house', area: 'home', why: 'A calm home makes room for what matters.', measure: 'Every room done' });
-    goal(parent, { title: 'Host friends or family once a month', area: 'friends', why: 'Community is built on showing up.', measure: '6 gatherings hosted' });
-    goal(pro, { title: 'Finish a hobby project I keep putting off', area: 'projects', why: 'Finishing it frees mental space.', measure: 'Project complete' });
-    state.focus[quarterKey(todayISO())] = focusIds;
-    if (!state.idealWeek.length) {
-      const block = (dow, text, extra) => state.idealWeek.push({ id: S.uid(), dow, time: '', text, goalId: '', workout: false, seed: true, ...extra });
-      [1, 2, 3, 4, 5].forEach((d) => block(d, 'Workout', { time: '06:30', workout: true }));
-      block(1, 'Home & car maintenance', { time: '17:30' });
-      block(2, 'Family night', { time: '18:00' });
-      block(3, 'Activities', { time: '16:00' });
-      block(4, 'Community impact', { time: '17:30' });
-      block(5, 'Plan next week', { time: '15:00' });
-    }
-  }
   function removeSamples() {
     state.goals = state.goals.filter((g) => !g.seed);
     state.roles = state.roles.filter((r) => !r.seed);
     state.idealWeek = state.idealWeek.filter((i) => !i.seed);
   }
 
+  /* ---------- guided setup (onboarding) ---------- */
+  const SUGGEST = {
+    roles: [
+      { name: 'Parent', why: 'Be present and intentional with my kids while they are young.' },
+      { name: 'Partner', why: 'Build a strong, loving relationship.' },
+      { name: 'Professional', why: 'Grow in skill and contribute work I am proud of.' },
+      { name: 'Healthy person', why: 'Energy and health let me show up well for everything else.' },
+      { name: 'Friend', why: 'Community is built by showing up.' },
+      { name: 'Learner', why: 'Stay curious and keep growing.' },
+    ],
+    goals: [
+      { title: 'Run a 10K', steps: ['Run 5K without stopping', 'Register for a 10K race', 'Run 8K', 'Finish the 10K'], role: 'Healthy person', area: 'health', why: 'Proving I can build a hard thing step by step.' },
+      { title: 'Take a family trip together', steps: ['Pick the destination and dates', 'Set the trip budget', 'Book travel and lodging', 'Plan activities with the kids'], role: 'Parent', area: 'fun', purpose: true, why: 'Shared experiences become the stories we tell for years.' },
+      { title: 'Complete one skill-building course', steps: ['Choose the course', 'Block weekly study time on the calendar', 'Finish half the lessons', 'Finish the final project'], role: 'Professional', area: 'work', why: 'Investing in skills opens the next opportunity.' },
+      { title: 'Plan a weekend away with my spouse', steps: ['Pick dates that work for both of us', 'Arrange childcare', 'Book the getaway'], role: 'Partner', area: 'friends', why: 'Our relationship deserves focused time together.' },
+      { title: 'Save a three-month emergency fund', steps: ['Total up three months of expenses', 'Open a dedicated savings account', 'Set up an automatic transfer'], role: 'Professional', area: 'home', why: 'Financial peace of mind for my family.' },
+      { title: 'Declutter and organize the house', steps: ['Pick the first room to tackle', 'Donate or toss one full box', 'Finish the second room'], role: 'Parent', area: 'home', why: 'A calm home makes room for what matters.' },
+      { title: 'Finish a hobby project I keep putting off', steps: ['List what is left to do', 'Gather the supplies', 'Finish the next piece'], role: 'Learner', area: 'projects', why: 'Finishing it frees mental space.' },
+      { title: 'Teach one new skill a month to the kids', steps: ['Pick a skill for the month', 'Schedule the lesson on a weekend', 'Review what they learned'], role: 'Parent', area: 'home', why: 'Mentor my children to be better versions of themselves.' },
+      { title: 'Host friends or family for a gathering', steps: ['Pick a date and guest list', 'Send invitations', 'Plan the menu'], role: 'Friend', area: 'friends', why: 'Strong friendships take intention.' },
+      { title: 'Read twelve books this year', steps: ['Pick the next three books', 'Set a reading goal per month', 'Finish book one'], role: 'Learner', area: 'projects', why: 'Reading keeps me learning and curious.' },
+    ],
+    habits: [
+      { title: 'Read to the kids before bed', perWeek: 7, role: 'Parent', area: 'home', purpose: true },
+      { title: 'Spend time outside with the kids', perWeek: 7, role: 'Parent', area: 'fun' },
+      { title: 'Workout', perWeek: 5, role: 'Healthy person', area: 'health', purpose: true },
+      { title: 'Read a book', perWeek: 7, role: 'Learner', area: 'projects' },
+      { title: 'Quiet time or prayer', perWeek: 7, role: 'Healthy person', area: 'health' },
+      { title: 'Date night with my spouse', perWeek: 1, role: 'Partner', area: 'friends' },
+      { title: 'Journal', perWeek: 5, role: 'Learner', area: 'projects' },
+      { title: 'Walk or move outdoors', perWeek: 5, role: 'Healthy person', area: 'health' },
+    ],
+    ideal: [
+      { text: 'Workout', time: '06:30', workout: true }, { text: 'Family night', time: '18:00' }, { text: 'Date night', time: '19:00' },
+      { text: 'Activities', time: '16:00' }, { text: 'Community impact', time: '17:30' }, { text: 'Home & car maintenance', time: '17:30' },
+      { text: 'Plan next week', time: '15:00' }, { text: 'Deep work', time: '09:00' },
+    ],
+    starterWeek: { 1: ['Workout', 'Home & car maintenance'], 2: ['Workout', 'Family night'], 3: ['Workout', 'Activities'], 4: ['Workout', 'Community impact'], 5: ['Workout', 'Plan next week'] },
+  };
+
+  function ensureCycle() {
+    let c = currentCycle();
+    if (!c) {
+      const t = today(), dates = U.makeCycleDates(U.toISO(new Date(t.getFullYear(), t.getMonth(), 1)), Number(state.settings.cycleMonths) || 6);
+      c = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
+      state.cycles.push(c); S.save(state);
+    }
+    return c;
+  }
+  function setupStatus() {
+    return [
+      { step: 1, label: 'Purpose', done: !!(state.foundation.mission || '').trim() },
+      { step: 2, label: 'Roles', done: state.roles.length > 0 },
+      { step: 3, label: 'Annual goals', done: state.goals.some((g) => g.kind !== 'habit' && g.status === 'active') },
+      { step: 4, label: 'Quarterly focus', done: focusGoals(todayISO()).length > 0 },
+      { step: 5, label: 'Habits', done: state.goals.some((g) => g.kind === 'habit') },
+      { step: 6, label: 'Ideal week', done: state.idealWeek.length > 0 },
+    ];
+  }
+  function roleIdFor(name) {
+    let r = state.roles.find((x) => x.name.toLowerCase() === String(name || '').toLowerCase());
+    if (!r && state.roles.length) r = state.roles[0];
+    if (!r) { r = { id: S.uid(), name: name || 'Me', why: '' }; state.roles.push(r); }
+    return r.id;
+  }
+  function addSuggestedGoal(sg, kind) {
+    const cyc = ensureCycle();
+    if (state.goals.some((g) => g.title.toLowerCase() === sg.title.toLowerCase())) return;
+    state.goals.push({ id: S.uid(), cycleId: cyc.id, roleId: roleIdFor(sg.role), title: sg.title, why: sg.why || '', area: sg.area || 'work', tier: sg.purpose ? 'purpose' : 'pursuit',
+      progress: 0, status: 'active', target: cyc.end, doneBy: cyc.end, measure: '', kind, perWeek: sg.perWeek || 5, log: {},
+      milestones: (sg.steps || []).map((text, i) => ({ id: S.uid(), text, due: U.toISO(U.addDays(today(), 21 * (i + 1))), done: false })), objectives: [], routines: [] });
+  }
+
+  function viewSetup(step) {
+    const n = Math.min(6, Math.max(1, Number(step) || 1));
+    const cyc = n >= 3 && n <= 5 ? ensureCycle() : currentCycle();
+    const st = setupStatus();
+    const bar = `<ol class="setup-steps">${st.map((x) => `<li class="${x.step === n ? 'cur' : ''}${x.done ? ' ok' : ''}"><a href="#/setup/${x.step}"><b>${x.done ? '✓' : x.step}</b><span>${x.label}</span></a></li>`).join('')}</ol>`;
+    const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/setup/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 6
+      ? `<a class="btn ghost" href="#/setup/${n + 1}">Skip</a><a class="btn primary" href="#/setup/${n + 1}">Next →</a>`
+      : '<button class="btn primary" data-act="finishSetup">Finish &amp; go to Today</button>'}</div>`;
+    const chip = (act, i, label) => `<button type="button" class="chip" data-act="${act}" data-idx="${i}">+ ${esc(label)}</button>`;
+    const roleOpts = (cur) => opts(state.roles.map((r) => ({ v: r.id, l: r.name })).concat(state.roles.length ? [] : [{ v: '', l: '(no role yet)' }]), cur);
+    let body = bar;
+
+    if (n === 1) {
+      body += `<section class="box"><h2>Your purpose</h2>
+        <p class="prompt">In a sentence or two: why are you here, and how do you want to spend your life? You will read this in your daily review.</p>
+        ${ta('foundation.mission', 'My purpose is to…', 4)}
+        <h3>Who I'm becoming <small class="muted">optional · 5–10 years from now</small></h3>
+        ${ta('foundation.vision', 'I am…', 4)}</section>`;
+    } else if (n === 2) {
+      const have = new Set(state.roles.map((r) => r.name.toLowerCase()));
+      body += `<section class="box"><h2>Your roles</h2>
+        <p class="prompt">Roles are the hats you wear. For each one, write your <strong>WHY</strong>: the underlying reasons it matters.</p>
+        ${state.roles.map((r) => `<div class="role-edit"><div class="row"><input class="inline role-name grow" data-bind="roles.@${r.id}.name" value="${esc(r.name)}" aria-label="Role name"><button class="x" data-act="delRole" data-id="${r.id}" aria-label="Delete role">×</button></div>
+          ${ta(`roles.@${r.id}.why`, 'Why does this role matter to you?', 2)}</div>`).join('')}
+        <div class="chips">${SUGGEST.roles.map((r, i) => (have.has(r.name.toLowerCase()) ? '' : chip('addSuggestedRole', i, r.name))).join('')}</div>
+        <form class="add" data-add="roles"><input name="name" placeholder="Add your own role" required><button aria-label="Add role">+</button></form>
+        <p class="muted small">Have a planner page? <button type="button" class="btn ghost" data-act="uploadPhoto">Import from a photo</button></p></section>`;
+    } else if (n === 3) {
+      const gl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind !== 'habit' && g.status === 'active');
+      const have = new Set(state.goals.map((g) => g.title.toLowerCase()));
+      body += `<section class="box"><h2>Your annual goals <span class="muted">· ${gl.length} so far · aim for about 10</span></h2>
+        <p class="prompt">Big things you want to accomplish. Habits come in step 5, so keep this list to goals you can finish.</p>
+        <ul class="checks compact">${gl.map((g) => `<li><input class="inline grow" data-bind="goals.@${g.id}.title" value="${esc(g.title)}" aria-label="Goal"><small class="muted">${esc(roleName(g.roleId))}</small>
+          <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+        <h3>Suggestions <small class="muted">tap to add</small></h3>
+        <div class="chips">${SUGGEST.goals.map((g, i) => (have.has(g.title.toLowerCase()) ? '' : chip('addSuggestedGoal', i, g.title))).join('')}</div>
+        <form class="add" data-add="goals"><input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="kind" value="achievement">
+          <input name="title" placeholder="Add your own goal…" required><select name="roleId" aria-label="Role">${roleOpts('')}</select><select name="area" aria-label="Area">${areaOpts('work')}</select><button aria-label="Add goal">+</button></form></section>`;
+    } else if (n === 4) {
+      const gl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind !== 'habit' && g.status === 'active');
+      const sel = focusGoals(todayISO());
+      body += `<section class="box"><h2>This quarter's focus <span class="muted">· ${quarterLabel(todayISO())} · ${sel.length}/4</span></h2>
+        <p class="prompt">You cannot give ten goals your best energy at once. Choose the <strong>3 or 4</strong> that matter most right now. Their next steps will be pre-filled on Today each morning.</p>
+        <div class="chips">${gl.map((g) => { const on = sel.some((f) => f.id === g.id); return `<button type="button" class="chip${on ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('') || '<p class="muted">Add some goals in step 3 first.</p>'}</div></section>`;
+    } else if (n === 5) {
+      const hl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind === 'habit' && g.status === 'active');
+      const have = new Set(state.goals.map((g) => g.title.toLowerCase()));
+      body += `<section class="box"><h2>Your habits <span class="muted">· ${hl.length}</span></h2>
+        <p class="prompt">Things you want to do on a regular rhythm. Each appears on Today as a checkbox, with a visual of how you are doing.</p>
+        <ul class="checks compact">${hl.map((g) => `<li><input class="inline grow" data-bind="goals.@${g.id}.title" value="${esc(g.title)}" aria-label="Habit">
+          <select data-bind="goals.@${g.id}.perWeek" data-type="number" data-rerender aria-label="Days per week">${opts([1, 2, 3, 4, 5, 6, 7].map((d) => ({ v: d, l: d === 7 ? 'Every day' : d === 1 ? 'Once a week' : `${d}× a week` })), g.perWeek || 5)}</select>
+          <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+        <h3>Suggestions <small class="muted">tap to add</small></h3>
+        <div class="chips">${SUGGEST.habits.map((h, i) => (have.has(h.title.toLowerCase()) ? '' : chip('addSuggestedHabit', i, `${h.title} (${h.perWeek === 7 ? 'daily' : h.perWeek + '×/wk'})`))).join('')}</div>
+        <form class="add" data-add="goals"><input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="kind" value="habit"><input type="hidden" name="area" value="health"><input type="hidden" name="roleId" value="${state.roles[0] ? state.roles[0].id : ''}">
+          <input name="title" placeholder="Add your own habit…" required><select name="perWeek" aria-label="Days per week">${opts([1, 2, 3, 4, 5, 6, 7].map((d) => ({ v: d, l: d === 7 ? 'Every day' : `${d}× a week` })), 5)}</select><button aria-label="Add habit">+</button></form></section>`;
+    } else {
+      const order = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + ws()) % 7);
+      body += `<section class="box"><h2>Your ideal week</h2>
+        <p class="prompt">Give each day a purpose. These blocks appear on that day in Today and Week, ready to check off.</p>
+        <p><button type="button" class="btn" data-act="idealStarter">Fill in a starter week</button> <span class="muted small">workout Mon–Fri, plus a theme each weekday. Edit anything afterwards.</span></p></section>
+        <div class="ideal-grid">${order.map((d) => {
+          const items = state.idealWeek.filter((i) => Number(i.dow) === d).sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
+          const have = new Set(items.map((i) => i.text.toLowerCase()));
+          return `<section class="box ideal-day"><h3>${U.DAYS[d]}</h3>
+            <ul class="checks compact">${items.map((i) => `<li><span class="grow">${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span><button class="x" data-act="del" data-path="idealWeek" data-id="${i.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+            <div class="chips">${SUGGEST.ideal.map((b, i) => (have.has(b.text.toLowerCase()) ? '' : `<button type="button" class="chip" data-act="addIdealBlock" data-dow="${d}" data-idx="${i}">+ ${esc(b.text)}</button>`)).join('')}</div>
+            <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input name="text" placeholder="Your own block…" required><button aria-label="Add">+</button></form></section>`;
+        }).join('')}</div>`;
+    }
+    return page('Set up Life.OS', `Step ${n} of 6 · about 5 minutes. Skip anything and come back later.`, body + nav);
+  }
+
   /* ---------- router ---------- */
   const ROUTES = {
     today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, ideal: viewIdeal, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
     const [, name = 'today', arg] = (location.hash || '#/today').split('/');
@@ -2045,7 +2177,7 @@
     addOCRDataToApp(s.route, s.data);
   });
 
-  if (firstRun) { seedStarter(); S.save(state); }
+  if (firstRun) location.hash = '#/setup/1';
   render();
   checkNotifications();
 })();
