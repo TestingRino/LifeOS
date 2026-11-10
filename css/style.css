@@ -529,3 +529,8 @@ ol.session-steps li.done strong { text-decoration: line-through; color: var(--mu
 ol.session-steps li > input[type=checkbox] { margin-top: .3rem; }
 .session-card.done { opacity: .85; }
 .due-strip { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; border-left: 4px solid var(--warn, #b8671f); }
+
+/* Google Calendar overlay */
+.sched li.gcal { color: #2f6fb0; }
+.tgrid .blk.gcal { background: color-mix(in srgb, #2f6fb0 16%, var(--paper)); border-left-color: #2f6fb0; }
+.gcal-status { margin: 0 0 .5rem; }

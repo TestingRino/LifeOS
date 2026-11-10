@@ -60,7 +60,7 @@ router.get('/events', async (req, res) => {
     const events = await getCalendarEvents(accessToken, from, to);
     res.json({ events });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(err.response?.status === 401 ? 401 : 400).json({ error: err.message });
   }
 });
 

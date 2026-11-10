@@ -334,18 +334,65 @@
   }
 
   /* ---------- backend integration ---------- */
-  async function syncGoogleCalendar() {
-    const token = localStorage.getItem('google_access_token');
-    if (!token) return [];
-    try {
-      const iso = U.toISO(today());
-      const monthStart = U.toISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-      const monthEnd = U.toISO(U.addDays(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 1));
-      const res = await fetch(`${API_BASE}/api/calendar/events?accessToken=${token}&from=${monthStart}&to=${monthEnd}`);
-      const { events } = await res.json();
-      return events || [];
-    } catch (e) { console.warn('Calendar sync error:', e); return []; }
+  /* ---------- Google Calendar events (read-only overlay) ---------- */
+  const gcal = { events: [], ranges: {}, busy: false, status: '' };
+  const gcalConnected = () => !!localStorage.getItem('google_access_token');
+  function gcalNormalize(items) {
+    const out = [];
+    (items || []).forEach((ev) => {
+      if (ev.status === 'cancelled' || !ev.start) return;
+      const text = ev.summary || '(busy)';
+      if (ev.start.dateTime) {
+        const s0 = new Date(ev.start.dateTime), e0 = new Date((ev.end && ev.end.dateTime) || ev.start.dateTime);
+        out.push({ id: ev.id, text, date: U.toISO(s0), time: `${U.pad(s0.getHours())}:${U.pad(s0.getMinutes())}`, mins: Math.max(15, Math.round((e0 - s0) / 60000)), allDay: false });
+      } else if (ev.start.date) {
+        const end = U.parseISO((ev.end && ev.end.date) || ev.start.date);
+        let d = U.parseISO(ev.start.date);
+        for (let i = 0; i < 31 && (i === 0 || d < end); i++, d = U.addDays(d, 1)) out.push({ id: `${ev.id}:${i}`, text, date: U.toISO(d), time: '', mins: 0, allDay: true });
+      }
+    });
+    return out;
   }
+  const gcalOn = (iso) => gcal.events.filter((g) => g.date === iso).sort((a, b) => ((a.time || '') < (b.time || '') ? -1 : 1));
+  async function gcalFetch(fromIso, toIso, retried) {
+    const token = localStorage.getItem('google_access_token');
+    const timeMin = new Date(`${fromIso}T00:00:00`).toISOString(), timeMax = new Date(`${toIso}T00:00:00`).toISOString();
+    const res = await fetch(`${API_BASE}/api/calendar/events?accessToken=${encodeURIComponent(token)}&from=${encodeURIComponent(timeMin)}&to=${encodeURIComponent(timeMax)}`);
+    if (res.status === 401 && !retried) {
+      const rt = localStorage.getItem('google_refresh_token');
+      if (rt) {
+        const r = await fetch(`${API_BASE}/api/auth/google/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt }) });
+        if (r.ok) { localStorage.setItem('google_access_token', (await r.json()).access_token); return gcalFetch(fromIso, toIso, true); }
+      }
+      localStorage.removeItem('google_access_token');
+      throw new Error('Google sign-in expired. Reconnect in Settings.');
+    }
+    if (!res.ok) throw new Error(`Calendar error ${res.status}`);
+    return (await res.json()).events || [];
+  }
+  async function loadGcal(fromIso, toIso, force) {
+    if (!gcalConnected() || gcal.busy) return;
+    const key = `${fromIso}_${toIso}`, seen = gcal.ranges[key];
+    if (seen && !force && (seen.ok || Date.now() - seen.t < 60000)) return;
+    gcal.busy = true; gcal.status = 'Syncing…';
+    try {
+      const evs = gcalNormalize(await gcalFetch(fromIso, toIso));
+      gcal.events = gcal.events.filter((g) => g.date < fromIso || g.date >= toIso).concat(evs);
+      gcal.ranges[key] = { ok: true, t: Date.now() };
+      gcal.status = `Synced ${evs.length} event${evs.length === 1 ? '' : 's'}`;
+    } catch (e) {
+      gcal.ranges[key] = { ok: false, t: Date.now() };
+      gcal.status = e.message || 'Could not sync';
+    } finally { gcal.busy = false; render(); }
+  }
+  function gcalKick(name, arg) {
+    if (!gcalConnected()) return;
+    const wk = name === 'week' ? (arg || U.weekKey(today(), ws())) : name === 'today' ? U.weekKey(today(), ws()) : null;
+    if (wk) loadGcal(wk, U.toISO(U.addDays(U.parseISO(wk), 7)));
+  }
+  const gcalStatusLine = (wk) => gcalConnected()
+    ? `<p class="muted small gcal-status">📅 Google Calendar · ${esc(gcal.status || 'connected')} <button class="btn ghost small" data-act="gcalRefresh" data-key="${wk}">↻ Refresh</button></p>`
+    : '<p class="muted small gcal-status">📅 <a href="#/settings">Connect Google Calendar</a> to see your events here.</p>';
 
   /* Phone photos can exceed the host's request limit, so downscale to a JPEG first. */
   async function shrinkImage(file, maxDim = 1800) {
@@ -593,10 +640,11 @@
       <section class="box">
           <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
           ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${evIcon(e)}${esc(e.text)}</li>`).join('')}</ul>` : ''}
+          ${gcalOn(iso).length ? `<ul class="events">${gcalOn(iso).map((g) => `<li><time>${g.time ? esc(fmtTime(g.time)) : 'All day'}</time> 📅 ${esc(g.text)}</li>`).join('')}</ul>` : ''}
           ${idealToday.length ? `<ul class="checks compact">${idealToday.map((i) => idealRow(i, iso, true)).join('')}</ul>` : ''}
           ${todaySched.length ? `<ul class="events">${todaySched.map((s) => `<li><time>${esc(fmtTime(s.time)) || '—'}</time> ${esc(s.text)}</li>`).join('')}</ul>` : ''}
           ${todayWos.length ? `<ul class="checks compact">${todayWos.map((x) => `<li>${chk(`workouts.@${x.id}.done`, 'Workout done')}<span class="grow">${x.time ? `<time>${esc(fmtTime(x.time))}</time> ` : ''}Workout: ${esc(x.type)}${x.details ? ` <small class="muted">${esc(x.details)}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
-          ${!todayEvents.length && !todaySched.length && !todayWos.length && !idealToday.length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
+          ${!todayEvents.length && !todaySched.length && !todayWos.length && !idealToday.length && !gcalOn(iso).length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
           <form class="add" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" aria-label="Time"><input name="text" placeholder="Add to today…" required><button aria-label="Add">+</button></form>
         </section>
       ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/setup/5">Add your habits</a> (like "Read a book, 7 days a week") and they will appear here each day.</p></section>` : ''}
@@ -939,6 +987,7 @@
     const START = 6 * 60, END = 22 * 60, slots = [];
     for (let m = START; m < END; m += 30) slots.push(m);
     const itemsOn = (iso) => [
+      ...gcalOn(iso).filter((g) => g.time).map((g) => ({ time: g.time, text: g.text, mins: g.mins, cls: 'gcal' })),
       ...idealOn(iso).filter((i) => i.time).map((i) => ({ time: i.time, text: i.text, mins: 60, cls: 'ideal' })),
       ...scheduleOn(iso).filter((x) => x.time).map((x) => ({ time: x.time, text: x.text, mins: Number(x.mins) || 30, cls: 'sched', id: x.id })),
       ...state.workouts.filter((x) => x.date === iso && x.time && !x.ideal).map((x) => ({ time: x.time, text: x.type, mins: Number(x.minutes) || 45, cls: 'wo' })),
@@ -979,7 +1028,8 @@
       const iso = U.toISO(d);
       return `<div class="${iso === tIso ? 'today' : ''}"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
         ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${evIcon(e)}${esc(e.text)}</div>`).join('')}
-        <ul class="sched">${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
+        <ul class="sched">${gcalOn(iso).map((g) => `<li class="gcal"><span class="grow">${g.time ? `<time>${esc(fmtTime(g.time))}</time> ` : ''}📅 ${esc(g.text)}</span></li>`).join('')}
+          ${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
           ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
           ${wos.filter((x) => x.date === iso).map((x) => `<li class="wo ${x.done ? 'done' : ''}"><span class="grow">${x.done ? '✓' : '◦'} ${esc(x.type)}</span></li>`).join('')}</ul>
       </div>`;
@@ -1045,6 +1095,7 @@
         <p class="muted small"><a href="#/lists/inbox">Open your inbox & to-dos →</a></p></section>`;
     })();
     const body = `
+      ${gcalStatusLine(wk)}
       ${top3}
       <h2 class="section">Schedule</h2>
       ${strip}
@@ -1789,6 +1840,7 @@
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
+    gcalRefresh(el) { const wk = el.dataset.key; loadGcal(wk, U.toISO(U.addDays(U.parseISO(wk), 7)), true); },
     completeSession(el) {
       const rec = (state.sessions[el.dataset.key] = state.sessions[el.dataset.key] || { steps: {} });
       rec.done = todayISO(); toast('Session complete'); commit();
@@ -2339,6 +2391,7 @@
     const y = window.scrollY;
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
     app.innerHTML = view(arg);
+    gcalKick(name, arg);
     app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
     const active = ROUTES[name] ? name : 'today';
     document.querySelectorAll('[data-route]').forEach((a) => {

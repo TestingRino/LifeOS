@@ -11,13 +11,13 @@ router.post('/google/token', async (req, res) => {
   if (!code) return res.status(400).json({ error: 'Missing authorization code' });
 
   try {
-    const response = await axios.post(GOOGLE_OAUTH_URL, {
+    const response = await axios.post(GOOGLE_OAUTH_URL, new URLSearchParams({
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
       redirect_uri: GOOGLE_REDIRECT_URI,
       grant_type: 'authorization_code',
-    });
+    }));
 
     const { access_token, refresh_token, expires_in } = response.data;
     res.json({ access_token, refresh_token, expires_in });
@@ -32,12 +32,12 @@ router.post('/google/refresh', async (req, res) => {
   if (!refresh_token) return res.status(400).json({ error: 'Missing refresh token' });
 
   try {
-    const response = await axios.post(GOOGLE_OAUTH_URL, {
+    const response = await axios.post(GOOGLE_OAUTH_URL, new URLSearchParams({
       refresh_token,
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
       grant_type: 'refresh_token',
-    });
+    }));
 
     const { access_token, expires_in } = response.data;
     res.json({ access_token, expires_in });
