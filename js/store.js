@@ -19,7 +19,7 @@
   function defaultState() {
     return {
       version: VERSION,
-      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00' },
+      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, syncOn: false, syncNudgeUntil: '', notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00' },
       foundation: { vision: '', eulogy: '', mission: '', values: '' },
       roles: [],          // {id, name, why}
       cycles: [],         // {id, name, start, end, review:{wins,lessons,adjust}, roleActions:{roleId:{monthly,weekly,daily}}}
@@ -39,6 +39,7 @@
       focus: {},          // 'YYYY-Qn' -> [goalId] — the 3–4 goals chosen as this quarter's focus
       bigAuto: {},        // 'YYYY-MM-DD' -> true once that day's Big 3 was auto-filled
       big3: [],           // {id, date, text, goalId, done, migrated} — Daily Big 3 (Full Focus / Bullet Journal style)
+      syncMeta: {},       // device-only: {fileId, remoteVersion, hash, at, snapshotDay} for Drive sync
       gcalCalendars: [],  // [{id, name, color, primary}] — the user's Google calendars (view-only)
       inbox: [],          // {id, kind 'todo'|'goal'|'note', text, date, done} — quick capture
       memories: [],       // {id, date, kind 'memory'|'quote'|'event', who, text}

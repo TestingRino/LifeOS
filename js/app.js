@@ -8,6 +8,8 @@
   let firstRun = false;
   try { firstRun = localStorage.getItem(S.KEY) === null; } catch (e) { /* storage unavailable */ }
   let state = S.load();
+  const rawSave = S.save;
+  S.save = (st) => { const ok = rawSave(st); if (st === state) scheduleSync(); return ok; };
   const app = document.getElementById('app');
 
   /* ---------- basics ---------- */
@@ -339,7 +341,7 @@
   /* ---------- Google Calendar events (read-only overlay, any number of calendars) ---------- */
   const GCAL_COLOR = '#6f8296';
   const gcal = { events: [], ranges: {}, busy: false, status: '', ok: true, listTried: false, listError: '' };
-  const gcalConnected = () => !!localStorage.getItem('google_access_token');
+  const gcalConnected = () => !!localStorage.getItem('google_access_token') && (!gScope() || /auth\/calendar/.test(gScope()));
   const gcalSelectedIds = () => { const sel = (state.settings.gcalSelected || []).filter(Boolean); return (sel.length ? sel : ['primary']).slice(0, 10); };
   const gcalFriendly = (m) => (/insufficient authentication scopes|insufficientPermissions/i.test(m || '')
     ? 'Google did not give Life.OS permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
@@ -472,9 +474,10 @@
     return res.json();
   }
 
-  async function startGoogleOAuth() {
+  async function startGoogleOAuth(kind = 'calendar') {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/google/url`);
+      localStorage.setItem('google_intent', kind);
+      const res = await fetch(`${API_BASE}/api/auth/google/url?scopes=${kind}`);
       const { url } = await res.json();
       window.location = url;
     } catch (e) { console.error('OAuth error:', e); toast('Failed to start login'); }
@@ -627,6 +630,9 @@
     const fgoals = focusGoals(iso);
     const idealToday = idealOn(iso);
     const st = setupStatus(), stDone = st.filter((x) => x.done).length, stNext = st.find((x) => !x.done);
+    const syncNudge = !syncEnabled() && dataWeight() >= 8 && (state.settings.syncNudgeUntil || '') <= iso
+      ? `<section class="box sync-nudge"><div class="grow"><strong>Your plan only lives in this browser.</strong> <span class="muted">Turn on sync so a cleared browser or a lost phone can't erase the time you've invested.</span></div>
+        <button class="btn primary" data-act="syncEnable">Turn on sync</button><button class="btn ghost" data-act="export">Download backup</button><button class="x" data-act="syncSnooze" aria-label="Remind me in a week" title="Remind me in a week">×</button></section>` : '';
     const setupBanner = !state.settings.setupDone && !state.settings.setupDismissed && stNext ? `<section class="box setup-banner"><div class="grow"><strong>Finish setting up Life.OS</strong> <span class="muted">· ${stDone} of ${st.length} · next: ${esc(stNext.label)}</span><br>${progressBar((stDone / st.length) * 100)}</div><a class="btn primary" href="#/setup/${stNext.step}">Continue</a><button class="x" data-act="dismissSetup" aria-label="Hide setup">×</button></section>` : '';
     const rv = state.reviews[iso] || {};
     const rvCount = ['purpose', 'goals', 'ideal'].filter((k) => rv[k]).length;
@@ -662,6 +668,7 @@
       <select name="kind" aria-label="Type"><option value="todo">To-do</option><option value="goal">Goal idea</option><option value="memory">Memory</option><option value="quote">Quote</option></select><button aria-label="Capture">+</button></form>`;
     const body = `
       ${setupBanner}
+      ${syncNudge}
       ${dueStrip}
       ${capture}
       <div class="today-cols"><div class="today-left">
@@ -1919,7 +1926,7 @@
     const s = state.settings;
     const canNotify = typeof Notification !== 'undefined';
     const notifPerm = canNotify ? Notification.permission : null;
-    const hasCalendar = !!localStorage.getItem('google_access_token');
+    const hasCalendar = gcalConnected();
     const currentApiBase = localStorage.getItem('api_base') || API_BASE;
     if (hasCalendar && !state.gcalCalendars.length && !gcal.listTried) setTimeout(loadCalendarList, 0);
     const calPicker = hasCalendar ? `<div class="gcal-picker"><h3>Calendars to show <small class="muted">· view only, nothing is ever changed in Google</small></h3>
@@ -1930,6 +1937,7 @@
         : gcal.listError ? `<p class="nudge">${esc(gcal.listError)} ${gcalNeedsReconnect(gcal.listError) ? '<button class="btn small" data-act="reconnectCalendar">Reconnect Google</button>' : ''}</p>` : '<p class="muted small">Loading your calendars…</p>'}
       <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
+      ${syncCard()}
       <section class="box"><h2>Integrations</h2>
         <div class="row wrap">
           ${hasCalendar ? `<div style="flex:1"><p class="muted small">✓ Google Calendar connected</p><button class="btn small ghost danger" data-act="disconnectCalendar">Disconnect</button></div>` : `<button class="btn" data-act="connectCalendar">Connect Google Calendar</button>`}
@@ -2108,7 +2116,8 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
     reset() {
-      if (!confirm('Erase ALL Life.OS data in this browser? Export a backup first if unsure.')) return;
+      if (!confirm('Erase ALL Life.OS data in this browser? A backup file will be downloaded first.')) return;
+      ACTS.export();
       state = S.defaultState(); commit();
     },
     clearShopping() { state.shopping = state.shopping.filter((x) => !x.done); commit(); },
@@ -2120,9 +2129,9 @@
     },
     connectCalendar() { startGoogleOAuth(); },
     disconnectCalendar() {
-      if (!confirm('Disconnect Google Calendar?')) return;
-      localStorage.removeItem('google_access_token');
-      localStorage.removeItem('google_refresh_token');
+      if (!confirm(state.settings.syncOn ? 'Disconnect Google? This also turns off sync (your Drive copy is kept).' : 'Disconnect Google Calendar?')) return;
+      ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email'].forEach((k) => localStorage.removeItem(k));
+      state.settings.syncOn = false;
       commit();
     },
     uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
@@ -2185,6 +2194,19 @@
       ['google_access_token', 'google_refresh_token', 'google_scope'].forEach((k) => localStorage.removeItem(k));
       gcalReset(); gcal.listTried = false; gcal.listError = '';
       startGoogleOAuth();
+    },
+    syncEnable() { if (syncHasScope()) { state.settings.syncOn = true; commit(); syncNow(); } else startGoogleOAuth('sync'); },
+    syncNow() { if (!state.settings.syncOn) return; syncNow(); },
+    syncOff() { state.settings.syncOn = false; sync.status = 'off'; commit(); toast('Sync is off. Your Drive copy is kept.'); },
+    syncBackups() { loadBackups(); },
+    syncRestore(el) { if (confirm('Replace this device\'s plan with that backup? It becomes your current copy everywhere.')) restoreBackup(el.dataset.id); },
+    syncSnooze() { state.settings.syncNudgeUntil = U.toISO(U.addDays(today(), 7)); commit(); },
+    async syncDelete() {
+      if (!confirm('Delete your Life.OS copy and all backups from Google Drive? Your data on this device is not touched.')) return;
+      try {
+        for (const f of [...await driveList(`name='${SYNC_FILE}' and trashed=false`), ...await driveList("name contains 'lifeos-backup-' and trashed=false")]) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
+        state.settings.syncOn = false; state.syncMeta = {}; sync.backups = null; commit(); toast('Cloud copy deleted');
+      } catch (e) { toast(e.message); }
     },
     calZoom(el) {
       const cur = zoomLevel(), i = ZOOMS.findIndex((x) => x[0] === cur), j = Math.min(ZOOMS.length - 1, Math.max(0, i + Number(el.dataset.dir)));
@@ -2862,6 +2884,180 @@
     if (el) el.textContent = `“${q[0]}” · ${q[1]}`;
   }
 
+  /* ---------- protect my plan: sync across devices (Google Drive app data) ---------- */
+  const SYNC_FILE = 'lifeos-data.json', SYNC_KEEP = 14;
+  const DRIVE = 'https://www.googleapis.com/drive/v3/files', UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files', DRIVE_FIELDS = 'id,name,md5Checksum,modifiedTime';
+  const gScope = () => localStorage.getItem('google_scope') || '';
+  const syncHasScope = () => !!localStorage.getItem('google_access_token') && /auth\/drive\.appdata/.test(gScope());
+  const syncEnabled = () => !!state.settings.syncOn && syncHasScope();
+  const sync = { busy: false, status: 'off', msg: '', pending: null, timer: null, backups: null };
+  const fmtClock = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const syncVersion = (f) => (f ? f.md5Checksum || f.modifiedTime : '');
+  const deviceId = () => { let d = localStorage.getItem('lifeos.device'); if (!d) { d = S.uid(); localStorage.setItem('lifeos.device', d); } return d; };
+  const hashStr = (str) => { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return String(h >>> 0); };
+  const wrapData = (data) => ({ app: 'lifeos', version: 1, updatedAt: new Date().toISOString(), device: deviceId(), data });
+  const dataWeight = () => ['goals', 'roles', 'events', 'workouts', 'journals', 'schedule', 'idealWeek', 'wheel', 'memories', 'inbox'].reduce((n, k) => n + state[k].length, 0)
+    + Object.keys(state.weeks).length + Object.keys(state.months).length + ((state.foundation.mission || '').trim() ? 4 : 0);
+  function isBlank() {
+    return ['goals', 'roles', 'schedule', 'workouts', 'journals', 'events', 'idealWeek', 'inbox', 'wheel', 'memories'].every((k) => !state[k].length) && !(state.foundation.mission || '').trim();
+  }
+  /* Everything except per-device things (notification state, calendar list cache, sync bookkeeping). */
+  function syncPayload() {
+    const o = JSON.parse(JSON.stringify(state));
+    ['lastNotifications', 'gcalCalendars', 'syncMeta'].forEach((k) => delete o[k]);
+    ['notificationsEnabled', 'syncOn'].forEach((k) => delete o.settings[k]);
+    return o;
+  }
+  function adoptData(data) {
+    const keep = { lastNotifications: state.lastNotifications, gcalCalendars: state.gcalCalendars, syncMeta: state.syncMeta };
+    const dev = { notificationsEnabled: state.settings.notificationsEnabled, syncOn: state.settings.syncOn };
+    const next = S.migrate(data);
+    Object.assign(next, keep); Object.assign(next.settings, dev);
+    return next;
+  }
+  function mergeStates(a, b) {      // union by id, local (a) wins on clashes, blanks are filled from b
+    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+    const withIds = (arr) => arr.every((x) => isObj(x) && 'id' in x);
+    const merge = (x, y) => {
+      if (Array.isArray(x) && Array.isArray(y)) {
+        if (withIds(x) && withIds(y)) { const seen = new Set(x.map((i) => i.id)); return [...x, ...y.filter((i) => !seen.has(i.id))]; }
+        return x.length ? x : y;
+      }
+      if (isObj(x) && isObj(y)) { const out = { ...y }; Object.keys(x).forEach((k) => { out[k] = k in y ? merge(x[k], y[k]) : x[k]; }); return out; }
+      return x === undefined || x === '' || x === null ? y : x;
+    };
+    return merge(a, b);
+  }
+
+  async function googleRefresh() {
+    const rt = localStorage.getItem('google_refresh_token');
+    if (!rt) return false;
+    const r = await fetch(`${API_BASE}/api/auth/google/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt }) });
+    if (!r.ok) return false;
+    localStorage.setItem('google_access_token', (await r.json()).access_token);
+    return true;
+  }
+  async function driveFetch(url, opts, retried) {
+    const res = await fetch(url, { ...(opts || {}), headers: { ...((opts && opts.headers) || {}), Authorization: `Bearer ${localStorage.getItem('google_access_token')}` } });
+    if (res.status === 401 && !retried) { if (await googleRefresh()) return driveFetch(url, opts, true); throw new Error('Google sign-in expired. Turn sync on again in Settings.'); }
+    if (!res.ok) throw new Error(`Google Drive error ${res.status}`);
+    return res;
+  }
+  async function driveList(q) {
+    const res = await driveFetch(`${DRIVE}?spaces=appDataFolder&pageSize=100&q=${encodeURIComponent(q)}&fields=${encodeURIComponent(`files(${DRIVE_FIELDS})`)}`);
+    return (await res.json()).files || [];
+  }
+  const driveFind = async () => (await driveList(`name='${SYNC_FILE}' and trashed=false`))[0] || null;
+  const driveRead = async (id) => (await driveFetch(`${DRIVE}/${id}?alt=media`)).json();
+  async function driveWrite(id, name, content) {
+    const body = JSON.stringify(content);
+    if (id) return (await driveFetch(`${UPLOAD}/${id}?uploadType=media&fields=${DRIVE_FIELDS}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body })).json();
+    const b = `lifeos${S.uid()}`;
+    const multipart = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: ['appDataFolder'] })}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
+    return (await driveFetch(`${UPLOAD}?uploadType=multipart&fields=${DRIVE_FIELDS}`, { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${b}` }, body: multipart })).json();
+  }
+
+  function showSyncStatus() {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+    const m = state.syncMeta || {};
+    el.textContent = !syncEnabled() ? '' : sync.status === 'syncing' ? '☁ Syncing…' : sync.status === 'error' ? `⚠ Sync problem: ${sync.msg}`
+      : sync.status === 'conflict' ? '⚠ Sync needs your decision' : m.at ? `☁ Backed up ${fmtClock(m.at)}` : '☁ Sync on';
+  }
+  function setSync(status, msg) {
+    sync.status = status; sync.msg = msg || '';
+    showSyncStatus();
+    if (location.hash.startsWith('#/settings')) render();
+  }
+  async function snapshotToday(cur) {            // one dated backup per day, newest 14 kept
+    const day = todayISO();
+    if ((state.syncMeta || {}).snapshotDay === day) return;
+    const have = await driveList(`name='lifeos-backup-${day}.json' and trashed=false`);   // another device may have made today's already
+    if (!have.length) await driveWrite(null, `lifeos-backup-${day}.json`, wrapData(cur));
+    state.syncMeta.snapshotDay = day; rawSave(state);
+    const files = (await driveList("name contains 'lifeos-backup-' and trashed=false")).sort((a, b) => (a.name < b.name ? 1 : -1));
+    for (const f of files.slice(SYNC_KEEP)) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
+  }
+  async function pushLocal(fileId) {
+    const cur = syncPayload(), f = await driveWrite(fileId, SYNC_FILE, wrapData(cur));
+    state.syncMeta = { ...(state.syncMeta || {}), fileId: f.id, remoteVersion: syncVersion(f), hash: hashStr(JSON.stringify(cur)), at: new Date().toISOString() };
+    rawSave(state);
+    snapshotToday(cur).catch((e) => console.warn('Backup copy failed', e));
+  }
+  function applyRemote(data, remote) {
+    const prevMeta = state.syncMeta || {};
+    state = adoptData(data);
+    state.syncMeta = { ...prevMeta, fileId: remote.id, remoteVersion: syncVersion(remote), at: new Date().toISOString() };
+    state.syncMeta.hash = hashStr(JSON.stringify(syncPayload()));
+    rawSave(state); render();
+  }
+  function askSync(remote, data) {
+    sync.pending = { remote, data };
+    setSync('conflict');
+    document.getElementById('syncDlg').showModal();
+  }
+  async function resolveSync(pick) {
+    const { remote, data } = sync.pending || {};
+    if (!remote) return;
+    sync.pending = null; sync.busy = true; setSync('syncing');
+    try {
+      const day = todayISO();
+      if (pick === 'remote') { await driveWrite(null, `lifeos-backup-${day}-this-device.json`, wrapData(syncPayload())).catch(() => {}); applyRemote(data, remote); }
+      else if (pick === 'local') { await driveWrite(null, `lifeos-backup-${day}-drive-copy.json`, wrapData(data)).catch(() => {}); await pushLocal(remote.id); }
+      else { applyRemote(mergeStates(syncPayload(), data), remote); await pushLocal(remote.id); }
+      setSync('ok'); toast(pick === 'merge' ? 'Merged both versions' : pick === 'remote' ? 'Using your Drive copy' : 'Kept this device');
+    } catch (e) { console.error('Sync failed:', e); setSync('error', e.message); }
+    finally { sync.busy = false; showSyncStatus(); }
+  }
+  async function syncNow() {
+    if (!syncEnabled() || sync.busy || sync.pending) return;
+    sync.busy = true; setSync('syncing');
+    try {
+      const meta = state.syncMeta || {}, curHash = hashStr(JSON.stringify(syncPayload())), dirty = curHash !== meta.hash;
+      const remote = await driveFind();
+      if (!remote) { if (!isBlank()) await pushLocal(null); setSync('ok'); }
+      else if (meta.fileId !== remote.id) {                    // first time this device meets this Drive file
+        const w = await driveRead(remote.id);
+        if (isBlank()) { applyRemote(w.data, remote); setSync('ok'); toast('Your plan was restored from Google Drive'); }
+        else askSync(remote, w.data);
+      } else if (syncVersion(remote) === meta.remoteVersion) { if (dirty) await pushLocal(remote.id); setSync('ok'); }
+      else {
+        const w = await driveRead(remote.id);
+        if (!dirty) { applyRemote(w.data, remote); setSync('ok'); } else askSync(remote, w.data);
+      }
+    } catch (e) { console.error('Sync failed:', e); setSync('error', e.message); }
+    finally { sync.busy = false; showSyncStatus(); }
+  }
+  function scheduleSync() {
+    if (!syncEnabled()) return;
+    clearTimeout(sync.timer); sync.timer = setTimeout(syncNow, 3000);
+  }
+  async function loadBackups() {
+    try { sync.backups = (await driveList("name contains 'lifeos-backup-' and trashed=false")).sort((a, b) => (a.name < b.name ? 1 : -1)); }
+    catch (e) { sync.backups = []; toast(e.message); }
+    render();
+  }
+  async function restoreBackup(id) {
+    try {
+      const w = await driveRead(id);
+      await driveWrite(null, `lifeos-backup-${todayISO()}-before-restore.json`, wrapData(syncPayload())).catch(() => {});   // never lose the current plan
+      state = adoptData(w.data);
+      state.syncMeta = { ...(state.syncMeta || {}), hash: '' };      // mark as changed so it is uploaded as the new current copy
+      rawSave(state); render(); scheduleSync(); toast('Restored from the backup');
+    } catch (e) { toast(e.message); }
+  }
+  function syncCard() {
+    const on = syncEnabled(), email = localStorage.getItem('google_email') || '', m = state.syncMeta || {};
+    const backups = sync.backups ? (sync.backups.length ? `<ul class="backups">${sync.backups.map((f) => `<li><strong>${esc(f.name.replace(/^lifeos-backup-|\.json$/g, ''))}</strong><button type="button" class="btn ghost small" data-act="syncRestore" data-id="${esc(f.id)}">Restore</button></li>`).join('')}</ul>` : '<p class="muted small">No backup copies yet. One is saved each day you change your plan.</p>') : '';
+    return `<section class="box sync-card"><h2>Protect my plan <small class="muted">· sync across devices</small></h2>
+      <p class="prompt">Your plan is saved in this browser. Turn on sync and it is also kept as one private file in <strong>your own Google Drive</strong> (a hidden app folder that only Life.OS can open), so a cleared browser or a lost phone can't erase it, and every device stays the same. A dated backup is saved daily.</p>
+      ${on ? `<p>${sync.status === 'error' ? `<span class="nudge">⚠ ${esc(sync.msg)}</span>` : `✓ Syncing${email ? ` as <strong>${esc(email)}</strong>` : ''}${m.at ? ` · last synced ${esc(fmtClock(m.at))}` : ''}`}</p>
+        <div class="row wrap"><button class="btn" data-act="syncNow">Sync now</button><button class="btn ghost" data-act="syncBackups">Cloud backups…</button><button class="btn ghost" data-act="export">Download a backup file</button><button class="btn ghost" data-act="syncOff">Turn off</button><button class="btn ghost danger" data-act="syncDelete">Delete cloud copy</button></div>${backups}`
+      : `<div class="row wrap"><button class="btn primary" data-act="syncEnable">Turn on sync with Google</button><button class="btn ghost" data-act="export">Download a backup file</button></div>
+        <p class="muted small">Life.OS only asks Google for your email and its own private folder in Drive. It can't see your other files.</p>`}
+    </section>`;
+  }
+
   /* ---------- router ---------- */
   document.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('tl-wrap')) tlScroll = e.target.scrollTop; }, true);
   document.addEventListener('click', (e) => {
@@ -2899,7 +3095,7 @@
     if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : (Number(tlw.dataset.start) || 0) * (Number(tlw.dataset.zoom) || 1);
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
     if (render.last !== location.hash) quoteIdx = (quoteIdx + 1) % QUOTES.length;
-    showQuote();
+    showQuote(); showSyncStatus();
     render.last = location.hash;
     if (focused) { const f = app.querySelector(`[data-bind="${CSS.escape(focused)}"]`); if (f) f.focus(); }
   }
@@ -2944,6 +3140,13 @@
       localStorage.setItem('google_access_token', t.access_token);
       if (t.refresh_token) localStorage.setItem('google_refresh_token', t.refresh_token);
       if (t.scope) localStorage.setItem('google_scope', t.scope);
+      if (t.id_token) { try { const pl = JSON.parse(atob(t.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); if (pl.email) localStorage.setItem('google_email', pl.email); } catch (e) { /* email is only for display */ } }
+      const intent = localStorage.getItem('google_intent'); localStorage.removeItem('google_intent');
+      if (intent === 'sync') {
+        if (syncHasScope()) { state.settings.syncOn = true; S.save(state); toast('Sync is on'); syncNow(); }
+        else toast('Google did not allow Drive access. Try again and keep every box ticked.');
+        render(); return;
+      }
       const canRead = !t.scope || /auth\/calendar(\.readonly|\.calendarlist(\.readonly)?)?(\s|$)/.test(t.scope);
       toast(canRead ? 'Google Calendar connected' : 'Connected, but Google did not allow reading your calendars. Reconnect and tick every box.');
       render();
@@ -3205,6 +3408,11 @@
 
   if (state.idealWeek.some((i) => !i.quarter)) { state.idealWeek.forEach((i) => { if (!i.quarter) i.quarter = quarterKey(todayISO()); }); if (!firstRun) S.save(state); }
   if (firstRun && !/^#\/(welcome|setup)/.test(location.hash)) location.hash = '#/welcome/1';
+  if (navigator.storage && navigator.storage.persist && !isBlank()) navigator.storage.persist().catch(() => {});
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
+  setInterval(syncNow, 5 * 60 * 1000);
+  document.getElementById('syncDlg').addEventListener('click', (e) => { const b = e.target.closest('[data-sync-pick]'); if (!b) return; document.getElementById('syncDlg').close(); resolveSync(b.dataset.syncPick); });
   render();
   checkNotifications();
+  syncNow();
 })();

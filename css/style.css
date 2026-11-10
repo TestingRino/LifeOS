@@ -648,3 +648,12 @@ ul.plain-list { list-style: none; padding: 0; margin: .4rem 0; } ul.plain-list l
 .tl-zoom .chip { min-width: 1.8rem; text-align: center; cursor: pointer; }
 .tl-zoom .chip:disabled { opacity: .35; cursor: default; }
 .tl-zoom .chip { border-style: solid; background: var(--card); color: var(--navy); }
+
+/* sync */
+.sync-status { font-size: .8rem; color: var(--muted); }
+.sync-nudge { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; border-left: 4px solid var(--red); }
+.sync-choices { display: flex; flex-direction: column; gap: .5rem; margin: .8rem 0; }
+.sync-card .row { gap: .4rem; }
+ul.backups { list-style: none; padding: 0; margin: .6rem 0 0; max-width: 28rem; }
+ul.backups li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .3rem 0; border-bottom: 1px dotted var(--line); }
+ul.backups .btn { margin-top: 0; }

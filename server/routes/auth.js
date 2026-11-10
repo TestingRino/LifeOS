@@ -19,8 +19,8 @@ router.post('/google/token', async (req, res) => {
       grant_type: 'authorization_code',
     }));
 
-    const { access_token, refresh_token, expires_in, scope } = response.data;
-    res.json({ access_token, refresh_token, expires_in, scope });
+    const { access_token, refresh_token, expires_in, scope, id_token } = response.data;
+    res.json({ access_token, refresh_token, expires_in, scope, id_token });
   } catch (err) {
     console.error('OAuth token exchange failed:', err.response?.data || err.message);
     res.status(400).json({ error: 'Token exchange failed' });
@@ -48,10 +48,17 @@ router.post('/google/refresh', async (req, res) => {
 });
 
 router.get('/google/url', (req, res) => {
-  const scope = [
+  // Calendar and sync are asked for separately so people only grant what they use.
+  const CALENDAR = [
     'https://www.googleapis.com/auth/calendar.readonly', // read events and the list of calendars
     'https://www.googleapis.com/auth/calendar.events',   // create events (photo imports, ideal week, scheduled tasks)
-  ].join(' ');
+  ];
+  const SYNC = [
+    'openid', 'email',                                    // who is signed in (shown in Settings)
+    'https://www.googleapis.com/auth/drive.appdata',      // Life.OS's own hidden app folder in the user's Drive
+  ];
+  const kind = req.query.scopes;
+  const scope = (kind === 'sync' ? SYNC : kind === 'all' ? [...CALENDAR, ...SYNC] : CALENDAR).join(' ');
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
@@ -65,5 +72,6 @@ router.get('/google/url', (req, res) => {
 
   res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
+
 
 export default router;
