@@ -304,6 +304,10 @@
               <td data-label="Month">${a.month.done}/${a.month.total}</td><td data-label="Week">${a.week.done}/${a.week.total}</td>
               <td data-label="Pulse">${pulse ? `<span class="pulse ${pulse}">${{ on: 'On track', slip: 'Slipping', off: 'Stalled' }[pulse]}</span>` : '<span class="muted">—</span>'}</td></tr>`;
           }).join('')}</tbody></table>` : `<p class="muted">No active goals. <a href="#/goals">Hold a planning session →</a></p>`}
+      </section>
+      <section class="box">
+        <h2>Today's journal <a class="more" href="#/lists/journal">All entries →</a></h2>
+        ${state.journals.find((j) => j.date === iso) ? `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Add to today's thoughts…"></textarea><button aria-label="Save">+</button></form>` : `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Today's thoughts and reflections…"></textarea><button aria-label="Save">+</button></form>`}
       </section>`;
     return page('Today', U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body);
   }
@@ -836,7 +840,7 @@
 
   function viewLists(tab) {
     tab = tab || 'bucket';
-    const tabs = [['bucket', 'Bucket List'], ['hobbies', 'Hobbies & Projects'], ['shopping', 'Shopping'], ['reading', 'Reading & Entertainment'], ['index', 'Notes Index']];
+    const tabs = [['bucket', 'Bucket List'], ['hobbies', 'Hobbies & Projects'], ['shopping', 'Shopping'], ['reading', 'Reading & Entertainment'], ['journal', 'Journal'], ['index', 'Notes Index']];
     let body = `<nav class="tabs">${tabs.map(([k, l]) => `<a href="#/lists/${k}" class="${k === tab ? 'sel' : ''}">${l}</a>`).join('')}</nav>`;
     if (tab === 'bucket') {
       body += `<p class="prompt">Start simple and let it evolve. Target different areas of life, and balance ambition with some easier wins. Have fun.</p>
@@ -892,6 +896,19 @@
           </section>`;
         }).join('')}</div>
         <form class="add" data-add="reading"><input name="title" placeholder="Title" required><button aria-label="Add">+</button></form>`;
+    } else if (tab === 'journal') {
+      const today_iso = U.toISO(today());
+      const sorted = state.journals.slice().sort((a, b) => (b.date < a.date ? -1 : 1));
+      body += `<p class="prompt">Daily thoughts and reflections. Searchable by date or tag.</p>
+        <form class="add" data-add="journals"><input type="date" name="date" value="${today_iso}" required><input name="text" placeholder="Today's thoughts…" required><button aria-label="Add">+</button></form>
+        <div class="cards">${sorted.map((j) => {
+          const p = `journals.@${j.id}`;
+          return `<section class="box card ${j.date === today_iso ? 'hot' : ''}">
+            <div class="row"><time>${U.fmtDate(j.date, { weekday: 'short', month: 'short', day: 'numeric' })}</time>
+              <button class="x" data-act="del" data-path="journals" data-id="${j.id}" aria-label="Remove">×</button></div>
+            <textarea class="inline" data-bind="${p}.text" rows="3">${esc(j.text)}</textarea>
+          </section>`;
+        }).join('')}</div>`;
     } else {
       body += `<p class="prompt">Give each note in your physical planner a topic and page number so it's easy to find.</p>
         <section class="box"><table class="index"><thead><tr><th>Note topic</th><th>Page</th><th></th></tr></thead><tbody>
@@ -986,6 +1003,7 @@
     reading: () => ({ done: false, by: '', genre: '', nutshell: '' }),
     events: () => ({ end: '', yearly: false }),
     roles: () => ({ why: '' }),
+    journals: () => ({ text: '' }),
   };
 
   function nextCycle(id) {
