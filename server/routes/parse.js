@@ -91,44 +91,43 @@ function getRoutingSuggestions(type, data) {
 
   switch (type) {
     case 'schedule':
-      suggestions.push({ route: 'schedule', label: 'Add to this week\'s schedule', data: data.entries });
-      suggestions.push({ route: 'calendar', label: 'Create Google Calendar events', data: data.entries });
+      suggestions.push({ route: 'schedule', label: 'Add to this week\'s schedule', data });
+      suggestions.push({ route: 'calendar', label: 'Create Google Calendar events', data });
       break;
     case 'goals':
-      suggestions.push({ route: 'goals', label: 'Add to Roles & Goals', data: data.goals });
+      suggestions.push({ route: 'goals', label: 'Add to Roles & Goals', data });
       suggestions.push({ route: 'journal', label: 'Add as journal entry', data: { text: JSON.stringify(data.goals, null, 2) } });
       break;
     case 'workouts':
-      suggestions.push({ route: 'workouts', label: 'Log workouts in Track', data: data.workouts });
+      suggestions.push({ route: 'workouts', label: 'Log workouts in Track', data });
       break;
     case 'weights':
-      suggestions.push({ route: 'weights', label: 'Log weights in Track', data: data.weights });
+      suggestions.push({ route: 'weights', label: 'Log weights in Track', data });
       break;
     case 'habits':
-      suggestions.push({ route: 'habits', label: 'Add to Week habits', data: data.habits });
+      suggestions.push({ route: 'habits', label: 'Add to Week habits', data });
       break;
     case 'shopping':
-      suggestions.push({ route: 'shopping', label: 'Add to Shopping list', data: data.items });
+      suggestions.push({ route: 'shopping', label: 'Add to Shopping list', data });
       break;
     case 'journal':
       suggestions.push({ route: 'journal', label: 'Save as journal entry', data: { text: data.text } });
       break;
     case 'bucket':
-      suggestions.push({ route: 'bucket', label: 'Add to Bucket List', data: data.items });
+      suggestions.push({ route: 'bucket', label: 'Add to Bucket List', data });
       break;
     case 'reading':
-      suggestions.push({ route: 'reading', label: 'Add to Reading list', data: data.items });
+      suggestions.push({ route: 'reading', label: 'Add to Reading list', data });
       break;
     case 'projects':
-      suggestions.push({ route: 'projects', label: 'Create Projects', data: data.projects });
+      suggestions.push({ route: 'projects', label: 'Create Projects', data });
       break;
     case 'events':
-      suggestions.push({ route: 'events', label: 'Add Key Dates', data: data.events });
-      suggestions.push({ route: 'calendar', label: 'Create Google Calendar events', data: data.events });
+      suggestions.push({ route: 'events', label: 'Add Key Dates', data });
+      suggestions.push({ route: 'calendar', label: 'Create Google Calendar events', data });
       break;
     case 'reflections':
-      suggestions.push({ route: 'reflection', label: 'Save month/week reflection', data });
-      suggestions.push({ route: 'journal', label: 'Save as journal entry', data: { text: `Progress: ${data.progress}\nTo improve: ${data.improve}\nMemories: ${data.memories}` } });
+          suggestions.push({ route: 'journal', label: 'Save as journal entry', data: { text: `Progress: ${data.progress}\nTo improve: ${data.improve}\nMemories: ${data.memories}` } });
       break;
     default:
       suggestions.push({ route: 'journal', label: 'Save as journal entry', data: { text: JSON.stringify(data) } });

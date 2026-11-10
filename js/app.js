@@ -273,15 +273,30 @@
     } catch (e) { console.warn('Calendar sync error:', e); return []; }
   }
 
+  /* Phone photos can exceed the host's request limit, so downscale to a JPEG first. */
+  async function shrinkImage(file, maxDim = 1800) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+      return blob || file;
+    } catch (e) { return file; }
+  }
+
   async function uploadPhotoOCR(file) {
     const fd = new FormData();
-    fd.append('image', file);
+    fd.append('image', await shrinkImage(file), 'photo.jpg');
     fd.append('type', 'auto');
-    try {
-      const res = await fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error(await res.text());
-      return await res.json();
-    } catch (e) { console.error('OCR error:', e); throw e; }
+    const res = await fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd });
+    if (!res.ok) {
+      let msg = `Server error ${res.status}`;
+      try { msg = (await res.json()).error || msg; } catch (e) { /* non-JSON error body */ }
+      throw new Error(msg);
+    }
+    return res.json();
   }
 
   async function startGoogleOAuth() {
@@ -290,6 +305,25 @@
       const { url } = await res.json();
       window.location = url;
     } catch (e) { console.error('OAuth error:', e); toast('Failed to start login'); }
+  }
+
+  async function pushToGoogleCalendar(items) {
+    const token = localStorage.getItem('google_access_token');
+    if (!token) { toast('Connect Google Calendar in Settings first'); return; }
+    let ok = 0;
+    for (const e of items) {
+      if (!e.date || !e.text) continue;
+      const event = { text: e.text, date: e.date };
+      if (e.time) {
+        const start = new Date(`${e.date}T${e.time}`);
+        if (!isNaN(start)) { event.start = start.toISOString(); event.end = new Date(start.getTime() + 3600000).toISOString(); }
+      }
+      try {
+        const r = await fetch(`${API_BASE}/api/calendar/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token, event }) });
+        if (r.ok) ok++;
+      } catch (err) { console.warn('Calendar create failed', err); }
+    }
+    toast(ok ? `Created ${ok} calendar event${ok === 1 ? '' : 's'}` : 'Could not create calendar events');
   }
 
   function addOCRDataToApp(route, data) {
@@ -364,10 +398,8 @@
           });
           break;
         case 'calendar':
-          data.entries?.forEach(e => {
-            if (e.date && e.text) state.schedule.push({ id: S.uid(), date: e.date, time: e.time || '', text: e.text });
-          });
-          break;
+          pushToGoogleCalendar(data.entries || data.events || []);
+          return;
       }
       commit();
       toast(`Added to ${route}`);
@@ -1616,24 +1648,30 @@
     });
   }
 
+  let ocrSuggestions = [];
   uploadInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    toast('Processing image...');
+    toast('Reading photo…');
     try {
-      const result = await uploadPhotoOCR(file);
-      const { type, data, suggestions } = result;
-      document.getElementById('ocrType').textContent = `Detected: ${type} (${suggestions.length} option${suggestions.length > 1 ? 's' : ''})`;
-      const preview = document.getElementById('ocrPreview');
-      preview.innerHTML = `<pre>${esc(JSON.stringify(data, null, 2).slice(0, 500))}</pre>`;
-      const routeButtons = document.getElementById('routeButtons');
-      routeButtons.innerHTML = suggestions.map(s => `<button type="button" class="btn" onclick="addOCRDataToApp('${s.route}', ${JSON.stringify(s.data).replace(/"/g, '&quot;')})">→ ${s.label}</button>`).join('');
+      const { type, data, suggestions = [] } = await uploadPhotoOCR(file);
+      ocrSuggestions = suggestions;
+      document.getElementById('ocrType').textContent = `Detected: ${type}`;
+      document.getElementById('ocrPreview').innerHTML = `<pre>${esc(JSON.stringify(data, null, 2).slice(0, 800))}</pre>`;
+      document.getElementById('routeButtons').innerHTML = suggestions.map((s, i) => `<button type="button" class="btn" data-ocr-route="${i}">→ ${esc(s.label)}</button>`).join('');
       uploadDlg.close();
       ocrResultDlg.showModal();
     } catch (err) {
-      toast('OCR failed. Check that the server is running.');
+      toast(`OCR failed: ${err.message}`.slice(0, 120));
       console.error(err);
-    }
+    } finally { uploadInput.value = ''; }
+  });
+  document.getElementById('routeButtons').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ocr-route]');
+    const s = btn && ocrSuggestions[Number(btn.dataset.ocrRoute)];
+    if (!s) return;
+    ocrResultDlg.close();
+    addOCRDataToApp(s.route, s.data);
   });
 
   render();

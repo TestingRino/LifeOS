@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import Anthropic from '@anthropic-ai/sdk';
+import parse from './parse.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -21,22 +22,24 @@ const OCR_PROMPTS = {
   reflections: `Extract reflections from this image. Extract any mentions of: progress on goals, areas to improve, and memorable moments. Return JSON: {progress: "...", improve: "...", memories: "..."}`,
 };
 
-async function analyzeImage(base64Image, type = 'auto') {
+const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+async function analyzeImage(base64Image, mediaType, type = 'auto') {
   const prompt = type === 'auto'
-    ? `Analyze this image and detect what type of life planning data it contains (schedule, goals, workouts, weights, habits, shopping, journal, bucket, reading, projects, events, or reflections). Then extract the data. Return JSON: {type: "...", data: {...}}`
+    ? `Analyze this image and detect what type of life planning data it contains (schedule, goals, workouts, weights, habits, shopping, journal, bucket, reading, projects, events, or reflections). Then extract the data. Return ONLY JSON: {type: "...", data: {...}} where data uses the shape for that type.`
     : (OCR_PROMPTS[type] || OCR_PROMPTS.journal);
 
   try {
     const response = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2000,
+      model: 'claude-sonnet-5-5',
+      max_tokens: 4000,
       messages: [
         {
           role: 'user',
           content: [
             {
               type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: base64Image },
+              source: { type: 'base64', media_type: MEDIA_TYPES.includes(mediaType) ? mediaType : 'image/jpeg', data: base64Image },
             },
             { type: 'text', text: prompt },
           ],
@@ -68,9 +71,13 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
   const base64 = req.file.buffer.toString('base64');
 
   try {
-    const result = await analyzeImage(base64, type);
-    res.json({ type, data: result });
+    const result = await analyzeImage(base64, req.file.mimetype, type);
+    if (result.error) return res.status(502).json({ error: 'Could not read structured data from that photo. Try a clearer, closer shot.' });
+    const detected = type === 'auto' ? (result.type || 'journal') : type;
+    const parsed = parse.normalizeByType(detected, (type === 'auto' ? result.data : result) || {});
+    res.json({ type: detected, data: parsed, suggestions: parse.getRoutingSuggestions(detected, parsed) });
   } catch (err) {
+    console.error('OCR analyze failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -85,7 +92,7 @@ router.post('/batch', upload.array('images', 5), async (req, res) => {
     for (let i = 0; i < req.files.length; i++) {
       const base64 = req.files[i].buffer.toString('base64');
       const type = types[i] || 'auto';
-      const result = await analyzeImage(base64, type);
+      const result = await analyzeImage(base64, req.files[i].mimetype, type);
       results.push({ index: i, type, data: result });
     }
     res.json({ results });
