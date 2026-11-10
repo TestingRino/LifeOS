@@ -113,6 +113,17 @@
     </li>`;
   }
 
+  /* ---------- quarterly focus & daily Big 3 ---------- */
+  const quarterKey = (iso) => { const d = U.parseISO(iso); return `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`; };
+  const quarterLabel = (iso) => quarterKey(iso).replace(/^(\d{4})-(Q\d)$/, '$2 $1');
+  function focusGoals(iso) {
+    return ((state.focus || {})[quarterKey(iso)] || []).map((id) => state.goals.find((g) => g.id === id)).filter((g) => g && g.status === 'active');
+  }
+  function nextStep(g) {
+    return [...(g.objectives || []), ...(g.milestones || [])].filter((i) => !i.done && i.text)
+      .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1))[0];
+  }
+
   /* ---------- small HTML helpers ---------- */
   const ta = (path, ph, rows = 3) =>
     `<textarea data-bind="${esc(path)}" rows="${rows}" placeholder="${esc(ph || '')}">${esc(get(path))}</textarea>`;
@@ -199,6 +210,8 @@
         }
       }
     }
+    if (!focusGoals(todayISO()).length && state.goals.some((g) => g.status === 'active' && g.kind !== 'habit'))
+      out.push({ t: 'Choose your quarterly focus', d: 'Pick the 3–4 goals that get your best energy this quarter.', h: '#/goals', hot: true });
     const lastWheel = state.wheel.map((x) => x.date).sort().pop();
     if (state.cycles.length && (!lastWheel || U.daysBetween(U.parseISO(lastWheel), t) >= 90))
       out.push({ t: 'Wheel of Life check-in', d: 'Score the seven areas of your life and see how balanced you are.', h: '#/wheel' });
@@ -419,9 +432,12 @@
     const due = rituals();
     const vision = state.foundation.vision.trim();
     const tks = trackers();
-    const pending = (key) => goals.flatMap((g) => (g[key] || []).filter((i) => !i.done && i.text)
+    const pending = (key) => (focusGoals(iso).length ? focusGoals(iso) : goals).flatMap((g) => (g[key] || []).filter((i) => !i.done && i.text)
       .map((i) => ({ text: i.text, due: i.due, goal: g.title, base: `goals.@${g.id}.${key}.@${i.id}` })))
       .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
+    const fgoals = focusGoals(iso);
+    const bigToday = state.big3.filter((b) => b.date === iso);
+    const carry = state.big3.filter((b) => b.date < iso && !b.done && !b.migrated).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-6);
     const openObjs = pending('objectives').slice(0, 6);
     const nextMs = pending('milestones').slice(0, 4);
 
@@ -444,6 +460,26 @@
 
     const body = `
       ${vision ? `<blockquote class="vision"><span>Who I'm becoming</span>${esc(vision.split('\n')[0])}</blockquote>` : ''}
+      <section class="box focus">
+        <h2>Quarterly focus <span class="muted">· ${quarterLabel(iso)}</span><a class="more" href="#/goals">Choose →</a></h2>
+        ${fgoals.length ? `<ul class="focus-list">${fgoals.map((g) => { const ns = nextStep(g); return `<li>
+          <div class="grow"><strong>${g.tier === 'purpose' ? '<span class="star">★</span> ' : ''}${esc(g.title)}</strong> ${progressBar(g.progress)} <small>${Number(g.progress) || 0}%</small>
+            <br><small class="muted">Next: ${ns ? esc(ns.text) : 'add a milestone or objective'}</small></div>
+          <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button></li>`; }).join('')}</ul>`
+          : '<p class="muted">Of your annual goals, pick the 3–4 that deserve your best energy this quarter. <a href="#/goals">Choose your focus →</a></p>'}
+      </section>
+      <section class="box">
+        <h2>Today's Big 3 <span class="muted">· ${bigToday.filter((b) => b.done).length}/${bigToday.length} done</span></h2>
+        ${bigToday.length ? `<ul class="checks">${bigToday.map((b) => `<li class="${b.done ? 'done' : ''}">${chk(`big3.@${b.id}.done`, 'Done')}
+          <div class="grow"><input class="inline" data-bind="big3.@${b.id}.text" value="${esc(b.text)}" aria-label="Big 3 task">
+          ${b.goalId && state.goals.some((g) => g.id === b.goalId) ? `<small class="muted">${esc(state.goals.find((g) => g.id === b.goalId).title)}</small>` : ''}</div>
+          <button class="x" data-act="del" data-path="big3" data-id="${b.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">What are the three most important things to finish today? Do these first.</p>'}
+        ${bigToday.length < 3 ? `<form class="add" data-add="big3"><input type="hidden" name="date" value="${iso}"><input name="text" placeholder="Most important task…" required aria-label="Big 3 task">
+          <select name="goalId" aria-label="Linked goal">${goalOpts(fgoals.length ? fgoals : goals, '')}</select><button aria-label="Add">+</button></form>` : '<p class="muted small">Big 3 set. Finish these before anything else.</p>'}
+        ${carry.length ? `<h3>Unfinished from earlier <small class="muted">move forward or let go</small></h3><ul class="checks compact">${carry.map((b) => `<li><span class="grow">${esc(b.text)} <small class="muted">${U.fmtDate(b.date, { month: 'short', day: 'numeric' })}</small></span>
+          <button class="btn ghost" data-act="migrateBig3" data-id="${b.id}" ${bigToday.length >= 3 ? 'disabled title="Today already has 3"' : ''}>› Today</button>
+          <button class="x" data-act="dropBig3" data-id="${b.id}" aria-label="Let go">×</button></li>`).join('')}</ul>` : ''}
+      </section>
       ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/goals">Add a habit goal</a> (like "Read a book, 7 days a week") and it will appear here each day.</p></section>` : ''}
       ${tks.length ? `<section class="box">
         <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
@@ -493,9 +529,9 @@
         </section>
       </div>
       <section class="box">
-        <h2>Goals ${cyc ? `<span class="muted">· ${esc(cyc.name)} · ${U.daysBetween(t, U.parseISO(cyc.end))} days left</span>` : ''}<a class="more" href="#/track/goals">Progress →</a></h2>
-        ${goals.length ? `<table class="goals-table"><thead><tr><th>Goal</th><th>Role</th><th>Progress</th><th>Month</th><th>Week</th><th>Pulse</th></tr></thead><tbody>
-          ${goals.map((g) => {
+        <h2>${fgoals.length ? 'Focus goals' : 'Goals'} ${cyc ? `<span class="muted">· ${esc(cyc.name)} · ${U.daysBetween(t, U.parseISO(cyc.end))} days left</span>` : ''}<a class="more" href="#/track/goals">Progress →</a></h2>
+        ${(fgoals.length ? fgoals : goals).filter((g) => g.kind !== 'habit').length ? `<table class="goals-table"><thead><tr><th>Goal</th><th>Role</th><th>Progress</th><th>Month</th><th>Week</th><th>Pulse</th></tr></thead><tbody>
+          ${(fgoals.length ? fgoals : goals).filter((g) => g.kind !== 'habit').map((g) => {
             const a = goalActivity(g.id, mk, wk);
             const pulse = week && week.pulse[g.id];
             const cold = a.month.total === 0 && a.week.total === 0;
@@ -560,7 +596,7 @@
     const cyc = state.cycles.find((c) => c.id === cid) || currentCycle();
     const cp = `cycles.@${cyc.id}`;
     const all = cycleGoals(cyc.id, true);
-    const n = all.length;
+    const n = all.filter((g) => g.kind !== 'habit').length;
     const meterCls = n >= 10 && n <= 12 ? 'ok' : n > 12 ? 'over' : '';
     const groups = state.roles.map((r) => ({ role: r, goals: all.filter((g) => g.roleId === r.id) }));
     const orphan = all.filter((g) => !state.roles.some((r) => r.id === g.roleId));
@@ -572,6 +608,7 @@
           <select data-bind="${p}.tier" data-rerender class="tier" aria-label="Tier">${tierOpts(g.tier)}</select>
           <select data-bind="${p}.kind" data-rerender class="tier" aria-label="Goal type">${opts([{ v: 'achievement', l: 'Achievement' }, { v: 'habit', l: 'Habit' }], g.kind || 'achievement')}</select>
           <input class="inline title" data-bind="${p}.title" value="${esc(g.title)}" aria-label="Goal">
+          ${g.kind === 'habit' ? '' : `<button type="button" class="chip${focusGoals(todayISO()).some((f) => f.id === g.id) ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" title="Quarterly focus">⚑ Focus</button>`}
           <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete goal">×</button>
         </div>
         <div class="goal-meta">
@@ -648,9 +685,15 @@
         <label>Name ${inp(cp + '.name')}</label>
         <label>Start ${inp(cp + '.start', '', 'date')}</label>
         <label>End ${inp(cp + '.end', '', 'date')}</label>
-        <div class="meter ${meterCls}" title="Aim for 10–12 goals per cycle"><strong>${n}</strong> goals<br><small>aim 10–12</small></div>
+        <div class="meter ${meterCls}" title="Aim for 10–12 goals per cycle (habit goals are tracked separately)"><strong>${n}</strong> goals<br><small>aim 10–12</small></div>
       </section>
       ${state.foundation.vision ? `<blockquote class="vision small"><span>Who I'm becoming</span>${esc(state.foundation.vision.split('\n')[0])}</blockquote>` : `<p class="nudge">Tip: <a href="#/foundation">write your vision & eulogy</a> first. Goals should flow from them.</p>`}
+      <section class="box focus-pick">
+        <h2>This quarter's focus <small class="muted">${quarterLabel(todayISO())} · choose 3–4 · ${focusGoals(todayISO()).length}/4 selected</small></h2>
+        <p class="prompt">You can't give ten goals your best energy at once. Choose the few that matter most right now. They appear on Today with your Big 3 and habits.</p>
+        <div class="chips">${all.filter((g) => g.kind !== 'habit' && g.status === 'active').map((g) => { const on = focusGoals(todayISO()).some((f) => f.id === g.id);
+          return `<button type="button" class="chip${on ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('') || '<span class="muted">Add some goals below first.</span>'}</div>
+      </section>
       ${groups.map(roleCard).join('')}
       ${orphan.length ? `<section class="box role"><h3>Goals without a role</h3>${orphan.map(goalRow).join('')}</section>` : ''}
       <section class="box">
@@ -1397,6 +1440,7 @@
   /* ---------- actions ---------- */
   const DEFAULTS = {
     goals: () => ({ area: 'work', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [] }),
+    big3: () => ({ done: false, goalId: '' }),
     milestones: () => ({ done: false, due: '' }),
     objectives: () => ({ done: false, due: '' }),
     routines: () => ({ perWeek: 1, log: {} }),
@@ -1510,6 +1554,32 @@
       commit();
     },
     uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
+    toggleFocus(el) {
+      const qk = quarterKey(todayISO());
+      const list = (state.focus[qk] = (state.focus[qk] || []).filter((id) => state.goals.some((g) => g.id === id)));
+      const i = list.indexOf(el.dataset.goal);
+      if (i >= 0) list.splice(i, 1);
+      else if (list.length >= 4) { toast('Focus on 3–4 goals per quarter. Remove one first.'); return; }
+      else list.push(el.dataset.goal);
+      commit();
+    },
+    focusToBig3(el) {
+      const iso = todayISO();
+      if (state.big3.filter((b) => b.date === iso).length >= 3) { toast('Today already has 3. Finish or remove one first.'); return; }
+      const g = state.goals.find((x) => x.id === el.dataset.goal);
+      const ns = g && nextStep(g);
+      state.big3.push({ id: S.uid(), date: iso, text: ns ? ns.text : `Make progress on: ${g.title}`, goalId: g.id, done: false });
+      commit();
+    },
+    migrateBig3(el) {
+      const iso = todayISO();
+      const b = state.big3.find((x) => x.id === el.dataset.id);
+      if (!b || state.big3.filter((x) => x.date === iso).length >= 3) return;
+      b.migrated = true;
+      state.big3.push({ id: S.uid(), date: iso, text: b.text, goalId: b.goalId, done: false });
+      commit();
+    },
+    dropBig3(el) { const b = state.big3.find((x) => x.id === el.dataset.id); if (b) b.migrated = true; commit(); },
     loadSamples() {
       if (state.goals.some((g) => g.seed) && !confirm('Sample goals are already loaded. Add them again?')) return;
       seedStarter(); commit(); toast('Sample goals added. See Roles & Goals.');
@@ -1702,9 +1772,9 @@
     const parent = role('Parent', 'Be present and intentional with my kids while they are young.');
     const healthy = role('Healthy person', 'Energy and health let me show up well for everything else.');
     const pro = role('Professional', 'Grow in skill and contribute work I am proud of.');
-    const goal = (roleId, o) => state.goals.push({
+    const goal = (roleId, o) => { const g = {
       id: S.uid(), cycleId: cyc.id, roleId, area: 'health', tier: 'pursuit', progress: 0, status: 'active', target: cyc.end, doneBy: cyc.end,
-      measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [], seed: true, ...o });
+      measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [], seed: true, ...o }; state.goals.push(g); return g; };
     const item = (text, due) => ({ id: S.uid(), text, due: due || '', done: false });
     const routine = (text, perWeek) => ({ id: S.uid(), text, perWeek, log: {} });
 
@@ -1715,19 +1785,28 @@
     goal(healthy, { kind: 'habit', title: 'Ride horses', perWeek: 5, area: 'fun', why: 'It is my time to recharge and do something I love.' });
     goal(pro, { kind: 'habit', title: 'Read a book', perWeek: 7, area: 'projects', why: 'Reading keeps me learning and curious.', measure: '20+ pages' });
 
-    // Achievement goals: why, milestones, quarterly objectives, routines
-    goal(healthy, { title: 'Run a 10K', area: 'health', why: 'Proving to myself that I can build a hard thing step by step.', measure: 'Finish a 10K race without walking',
+    // Ten annual goals; three are chosen as this quarter's focus (with a full plan), the rest are ready to plan later
+    const focusIds = [];
+    const focus = (roleId, o) => { const g = goal(roleId, o); focusIds.push(g.id); };
+    focus(healthy, { title: 'Run a 10K', area: 'health', why: 'Proving to myself that I can build a hard thing step by step.', measure: 'Finish a 10K race without walking',
       milestones: [item('Run 5K without stopping', inDays(30)), item('Run 8K', inDays(75)), item('Register for a 10K race', inDays(45)), item('Finish the 10K', inDays(120))],
       objectives: [item('Build to 12 miles per week', inDays(75)), item('Complete a 4-week base plan', inDays(28))],
       routines: [routine('Run', 3)] });
-    goal(parent, { title: 'Take a family trip together', area: 'fun', tier: 'purpose', why: 'Shared experiences become the stories we tell for years.', measure: 'Trip taken and photos printed',
+    focus(parent, { title: 'Take a family trip together', area: 'fun', tier: 'purpose', why: 'Shared experiences become the stories we tell for years.', measure: 'Trip taken and photos printed',
       milestones: [item('Pick the destination and dates', inDays(21)), item('Book travel and lodging', inDays(45)), item('Plan activities with the kids', inDays(80))],
-      objectives: [item('Set aside the trip budget', inDays(30))],
-      routines: [] });
-    goal(pro, { title: 'Complete one skill-building course', area: 'work', why: 'Investing in skills opens the next opportunity.', measure: 'Certificate or finished project',
+      objectives: [item('Set aside the trip budget', inDays(30))] });
+    focus(pro, { title: 'Complete one skill-building course', area: 'work', why: 'Investing in skills opens the next opportunity.', measure: 'Certificate or finished project',
       milestones: [item('Choose the course', inDays(14)), item('Finish half the lessons', inDays(60)), item('Finish the final project', inDays(110))],
       objectives: [item('Block recurring study time on the calendar', inDays(7))],
       routines: [routine('Study session', 3)] });
+    goal(parent, { title: 'Plan a weekend away with my spouse', area: 'friends', why: 'Our relationship deserves focused time together.', measure: 'Weekend taken, phones away' });
+    goal(healthy, { title: 'Build a daily spiritual practice', area: 'health', tier: 'purpose', why: 'Purpose and peace steady everything else.', measure: 'A reading plan completed' });
+    goal(healthy, { title: 'Complete 10 riding lessons toward my next level', area: 'fun', why: 'Skill in something I love.', measure: '10 lessons logged' });
+    goal(pro, { title: 'Save a three-month emergency fund', area: 'home', why: 'Financial peace of mind for my family.', measure: 'Three months of expenses saved' });
+    goal(parent, { title: 'Declutter and organize the house', area: 'home', why: 'A calm home makes room for what matters.', measure: 'Every room done' });
+    goal(parent, { title: 'Host friends or family once a month', area: 'friends', why: 'Community is built on showing up.', measure: '6 gatherings hosted' });
+    goal(pro, { title: 'Finish a hobby project I keep putting off', area: 'projects', why: 'Finishing it frees mental space.', measure: 'Project complete' });
+    state.focus[quarterKey(todayISO())] = focusIds;
   }
   function removeSamples() {
     state.goals = state.goals.filter((g) => !g.seed);

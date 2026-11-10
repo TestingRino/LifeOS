@@ -36,6 +36,8 @@
       projects: [],       // {id, name, status, goalId, notes, steps:[{id,text,done}]} — hobby & project plans
       weights: [],        // {id, date, value}
       journals: [],       // {id, date, text, tags}
+      focus: {},          // 'YYYY-Qn' -> [goalId] — the 3–4 goals chosen as this quarter's focus
+      big3: [],           // {id, date, text, goalId, done, migrated} — Daily Big 3 (Full Focus / Bullet Journal style)
       wheel: [],          // {id, date, scores:{physical..social: 1-10}, note} — Wheel of Life assessments
       lastNotifications: {},  // {key: timestamp} — prevent notification spam
     };

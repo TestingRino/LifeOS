@@ -465,3 +465,10 @@ details.plan h4 { margin: .7rem 0 .2rem; }
 .batches li { border-bottom: 1px dotted var(--line); padding: .35rem 0; }
 .btn.file { cursor: pointer; display: inline-flex; align-items: center; }
 @media (max-width: 760px) { .wo-day { grid-template-columns: 4.2rem 1fr 6.5rem; } .wo-day input[name^=min_], .wo-day input[name^=details_] { grid-column: auto; } .wo-day input[name^=details_] { grid-column: 2 / -1; } }
+
+/* quarterly focus & Big 3 */
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.focus-list { list-style: none; padding: 0; margin: 0; }
+.focus-list li { display: flex; align-items: center; gap: .8rem; padding: .5rem 0; border-bottom: 1px dotted var(--line); }
+.focus { border-left: 4px solid var(--navy); }
