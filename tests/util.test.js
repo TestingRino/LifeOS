@@ -56,3 +56,30 @@ test('store paths resolve @id segments and create objects', () => {
   assert.equal(S.getPath(st, 'months.2026-10.ideas'), 'hello');
   assert.equal(S.setPath(st, 'goals.@missing.title', 'nope'), false);
 });
+
+test('planDates repeats chosen weekdays for N weeks from the start date', () => {
+  // 2026-11-10 is a Tuesday; Mon(1) and Wed(3) over 2 weeks
+  const d = U.planDates('2026-11-10', 2, [1, 3]).map((x) => x.date);
+  assert.deepEqual(d, ['2026-11-11', '2026-11-16', '2026-11-18', '2026-11-23']);
+  assert.deepEqual(U.planDates('2026-11-10', 1, [2]).map((x) => x.date), ['2026-11-10']);
+});
+
+test('parseWorkoutText handles CSV, loose dates, minutes, times and bad lines', () => {
+  const r = U.parseWorkoutText('Date,Workout,Minutes\n2026-11-12, Run, 40, easy pace\n11/14, Lift, 6:30, 45 min, legs\nNov 16 2026;Ride;60\nnonsense line', 2026);
+  assert.equal(r.workouts.length, 3);
+  assert.deepEqual(r.workouts[0], { date: '2026-11-12', type: 'Run', minutes: 40, details: 'easy pace', time: '' });
+  assert.equal(r.workouts[1].date, '2026-11-14');
+  assert.equal(r.workouts[1].time, '06:30');
+  assert.equal(r.workouts[1].minutes, 45);
+  assert.equal(r.workouts[1].details, 'legs');
+  assert.equal(r.workouts[2].date, '2026-11-16');
+  assert.deepEqual(r.bad, ['nonsense line']);
+});
+
+test('parseWorkoutText reads .ics events', () => {
+  const ics = 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nDTSTART:20261112T170000\nDTEND:20261112T174500\nSUMMARY:Spin class\nDESCRIPTION:Coach Sam\nEND:VEVENT\nBEGIN:VEVENT\nDTSTART;VALUE=DATE:20261114\nSUMMARY:Long run\nEND:VEVENT\nEND:VCALENDAR';
+  const r = U.parseWorkoutText(ics, 2026).workouts;
+  assert.equal(r.length, 2);
+  assert.deepEqual([r[0].date, r[0].time, r[0].minutes, r[0].type], ['2026-11-12', '17:00', 45, 'Spin class']);
+  assert.deepEqual([r[1].date, r[1].time, r[1].type], ['2026-11-14', '', 'Long run']);
+});

@@ -5,6 +5,8 @@
   const S = window.LifeStore;
   const AREAS = S.AREAS;
 
+  let firstRun = false;
+  try { firstRun = localStorage.getItem(S.KEY) === null; } catch (e) { /* storage unavailable */ }
   let state = S.load();
   const app = document.getElementById('app');
 
@@ -457,7 +459,7 @@
           <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
           ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${esc(e.text)}</li>`).join('')}</ul>` : ''}
           ${todaySched.length ? `<ul class="events">${todaySched.map((s) => `<li><time>${esc(fmtTime(s.time)) || '—'}</time> ${esc(s.text)}</li>`).join('')}</ul>` : ''}
-          ${todayWos.length ? `<ul class="checks compact">${todayWos.map((x) => `<li>${chk(`workouts.@${x.id}.done`, 'Workout done')}<span class="grow">Workout: ${esc(x.type)}${x.details ? ` <small class="muted">${esc(x.details)}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
+          ${todayWos.length ? `<ul class="checks compact">${todayWos.map((x) => `<li>${chk(`workouts.@${x.id}.done`, 'Workout done')}<span class="grow">${x.time ? `<time>${esc(fmtTime(x.time))}</time> ` : ''}Workout: ${esc(x.type)}${x.details ? ` <small class="muted">${esc(x.details)}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
           ${!todayEvents.length && !todaySched.length && !todayWos.length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
           <form class="add" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" aria-label="Time"><input name="text" placeholder="Add to today…" required><button aria-label="Add">+</button></form>
         </section>
@@ -953,7 +955,7 @@
 
   function viewTrack(tab) {
     tab = tab || 'weight';
-    const tabs = [['weight', 'Weight'], ['workouts', 'Workouts'], ['habits', 'Habits'], ['goals', 'Goal progress']];
+    const tabs = [['weight', 'Weight'], ['workouts', 'Workouts'], ['plan', 'Plan workouts'], ['habits', 'Habits'], ['goals', 'Goal progress']];
     let body = `<nav class="tabs">${tabs.map(([k, l]) => `<a href="#/track/${k}" class="${k === tab ? 'sel' : ''}">${l}</a>`).join('')}</nav>`;
     const s = state.settings;
 
@@ -1009,11 +1011,69 @@
       body += `
         <section class="box"><h2>Workouts per week <small class="muted">last 12 weeks</small></h2>${barChart(bars, target, 'Completed workouts per week, last 12 weeks')}
           <div class="row"><label>Weekly target ${inp('settings.workoutTarget', '5', 'number', 'data-type="number" min="0" max="14" data-rerender')}</label>
-          <a class="btn ghost" href="#/week">Plan this week's workouts →</a></div></section>
+          <a class="btn ghost" href="#/week">Plan this week →</a><a class="btn ghost" href="#/track/plan">Plan ahead &amp; import →</a></div></section>
         <div class="grid2">
           <section class="box"><h2>By type</h2>${Object.keys(byType).length ? `<ul class="habit-sum">${Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<li><span>${esc(t)}</span><span>${n}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing logged yet.</p>'}</section>
           <section class="box"><h2>Recent</h2>${done.length ? `<table class="index"><tbody>${done.slice(0, 15).map((x) => `<tr><td>${U.fmtDate(x.date, { weekday: 'short', month: 'short', day: 'numeric' })}</td><td>${esc(x.type)}</td><td class="muted">${esc(x.details)}</td><td>${x.minutes ? `${x.minutes} min` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">Check off workouts on the Week page and they appear here.</p>'}</section>
         </div>`;
+    } else if (tab === 'plan') {
+      const iso = todayISO();
+      const byTime = (a, b) => (a.date + (a.time || '99')) < (b.date + (b.time || '99')) ? -1 : 1;
+      const upcoming = state.workouts.filter((x) => x.date >= iso).sort(byTime);
+      const batches = {};
+      state.workouts.filter((x) => x.batch).forEach((x) => { (batches[x.batch] = batches[x.batch] || { id: x.batch, name: x.batchName || 'Plan', items: [] }).items.push(x); });
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      const types = ['Run', 'Ride', 'Strength', 'Yoga', 'Swim', 'Walk', 'HIIT', 'Horse riding', 'Mobility'];
+      const wk0 = U.weekKey(today(), ws());
+      const row = (x) => {
+        const p = `workouts.@${x.id}`;
+        return `<li class="${x.done ? 'done' : ''}">${chk(p + '.done', 'Done')}
+          <div class="grow"><small class="muted">${U.fmtDate(x.date, { weekday: 'short', month: 'short', day: 'numeric' })}</small>
+            <input class="inline title-sm" data-bind="${p}.type" value="${esc(x.type)}" aria-label="Workout type">
+            <input class="inline" data-bind="${p}.details" value="${esc(x.details)}" placeholder="Plan / details" aria-label="Details"></div>
+          <input class="inline" type="time" data-bind="${p}.time" value="${esc(x.time || '')}" aria-label="Time">
+          <input class="inline num" type="number" min="0" data-type="number" data-bind="${p}.minutes" value="${esc(x.minutes)}" placeholder="min" aria-label="Minutes">
+          <button class="x" data-act="del" data-path="workouts" data-id="${x.id}" aria-label="Remove">×</button></li>`;
+      };
+      const weeks = {};
+      upcoming.forEach((x) => { (weeks[U.weekKey(U.parseISO(x.date), ws())] = weeks[U.weekKey(U.parseISO(x.date), ws())] || []).push(x); });
+      body += `
+        <div class="grid2">
+          <section class="box"><h2>Build a plan</h2>
+            <p class="prompt">Pick the days you train and for how many weeks. Life.OS schedules every session in advance; each appears on Today and the Week page.</p>
+            <form data-act-form="workoutPlan" class="wo-plan">
+              <div class="row"><label>Plan name <input name="name" placeholder="e.g. Half-marathon base"></label>
+                <label>Start <input type="date" name="start" value="${iso}" required></label>
+                <label>Weeks <select name="weeks">${opts([1, 2, 3, 4, 6, 8, 10, 12].map((n) => ({ v: n, l: `${n} week${n > 1 ? 's' : ''}` })), 4)}</select></label></div>
+              <datalist id="wotypes">${types.map((t) => `<option value="${t}">`).join('')}</datalist>
+              ${order.map((d) => `<div class="wo-day"><label class="inline-check"><input type="checkbox" name="on_${d}"> <strong>${U.DAYS[d].slice(0, 3)}</strong></label>
+                <input name="type_${d}" list="wotypes" placeholder="Type" aria-label="${U.DAYS[d]} type">
+                <input name="time_${d}" type="time" aria-label="${U.DAYS[d]} time">
+                <input name="min_${d}" type="number" min="0" class="num" placeholder="min" aria-label="${U.DAYS[d]} minutes">
+                <input name="details_${d}" placeholder="Details (e.g. 5×5 squat)" aria-label="${U.DAYS[d]} details"></div>`).join('')}
+              <div class="row end"><button class="primary">Schedule workouts</button></div>
+            </form></section>
+          <section class="box"><h2>Import workouts</h2>
+            <p class="prompt">Paste a plan or choose a file (CSV, text or a calendar .ics export). One workout per line: <code>date, type, minutes, details</code>. Dates can be 2026-11-12, 11/12 or Nov 12.</p>
+            <form data-act-form="workoutImport">
+              <textarea name="text" rows="9" placeholder="2026-11-12, Run, 40, easy pace&#10;11/14, Strength, 45, legs&#10;Nov 16, Ride, 60"></textarea>
+              <div class="row"><label class="btn ghost file">Choose file… <input type="file" data-wofile accept=".csv,.txt,.ics,text/*" hidden></label>
+                <button class="primary">Import &amp; schedule</button></div>
+            </form>
+            <p class="muted small">Have a photo of a printed plan? Use <a href="#/settings">Settings → Upload photo</a> and choose "Log workouts".</p>
+          </section>
+        </div>
+        <section class="box"><h2>Upcoming workouts <span class="muted">· ${upcoming.length}</span>
+          ${upcoming.length ? '<button class="btn ghost" data-act="pushWorkouts">Add to Google Calendar</button>' : ''}</h2>
+          ${upcoming.length ? Object.keys(weeks).sort().map((k) => `<h3>${k === wk0 ? 'This week' : `Week of ${U.fmtDate(k, { month: 'short', day: 'numeric' })}`}</h3><ul class="checks">${weeks[k].map(row).join('')}</ul>`).join('')
+            : '<p class="muted">Nothing scheduled yet. Build a plan or import a list above.</p>'}
+        </section>
+        ${Object.keys(batches).length ? `<section class="box"><h2>Plans &amp; imports</h2><ul class="habit-sum batches">
+          ${Object.values(batches).map((b) => {
+            const ds = b.items.map((x) => x.date).sort();
+            return `<li><span><strong>${esc(b.name)}</strong> <small class="muted">${b.items.length} sessions · ${U.fmtDate(ds[0])} – ${U.fmtDate(ds[ds.length - 1])} · ${b.items.filter((x) => x.done).length} done</small></span>
+              <button class="x" data-act="delBatch" data-id="${b.id}" aria-label="Remove all sessions in ${esc(b.name)}">×</button></li>`;
+          }).join('')}</ul></section>` : ''}`;
     } else if (tab === 'habits') {
       const keys = recentWeekKeys(8);
       const names = [];
@@ -1289,6 +1349,8 @@
         <p>Everything is stored only in this browser. Export a backup regularly, and use it to move between devices.</p>
         <div class="row wrap">
           <button class="btn" data-act="export">Export backup (.json)</button>
+          <button class="btn ghost" data-act="loadSamples">Load sample goals</button>
+          ${state.goals.some((g) => g.seed) ? '<button class="btn ghost" data-act="removeSamples">Remove sample goals</button>' : ''}
           <label class="btn ghost file">Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
           <button class="btn ghost danger" data-act="reset">Erase all data</button>
         </div>
@@ -1343,7 +1405,7 @@
     shopping: () => ({ done: false }),
     steps: () => ({ done: false }),
     schedule: () => ({ time: '' }),
-    workouts: () => ({ done: false, details: '', minutes: '' }),
+    workouts: () => ({ done: false, details: '', minutes: '', time: '' }),
     projects: () => ({ status: 'active', goalId: '', notes: '', steps: [] }),
     bucket: () => ({ star: false, done: false, budget: '', target: '', details: '' }),
     reading: () => ({ done: false, by: '', genre: '', nutshell: '' }),
@@ -1448,6 +1510,25 @@
       commit();
     },
     uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
+    loadSamples() {
+      if (state.goals.some((g) => g.seed) && !confirm('Sample goals are already loaded. Add them again?')) return;
+      seedStarter(); commit(); toast('Sample goals added. See Roles & Goals.');
+    },
+    removeSamples() {
+      if (!confirm('Remove the sample roles and goals? Your own goals are kept.')) return;
+      removeSamples(); commit();
+    },
+    delBatch(el) {
+      const n = state.workouts.filter((x) => x.batch === el.dataset.id).length;
+      if (!confirm(`Remove all ${n} sessions from this plan?`)) return;
+      state.workouts = state.workouts.filter((x) => x.batch !== el.dataset.id);
+      commit();
+    },
+    pushWorkouts() {
+      const iso = todayISO();
+      pushToGoogleCalendar(state.workouts.filter((x) => x.date >= iso && !x.done && x.type)
+        .map((x) => ({ date: x.date, time: x.time, text: `${x.type}${x.details ? ` – ${x.details}` : ''}` })));
+    },
   };
 
   /* Keep one progress value per goal per day so trends can be charted. */
@@ -1503,6 +1584,11 @@
     const el = e.target;
     if (el.matches('[data-nav]')) { location.hash = el.value; return; }
     if (el.matches('[data-import]')) { importFile(el.files[0]); return; }
+    if (el.matches('[data-wofile]')) {
+      const f = el.files[0]; if (!f) return;
+      f.text().then((t) => { const ta2 = el.closest('form').querySelector('textarea'); ta2.value = t; toast(`Loaded ${f.name}. Review, then Import.`); });
+      return;
+    }
     if (!el.dataset || !el.dataset.bind) return;
     if (el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'date' || 'rerender' in el.dataset) {
       S.setPath(state, el.dataset.bind, readValue(el));
@@ -1519,6 +1605,34 @@
       const c = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
       state.cycles.push(c); state.settings.cycleMonths = months;
       commit(); location.hash = `#/goals/${c.id}`;
+      return;
+    }
+    if (form.dataset.actForm === 'workoutPlan' || form.dataset.actForm === 'workoutImport') {
+      e.preventDefault();
+      const fd = new FormData(form);
+      let rows, name;
+      if (form.dataset.actForm === 'workoutPlan') {
+        const dows = [0, 1, 2, 3, 4, 5, 6].filter((d) => fd.get(`on_${d}`) && String(fd.get(`type_${d}`) || '').trim());
+        if (!dows.length) { toast('Tick at least one day and give it a type'); return; }
+        name = String(fd.get('name') || '').trim() || 'Workout plan';
+        rows = U.planDates(fd.get('start'), Number(fd.get('weeks')) || 4, dows).map(({ dow, date }) => ({
+          date, type: String(fd.get(`type_${dow}`)).trim(), time: fd.get(`time_${dow}`) || '',
+          minutes: fd.get(`min_${dow}`) === '' ? '' : Number(fd.get(`min_${dow}`)), details: String(fd.get(`details_${dow}`) || '').trim(),
+        }));
+      } else {
+        const r = U.parseWorkoutText(fd.get('text'), today().getFullYear());
+        name = `Import ${todayISO()}`;
+        rows = r.workouts;
+        if (!rows.length) { toast(r.bad.length ? `Couldn't read ${r.bad.length} line${r.bad.length > 1 ? 's' : ''}. Use: date, type, minutes, details` : 'Paste or choose something to import'); return; }
+        if (r.bad.length) toast(`Skipped ${r.bad.length} unreadable line${r.bad.length > 1 ? 's' : ''}`);
+      }
+      const batch = S.uid();
+      let added = 0;
+      rows.forEach((w) => {
+        if (state.workouts.some((x) => x.date === w.date && x.type.toLowerCase() === w.type.toLowerCase())) return;
+        state.workouts.push({ id: S.uid(), done: false, batch, batchName: name, ...w }); added++;
+      });
+      commit(); toast(added ? `Scheduled ${added} workout${added > 1 ? 's' : ''}` : 'Those workouts were already scheduled');
       return;
     }
     if (form.dataset.actForm === 'wheel') {
@@ -1571,6 +1685,53 @@
       } catch (err) { alert(`Import failed: ${err.message}`); }
     };
     r.readAsText(file);
+  }
+
+
+  /* ---------- starter goals (first run, or Settings -> Load sample goals) ---------- */
+  function seedStarter() {
+    const t = today();
+    let cyc = currentCycle();
+    if (!cyc) {
+      const dates = U.makeCycleDates(U.toISO(new Date(t.getFullYear(), t.getMonth(), 1)), Number(state.settings.cycleMonths) || 6);
+      cyc = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
+      state.cycles.push(cyc);
+    }
+    const inDays = (n) => U.toISO(U.addDays(t, n));
+    const role = (name, why) => { const r = { id: S.uid(), name, why, seed: true }; state.roles.push(r); return r.id; };
+    const parent = role('Parent', 'Be present and intentional with my kids while they are young.');
+    const healthy = role('Healthy person', 'Energy and health let me show up well for everything else.');
+    const pro = role('Professional', 'Grow in skill and contribute work I am proud of.');
+    const goal = (roleId, o) => state.goals.push({
+      id: S.uid(), cycleId: cyc.id, roleId, area: 'health', tier: 'pursuit', progress: 0, status: 'active', target: cyc.end, doneBy: cyc.end,
+      measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [], seed: true, ...o });
+    const item = (text, due) => ({ id: S.uid(), text, due: due || '', done: false });
+    const routine = (text, perWeek) => ({ id: S.uid(), text, perWeek, log: {} });
+
+    // Habit goals: tracked daily on Today
+    goal(parent, { kind: 'habit', title: 'Read to the kids before bed', perWeek: 7, area: 'home', tier: 'purpose', why: 'Bedtime stories build connection and a love of reading.', measure: 'At least one book or chapter together' });
+    goal(parent, { kind: 'habit', title: 'Spend time outside with the kids', perWeek: 7, area: 'fun', why: 'Fresh air and shared adventures make the best memories.', measure: '20+ minutes outdoors together' });
+    goal(healthy, { kind: 'habit', title: 'Workout', perWeek: 5, area: 'health', tier: 'purpose', why: 'Strength and stamina for the life I want to live.', measure: '30+ minutes of intentional exercise' });
+    goal(healthy, { kind: 'habit', title: 'Ride horses', perWeek: 5, area: 'fun', why: 'It is my time to recharge and do something I love.' });
+    goal(pro, { kind: 'habit', title: 'Read a book', perWeek: 7, area: 'projects', why: 'Reading keeps me learning and curious.', measure: '20+ pages' });
+
+    // Achievement goals: why, milestones, quarterly objectives, routines
+    goal(healthy, { title: 'Run a 10K', area: 'health', why: 'Proving to myself that I can build a hard thing step by step.', measure: 'Finish a 10K race without walking',
+      milestones: [item('Run 5K without stopping', inDays(30)), item('Run 8K', inDays(75)), item('Register for a 10K race', inDays(45)), item('Finish the 10K', inDays(120))],
+      objectives: [item('Build to 12 miles per week', inDays(75)), item('Complete a 4-week base plan', inDays(28))],
+      routines: [routine('Run', 3)] });
+    goal(parent, { title: 'Take a family trip together', area: 'fun', tier: 'purpose', why: 'Shared experiences become the stories we tell for years.', measure: 'Trip taken and photos printed',
+      milestones: [item('Pick the destination and dates', inDays(21)), item('Book travel and lodging', inDays(45)), item('Plan activities with the kids', inDays(80))],
+      objectives: [item('Set aside the trip budget', inDays(30))],
+      routines: [] });
+    goal(pro, { title: 'Complete one skill-building course', area: 'work', why: 'Investing in skills opens the next opportunity.', measure: 'Certificate or finished project',
+      milestones: [item('Choose the course', inDays(14)), item('Finish half the lessons', inDays(60)), item('Finish the final project', inDays(110))],
+      objectives: [item('Block recurring study time on the calendar', inDays(7))],
+      routines: [routine('Study session', 3)] });
+  }
+  function removeSamples() {
+    state.goals = state.goals.filter((g) => !g.seed);
+    state.roles = state.roles.filter((r) => !r.seed);
   }
 
   /* ---------- router ---------- */
@@ -1680,6 +1841,7 @@
     addOCRDataToApp(s.route, s.data);
   });
 
+  if (firstRun) { seedStarter(); S.save(state); }
   render();
   checkNotifications();
 })();

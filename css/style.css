@@ -458,3 +458,10 @@ details.plan h4 { margin: .7rem 0 .2rem; }
 @media (max-width: 760px) { .wheel-row { grid-template-columns: 1fr 2ch; } .wheel-row input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
 .radar .hit { fill: transparent; stroke: none; }
 .habit-add { margin-top: -.2rem; } .habit-add input[name=title] { border-color: var(--ok); }
+
+/* workout planning */
+.wo-day { display: grid; grid-template-columns: 4.2rem 1fr 7.5rem 4.5rem 1.6fr; gap: .4rem; align-items: center; padding: .3rem 0; border-bottom: 1px dotted var(--line); }
+.wo-day input { min-width: 0; }
+.batches li { border-bottom: 1px dotted var(--line); padding: .35rem 0; }
+.btn.file { cursor: pointer; display: inline-flex; align-items: center; }
+@media (max-width: 760px) { .wo-day { grid-template-columns: 4.2rem 1fr 6.5rem; } .wo-day input[name^=min_], .wo-day input[name^=details_] { grid-column: auto; } .wo-day input[name^=details_] { grid-column: 2 / -1; } }
