@@ -2128,6 +2128,7 @@
       (demo.scheduled[dow] = demo.scheduled[dow] || []).push({ text: task.text, start: t0, mins: 45, color: task.g.color });
       toast(`Scheduled for ${fmtTime(hhmm24(t0))}`); render();
     },
+    nextQuote() { quoteIdx = (quoteIdx + 1) % QUOTES.length; showQuote(); },
     assignTask(el) { const it = get(el.dataset.path); if (it) { it.day = el.dataset.day; commit(); } },
     unassignTask(el) { const it = get(el.dataset.path); if (it) { it.day = ''; commit(); } },
     assignStep(el) {
@@ -2796,6 +2797,45 @@
   }
   document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.demo === 'purpose') demo.purpose = e.target.value; });
 
+  /* ---------- rotating quotes ---------- */
+  const QUOTES = [
+    ['The key is not to prioritize what\'s on your schedule, but to schedule your priorities.', 'Stephen Covey'],
+    ['The main thing is to keep the main thing the main thing.', 'Stephen Covey'],
+    ['Begin with the end in mind.', 'Stephen Covey'],
+    ['Most people do not listen with the intent to understand; they listen with the intent to reply.', 'Stephen Covey'],
+    ['You don\'t have to be great to start, but you have to start to be great.', 'Zig Ziglar'],
+    ['If you aim at nothing, you will hit it every time.', 'Zig Ziglar'],
+    ['A goal properly set is halfway reached.', 'Zig Ziglar'],
+    ['Lack of direction, not lack of time, is the problem. We all have twenty-four hour days.', 'Zig Ziglar'],
+    ['Success is the doing, not the getting; in the trying, not the triumph.', 'Zig Ziglar'],
+    ['People often say that motivation doesn\'t last. Well, neither does bathing. That\'s why we recommend it daily.', 'Zig Ziglar'],
+    ['Efficiency is doing things right; effectiveness is doing the right things.', 'Peter Drucker'],
+    ['There is nothing so useless as doing efficiently that which should not be done at all.', 'Peter Drucker'],
+    ['If you don\'t prioritize your life, someone else will.', 'Greg McKeown'],
+    ['Clarity about what matters provides clarity about what does not.', 'Cal Newport'],
+    ['How we spend our days is, of course, how we spend our lives.', 'Annie Dillard'],
+    ['Those who have a "why" to live can bear with almost any "how."', 'Viktor Frankl'],
+    ['It is not that we have a short time to live, but that we waste a lot of it.', 'Seneca'],
+    ['Lost time is never found again.', 'Benjamin Franklin'],
+    ['Plans are worthless, but planning is everything.', 'Dwight D. Eisenhower'],
+    ['Either you run the day or the day runs you.', 'Jim Rohn'],
+    ['Don\'t wish it were easier. Wish you were better.', 'Jim Rohn'],
+    ['Failing to plan is planning to fail.', 'Alan Lakein'],
+    ['What you do every day matters more than what you do once in a while.', 'Gretchen Rubin'],
+    ['You do not rise to the level of your goals. You fall to the level of your systems.', 'James Clear'],
+    ['Every action you take is a vote for the type of person you wish to become.', 'James Clear'],
+    ['Every minute you spend in planning saves ten minutes in execution.', 'Brian Tracy'],
+    ['Where focus goes, energy flows.', 'Tony Robbins'],
+    ['Time is what we want most, but what we use worst.', 'William Penn'],
+    ['Do what you can, with what you have, where you are.', 'Theodore Roosevelt'],
+    ['The best time to plant a tree was twenty years ago. The second best time is now.', 'Proverb'],
+  ];
+  let quoteIdx = Math.floor(U.parseISO(todayISO()).getTime() / 86400000) % QUOTES.length;
+  function showQuote() {
+    const el = document.getElementById('quoteText'), q = QUOTES[quoteIdx];
+    if (el) el.textContent = `“${q[0]}” · ${q[1]}`;
+  }
+
   /* ---------- router ---------- */
   document.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('tl-wrap')) tlScroll = e.target.scrollTop; }, true);
   document.addEventListener('click', (e) => {
@@ -2830,6 +2870,8 @@
     const tlw = app.querySelector('.tl-wrap');
     if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : Number(tlw.dataset.start) || 0;
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
+    if (render.last !== location.hash) quoteIdx = (quoteIdx + 1) % QUOTES.length;
+    showQuote();
     render.last = location.hash;
     if (focused) { const f = app.querySelector(`[data-bind="${CSS.escape(focused)}"]`); if (f) f.focus(); }
   }

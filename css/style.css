@@ -635,3 +635,5 @@ ul.plain-list { list-style: none; padding: 0; margin: .4rem 0; } ul.plain-list l
 .chip.on[style*="--c"] { background: color-mix(in srgb, var(--c) 30%, var(--paper)); color: var(--ink); border-color: var(--c); }
 .tl-blk.sched[style*="--c"] { border-left-color: var(--c); background: color-mix(in srgb, var(--c) 22%, var(--paper)); }
 .chips + h3 { margin-top: 1rem; }
+.quote-next { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 0 .3rem; }
+.quote-next:hover { color: var(--ink); }
