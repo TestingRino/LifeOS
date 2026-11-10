@@ -19,7 +19,7 @@
   function defaultState() {
     return {
       version: VERSION,
-      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5 },
+      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00' },
       foundation: { vision: '', eulogy: '', mission: '', values: '' },
       roles: [],          // {id, name, why}
       cycles: [],         // {id, name, start, end, review:{wins,lessons,adjust}, roleActions:{roleId:{monthly,weekly,daily}}}
@@ -35,6 +35,8 @@
       shopping: [],       // {id, text, done}                   — running shopping list
       projects: [],       // {id, name, status, goalId, notes, steps:[{id,text,done}]} — hobby & project plans
       weights: [],        // {id, date, value}
+      journals: [],       // {id, date, text, tags}
+      lastNotifications: {},  // {key: timestamp} — prevent notification spam
     };
   }
 
