@@ -532,5 +532,20 @@ ol.session-steps li > input[type=checkbox] { margin-top: .3rem; }
 
 /* Google Calendar overlay */
 .sched li.gcal { color: #2f6fb0; }
-.tgrid .blk.gcal { background: color-mix(in srgb, #2f6fb0 16%, var(--paper)); border-left-color: #2f6fb0; }
+.tgrid .blk.gcal { background: color-mix(in srgb, #2f6fb0 26%, var(--paper)); border-left-color: #2f6fb0; }
 .gcal-status { margin: 0 0 .5rem; }
+
+/* calendar views */
+.cal-bar { align-items: center; margin-bottom: .6rem; gap: .4rem; }
+.tgrid.one { table-layout: auto; }
+.tgrid tr.allday td { height: auto; min-height: 26px; padding: 2px; vertical-align: top; }
+.tgrid .ad { font-size: .74rem; border-radius: 4px; padding: 1px 4px; margin-bottom: 2px; background: color-mix(in srgb, var(--navy) 12%, var(--paper)); }
+.tgrid .ad.gcal, .cal .ev.gcal { background: color-mix(in srgb, #2f6fb0 16%, var(--paper)); color: #2f6fb0; }
+.tgrid thead th a { color: inherit; text-decoration: none; }
+.month-full td { height: 7.2rem; vertical-align: top; }
+.month-full .ev span { font-size: .74rem; }
+.more-ev { font-size: .72rem; color: var(--muted); }
+.key { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px; vertical-align: middle; border: 1px solid var(--line); }
+.key.gcal { background: color-mix(in srgb, #2f6fb0 40%, var(--paper)); } .key.ideal { background: color-mix(in srgb, var(--ok) 40%, var(--paper)); }
+.key.sched { background: color-mix(in srgb, var(--navy) 35%, var(--paper)); } .key.wo { background: color-mix(in srgb, #b8671f 40%, var(--paper)); }
+.nav { overflow-x: auto; }
