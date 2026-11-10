@@ -23,8 +23,12 @@ app.use('/api/ocr', ocrRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, () => {
-  console.log(`Life.OS server running on port ${PORT}`);
-  console.log(`  Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? '✓' : '✗'}`);
-  console.log(`  Claude API: ${process.env.ANTHROPIC_API_KEY ? '✓' : '✗'}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Life.OS server running on port ${PORT}`);
+    console.log(`  Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? '✓' : '✗'}`);
+    console.log(`  Claude API: ${process.env.ANTHROPIC_API_KEY ? '✓' : '✗'}`);
+  });
+}
+
+export default app;
