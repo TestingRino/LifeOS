@@ -58,7 +58,7 @@ router.get('/google/url', (req, res) => {
     'https://www.googleapis.com/auth/drive.appdata',      // Life.OS's own hidden app folder in the user's Drive
   ];
   const kind = req.query.scopes;
-  const scope = (kind === 'sync' ? SYNC : kind === 'all' ? [...CALENDAR, ...SYNC] : CALENDAR).join(' ');
+  const scope = (kind === 'sync' || kind === 'signin' ? SYNC : kind === 'all' ? [...CALENDAR, ...SYNC] : CALENDAR).join(' ');
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,

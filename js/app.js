@@ -341,7 +341,7 @@
   /* ---------- Google Calendar events (read-only overlay, any number of calendars) ---------- */
   const GCAL_COLOR = '#6f8296';
   const gcal = { events: [], ranges: {}, busy: false, status: '', ok: true, listTried: false, listError: '' };
-  const gcalConnected = () => !!localStorage.getItem('google_access_token') && (!gScope() || /auth\/calendar/.test(gScope()));
+  const gcalConnected = () => !!localStorage.getItem('google_access_token') && (!gScope() || /auth\/calendar/.test(gScope())) && !localStorage.getItem('google_cal_off');
   const gcalSelectedIds = () => { const sel = (state.settings.gcalSelected || []).filter(Boolean); return (sel.length ? sel : ['primary']).slice(0, 10); };
   const gcalFriendly = (m) => (/insufficient authentication scopes|insufficientPermissions/i.test(m || '')
     ? 'Google did not give Life.OS permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
@@ -465,7 +465,9 @@
     fd.append('image', await shrinkImage(file, type === 'calendar' ? 2400 : 1800, type === 'calendar' ? 0.9 : 0.85), 'photo.jpg');
     fd.append('type', type);
     fd.append('today', todayISO());
-    const res = await fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd });
+    const send = () => fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${localStorage.getItem('google_access_token') || ''}` } });
+    let res = await send();
+    if (res.status === 401 && await googleRefresh()) res = await send();
     if (!res.ok) {
       let msg = `Server error ${res.status}`;
       try { msg = (await res.json()).error || msg; } catch (e) { /* non-JSON error body */ }
@@ -1937,6 +1939,7 @@
         : gcal.listError ? `<p class="nudge">${esc(gcal.listError)} ${gcalNeedsReconnect(gcal.listError) ? '<button class="btn small" data-act="reconnectCalendar">Reconnect Google</button>' : ''}</p>` : '<p class="muted small">Loading your calendars…</p>'}
       <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
+      ${accountCard()}
       ${syncCard()}
       <section class="box"><h2>Integrations</h2>
         <div class="row wrap">
@@ -2127,14 +2130,22 @@
       (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject())
         .then(() => toast('Copied'), () => { document.execCommand('copy'); toast('Copied'); });
     },
-    connectCalendar() { startGoogleOAuth(); },
-    disconnectCalendar() {
-      if (!confirm(state.settings.syncOn ? 'Disconnect Google? This also turns off sync (your Drive copy is kept).' : 'Disconnect Google Calendar?')) return;
-      ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email'].forEach((k) => localStorage.removeItem(k));
-      state.settings.syncOn = false;
-      commit();
+    connectCalendar() {
+      localStorage.removeItem('google_cal_off');
+      if (/auth\/calendar/.test(gScope())) { gcalReset(); commit(); toast('Google Calendar is back on'); } else startGoogleOAuth('calendar');
     },
-    uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
+    disconnectCalendar() {
+      if (!confirm('Stop showing Google Calendar?')) return;
+      if (signedIn()) localStorage.setItem('google_cal_off', '1');          // stay signed in; just hide the calendar
+      else ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email'].forEach((k) => localStorage.removeItem(k));
+      gcalReset(); commit();
+    },
+    async uploadPhoto() {
+      if (!signedIn()) { toast('Photo import needs a Google sign-in. Use "Sign in" at the top.'); return; }
+      const a = await ocrAllowed();
+      if (!a.allowed) { toast(a.signedIn === false ? 'Please sign in with Google again.' : `Photo import is limited to approved accounts. Ask the owner to add ${a.email || 'your email'}.`); return; }
+      document.getElementById('uploadDlg').showModal();
+    },
     pullIn(el) {
       const { src, id, key } = el.dataset;
       const item = src === 'inbox' ? state.inbox.find((x) => x.id === id) : state.bucket.find((x) => x.id === id);
@@ -2191,11 +2202,16 @@
       state.settings.gcalSelected = [...cur]; gcalReset(); commit();
     },
     reconnectCalendar() {
-      ['google_access_token', 'google_refresh_token', 'google_scope'].forEach((k) => localStorage.removeItem(k));
       gcalReset(); gcal.listTried = false; gcal.listError = '';
-      startGoogleOAuth();
+      startGoogleOAuth('calendar');
     },
-    syncEnable() { if (syncHasScope()) { state.settings.syncOn = true; commit(); syncNow(); } else startGoogleOAuth('sync'); },
+    signIn() { startGoogleOAuth('signin'); },
+    account() { if (signedIn()) location.hash = '#/settings'; else startGoogleOAuth('signin'); },
+    signOut(el) {
+      const wipe = el.dataset.wipe === '1';
+      if (confirm(wipe ? 'Sign out and remove your plan from this device? It stays safe in your Google Drive.' : 'Sign out? Your plan stays on this device.')) doSignOut(wipe);
+    },
+    syncEnable() { if (syncHasScope()) { state.settings.syncOn = true; commit(); syncNow(); } else startGoogleOAuth('signin'); },
     syncNow() { if (!state.settings.syncOn) return; syncNow(); },
     syncOff() { state.settings.syncOn = false; sync.status = 'off'; commit(); toast('Sync is off. Your Drive copy is kept.'); },
     syncBackups() { loadBackups(); },
@@ -2957,6 +2973,47 @@
     return (await driveFetch(`${UPLOAD}?uploadType=multipart&fields=${DRIVE_FIELDS}`, { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${b}` }, body: multipart })).json();
   }
 
+  const signedIn = () => !!localStorage.getItem('google_access_token') && /userinfo\.email|(^|\s)email(\s|$)/.test(gScope());
+  function renderAccountChip() {
+    const b = document.getElementById('navAccount');
+    if (!b) return;
+    if (signedIn()) { const e = localStorage.getItem('google_email') || '?'; b.textContent = e[0].toUpperCase(); b.title = `Signed in as ${e}`; b.className = 'nav-acct on'; b.setAttribute('aria-label', `Account: ${e}`); }
+    else { b.textContent = 'Sign in'; b.title = 'Sign in with Google'; b.className = 'nav-acct'; b.setAttribute('aria-label', 'Sign in with Google'); }
+  }
+  async function doSignOut(wipe) {
+    if (wipe) {
+      if (!syncEnabled()) { toast('Sync is off, so clearing this device would lose your plan. Turn sync on first.'); return; }
+      await syncNow();
+      if (sync.status !== 'ok') { toast('Could not confirm your plan is saved to Drive, so nothing was cleared.'); return; }
+    }
+    ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email', 'google_intent', 'google_cal_off', 'account_mode', 'login_prompt_seen'].forEach((k) => localStorage.removeItem(k));
+    state.settings.syncOn = false; state.syncMeta = {}; gcalReset(); gcal.listTried = false; sync.status = 'off'; sync.backups = null;
+    if (wipe) state = S.defaultState();
+    rawSave(state); renderAccountChip();
+    toast(wipe ? 'Signed out. This device is cleared; your plan is safe in Google Drive.' : 'Signed out. Your plan stays on this device.');
+    location.hash = wipe ? '#/welcome/1' : '#/settings'; render();
+  }
+  function accountCard() {
+    if (signedIn()) return `<section class="box account-card"><h2>Account</h2>
+      <p>Signed in with Google as <strong>${esc(localStorage.getItem('google_email') || 'your account')}</strong>. Your plan is saved to your own Google Drive and follows you to any device you sign in on.</p>
+      <div class="row wrap"><button class="btn ghost" data-act="signOut" data-wipe="0">Sign out</button><button class="btn ghost danger" data-act="signOut" data-wipe="1">Sign out and clear this device</button></div></section>`;
+    return `<section class="box account-card"><h2>Account</h2>
+      <p class="prompt">Sign in with Google to keep your plan safe in your own Drive and open it on any device. New here? Your first sign-in creates your account; there is nothing else to fill in.</p>
+      <div class="row wrap"><button class="btn primary" data-act="signIn">Sign in with Google</button></div>
+      <p class="muted small">Prefer not to? Life.OS works without an account, and your plan then stays on this device only.</p></section>`;
+  }
+  async function ocrAllowed() {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(`${API_BASE}/api/ocr/access`, { headers: { Authorization: `Bearer ${localStorage.getItem('google_access_token') || ''}` } });
+        const a = await r.json();
+        if (a.signedIn === false && attempt === 0 && await googleRefresh()) continue;
+        return a;
+      } catch (e) { return { allowed: true, unknown: true }; }                // server unreachable: let the upload report it
+    }
+    return { allowed: false, signedIn: false };
+  }
+
   function showSyncStatus() {
     const el = document.getElementById('syncStatus');
     if (!el) return;
@@ -3053,7 +3110,7 @@
       <p class="prompt">Your plan is saved in this browser. Turn on sync and it is also kept as one private file in <strong>your own Google Drive</strong> (a hidden app folder that only Life.OS can open), so a cleared browser or a lost phone can't erase it, and every device stays the same. A dated backup is saved daily.</p>
       ${on ? `<p>${sync.status === 'error' ? `<span class="nudge">⚠ ${esc(sync.msg)}</span>` : `✓ Syncing${email ? ` as <strong>${esc(email)}</strong>` : ''}${m.at ? ` · last synced ${esc(fmtClock(m.at))}` : ''}`}</p>
         <div class="row wrap"><button class="btn" data-act="syncNow">Sync now</button><button class="btn ghost" data-act="syncBackups">Cloud backups…</button><button class="btn ghost" data-act="export">Download a backup file</button><button class="btn ghost" data-act="syncOff">Turn off</button><button class="btn ghost danger" data-act="syncDelete">Delete cloud copy</button></div>${backups}`
-      : `<div class="row wrap"><button class="btn primary" data-act="syncEnable">Turn on sync with Google</button><button class="btn ghost" data-act="export">Download a backup file</button></div>
+      : `<div class="row wrap">${signedIn() ? '<button class="btn primary" data-act="syncEnable">Turn sync back on</button>' : '<span class="muted">Sign in above to turn this on.</span>'}<button class="btn ghost" data-act="export">Download a backup file</button></div>
         <p class="muted small">Life.OS only asks Google for your email and its own private folder in Drive. It can't see your other files.</p>`}
     </section>`;
   }
@@ -3095,7 +3152,7 @@
     if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : (Number(tlw.dataset.start) || 0) * (Number(tlw.dataset.zoom) || 1);
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
     if (render.last !== location.hash) quoteIdx = (quoteIdx + 1) % QUOTES.length;
-    showQuote(); showSyncStatus();
+    showQuote(); showSyncStatus(); renderAccountChip();
     render.last = location.hash;
     if (focused) { const f = app.querySelector(`[data-bind="${CSS.escape(focused)}"]`); if (f) f.focus(); }
   }
@@ -3130,7 +3187,8 @@
   (async function finishGoogleLogin() {
     const code = new URLSearchParams(location.search).get('code');
     if (!code) return;
-    history.replaceState(null, '', location.pathname + (location.hash || '#/settings'));
+    const intentNow = localStorage.getItem('google_intent');
+    history.replaceState(null, '', location.pathname + (location.hash || (intentNow === 'signin' ? '#/today' : '#/settings')));
     try {
       const res = await fetch(`${API_BASE}/api/auth/google/token`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code })
@@ -3142,29 +3200,38 @@
       if (t.scope) localStorage.setItem('google_scope', t.scope);
       if (t.id_token) { try { const pl = JSON.parse(atob(t.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); if (pl.email) localStorage.setItem('google_email', pl.email); } catch (e) { /* email is only for display */ } }
       const intent = localStorage.getItem('google_intent'); localStorage.removeItem('google_intent');
-      if (intent === 'sync') {
-        if (syncHasScope()) { state.settings.syncOn = true; S.save(state); toast('Sync is on'); syncNow(); }
-        else toast('Google did not allow Drive access. Try again and keep every box ticked.');
+      if (intent === 'sync' || intent === 'signin') {
+        if (!syncHasScope()) { toast('Google did not allow Drive access. Try again and keep every box ticked.'); render(); return; }
+        localStorage.setItem('account_mode', 'google');
+        state.settings.syncOn = true; S.save(state); renderAccountChip();
+        toast(`Signed in${localStorage.getItem('google_email') ? ` as ${localStorage.getItem('google_email')}` : ''}`);
+        syncNow().then(() => {
+          if (isBlank() && !/^#\/(setup|welcome)/.test(location.hash)) location.hash = '#/setup/1';      // first sign-in: create the plan
+          else if (/^#\/(welcome|demo)/.test(location.hash)) location.hash = '#/today';
+          render();
+        });
         render(); return;
       }
+      localStorage.removeItem('google_cal_off');
       const canRead = !t.scope || /auth\/calendar(\.readonly|\.calendarlist(\.readonly)?)?(\s|$)/.test(t.scope);
       toast(canRead ? 'Google Calendar connected' : 'Connected, but Google did not allow reading your calendars. Reconnect and tick every box.');
       render();
     } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
   })();
   const loginDlg = document.getElementById('loginDlg');
-  const markLoginSeen = () => { try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) { /* storage unavailable */ } };
+  const setAccountMode = (m) => { try { localStorage.setItem('account_mode', m); } catch (e) { /* storage unavailable */ } };
   if (loginDlg) {
-    document.getElementById('loginGoogleBtn').addEventListener('click', () => { markLoginSeen(); startGoogleOAuth(); });
-    document.getElementById('loginSkipBtn').addEventListener('click', markLoginSeen);
-    loginDlg.addEventListener('cancel', markLoginSeen);
+    document.getElementById('loginGoogleBtn').addEventListener('click', () => startGoogleOAuth('signin'));
+    document.getElementById('loginSkipBtn').addEventListener('click', () => setAccountMode('local'));
+    loginDlg.addEventListener('cancel', () => setAccountMode('local'));
+    document.getElementById('loginDemo').addEventListener('click', () => loginDlg.close());
   }
-  /* Offer Google sign-in once, but never on top of the tour or the setup guide. */
+  /* Ask people to sign in (or choose no account) once, but never on top of the tour or the setup guide. */
   function maybePromptLogin(route) {
     if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(welcome|demo|setup)$/.test(route)) return;
-    let seen = false, hasToken = false;
-    try { seen = !!localStorage.getItem('login_prompt_seen'); hasToken = !!localStorage.getItem('google_access_token'); } catch (e) { /* storage unavailable */ }
-    if (seen || hasToken || new URLSearchParams(location.search).get('code')) return;
+    let mode = '';
+    try { mode = localStorage.getItem('account_mode') || localStorage.getItem('login_prompt_seen') || ''; } catch (e) { /* storage unavailable */ }
+    if (mode || signedIn() || new URLSearchParams(location.search).get('code')) return;
     loginDlg.showModal();
   }
   window.addEventListener('hashchange', render);

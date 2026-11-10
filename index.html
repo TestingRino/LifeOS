@@ -14,7 +14,7 @@
   <meta name="description" content="Purpose-based life planning that works alongside a physical planner.">
   <meta name="theme-color" content="#2f3352">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261110231812">
+  <link rel="stylesheet" href="css/style.css?v=20261110234953">
 </head>
 <body>
   <header class="topbar">
@@ -43,6 +43,7 @@
       <a href="#/track" data-route="track">Track</a>
       <a href="#/lists" data-route="lists">Lists</a>
       <a href="#/settings" data-route="settings" aria-label="Settings">⚙</a>
+      <button type="button" id="navAccount" class="nav-acct" data-act="account">Sign in</button>
     </nav>
   </header>
   <main id="app" class="wrap"></main>
@@ -148,19 +149,20 @@
   <dialog id="loginDlg">
     <form method="dialog">
       <h2>Welcome to Life.OS</h2>
-      <p class="muted small">Sign in with Google to see your calendar alongside your plans. You can use Life.OS without signing in too.</p>
-      <div class="row" style="flex-direction:column; gap:0.5rem; margin-top:1rem;">
-        <button type="button" class="btn" id="loginGoogleBtn">Continue with Google</button>
-        <button class="btn ghost" id="loginSkipBtn">Skip for now</button>
+      <p class="muted">Sign in with Google to keep your plan safe in your own Google Drive and open it on any device. New here? Your first sign-in creates your account. There is nothing else to fill in.</p>
+      <div class="sync-choices">
+        <button type="button" class="btn primary" id="loginGoogleBtn">Continue with Google</button>
+        <button class="btn ghost" id="loginSkipBtn">Continue without an account</button>
       </div>
+      <p class="muted small">Without an account your plan stays on this device only. You can sign in later from Settings. <a href="#/welcome/1" id="loginDemo">See the demo first</a></p>
     </form>
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/util.js?v=20261110231812"></script>
-  <script src="js/store.js?v=20261110231812"></script>
-  <script src="js/app.js?v=20261110231812"></script>
+  <script src="js/util.js?v=20261110234953"></script>
+  <script src="js/store.js?v=20261110234953"></script>
+  <script src="js/app.js?v=20261110234953"></script>
 </body>
 </html>

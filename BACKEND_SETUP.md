@@ -88,6 +88,29 @@ Done! They can now:
 
 ---
 
+## Step 5: Choose who can use photo import (admin)
+
+Photo import spends your Claude credits, so it is limited to Google accounts you approve. Everything else in Life.OS works for any signed-in or anonymous user.
+
+In Vercel: **Project → Settings → Environment Variables**, add:
+
+| Name | Value |
+|---|---|
+| `OCR_ALLOWED_EMAILS` | a comma-separated list, for example `you@gmail.com,spouse@gmail.com` |
+
+Then **redeploy** (Deployments → the latest one → Redeploy). Changes take effect after the redeploy.
+
+- Emails are not case-sensitive.
+- If the list is empty or missing, **nobody** can use photo import (it fails closed).
+- `*` allows any signed-in Google account. Only use it if you accept the cost.
+- Do not commit real addresses to the repository. Keep them in Vercel only.
+
+**Two separate lists.** In Google Cloud Console, the OAuth consent screen's **Test users** list controls who can sign in with Google at all while the project is in *Testing* mode. `OCR_ALLOWED_EMAILS` controls who can use photo import after signing in. A new person usually needs to be added to both, until you publish the Google project (then only the Vercel list matters).
+
+To add someone: add their email to **Test users** (Cloud Console) and to `OCR_ALLOWED_EMAILS` (Vercel), then redeploy.
+
+---
+
 ## Troubleshooting
 
 **"Deploy failed"**

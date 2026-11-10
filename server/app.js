@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import authRoutes from './routes/auth.js';
 import calendarRoutes from './routes/calendar.js';
 import ocrRoutes from './routes/ocr.js';
+import { requireAllowedUser, identify, isAllowed } from './middleware/requireUser.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: `${__dirname}/.env` });
@@ -19,7 +20,13 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
-app.use('/api/ocr', ocrRoutes);
+// Photo import is limited to whitelisted Google accounts (OCR_ALLOWED_EMAILS). This lets the app ask up front.
+app.get('/api/ocr/access', async (req, res) => {
+  const who = await identify(req);
+  if (who.error) return res.json({ allowed: false, signedIn: false, reason: who.error });
+  res.json({ allowed: isAllowed(who.email), signedIn: true, email: who.email });
+});
+app.use('/api/ocr', requireAllowedUser, ocrRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
