@@ -18,6 +18,14 @@ export function parseOCRResult(ocrData, type = 'auto') {
 
 function normalizeByType(type, data) {
   switch (type) {
+    case 'calendar': {
+      const mins = (a, b) => { const m = (t) => { const x = /^(\d{1,2}):(\d{2})/.exec(t || ''); return x ? Number(x[1]) * 60 + Number(x[2]) : null; }; const d = m(b) - m(a); return m(a) != null && m(b) != null && d > 0 ? d : ''; };
+      return { events: (data.events || []).filter(e => e && e.date && e.title).map(e => ({
+        date: e.date, text: String(e.title).trim(), allDay: !!e.allDay, endDate: e.endDate || '',
+        time: e.allDay ? '' : (/^\d{1,2}:\d{2}/.test(e.start || '') ? String(e.start).slice(0, 5).padStart(5, '0') : ''),
+        mins: e.allDay ? '' : mins(e.start, e.end), approx: !!e.approx || (!e.allDay && !e.start),
+      })) };
+    }
     case 'schedule':
       return { entries: (data.entries || []).map(e => ({
         date: e.date,
@@ -95,6 +103,9 @@ function getRoutingSuggestions(type, data) {
   const suggestions = [];
 
   switch (type) {
+    case 'calendar':
+      suggestions.push({ route: 'calendar', label: 'Review and add to my calendar', data });
+      break;
     case 'schedule':
       suggestions.push({ route: 'schedule', label: 'Add to this week\'s schedule', data });
       suggestions.push({ route: 'calendar', label: 'Create Google Calendar events', data });

@@ -403,22 +403,23 @@
     : '<p class="muted small gcal-status">📅 <a href="#/settings">Connect Google Calendar</a> to see your events here.</p>';
 
   /* Phone photos can exceed the host's request limit, so downscale to a JPEG first. */
-  async function shrinkImage(file, maxDim = 1800) {
+  async function shrinkImage(file, maxDim = 1800, quality = 0.85) {
     try {
       const bmp = await createImageBitmap(file);
       const k = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas');
       c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-      const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+      const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', quality));
       return blob || file;
     } catch (e) { return file; }
   }
 
-  async function uploadPhotoOCR(file) {
+  async function uploadPhotoOCR(file, type = 'auto') {
     const fd = new FormData();
-    fd.append('image', await shrinkImage(file), 'photo.jpg');
-    fd.append('type', 'auto');
+    fd.append('image', await shrinkImage(file, type === 'calendar' ? 2400 : 1800, type === 'calendar' ? 0.9 : 0.85), 'photo.jpg');
+    fd.append('type', type);
+    fd.append('today', todayISO());
     const res = await fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd });
     if (!res.ok) {
       let msg = `Server error ${res.status}`;
@@ -445,7 +446,7 @@
       const event = e.raw || { text: e.text, date: e.date };
       if (!e.raw && e.time) {
         const start = new Date(`${e.date}T${e.time}`);
-        if (!isNaN(start)) { event.start = start.toISOString(); event.end = new Date(start.getTime() + 3600000).toISOString(); }
+        if (!isNaN(start)) { event.start = start.toISOString(); event.end = new Date(start.getTime() + (Number(e.mins) || 60) * 60000).toISOString(); }
       }
       try {
         const r = await fetch(`${API_BASE}/api/calendar/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token, event }) });
@@ -622,6 +623,13 @@
       ${setupBanner}
       ${dueStrip}
       ${capture}
+      <div class="today-cols"><div class="today-left">
+      <section class="box">
+        <h2>Today's schedule <a class="more" href="#/calendar/day:${iso}">Full calendar →</a></h2>
+        ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
+        ${dayTimeline(iso, { height: 560 })}
+      </section>
+      </div><div class="today-right">
       <section class="box review${rvCount === 3 ? ' done' : ''}">
         <details data-keep="review"><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
           <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.purpose`, 'Reviewed my purpose')} <strong>My purpose</strong></label>
@@ -645,16 +653,6 @@
           <button class="btn ghost" data-act="migrateBig3" data-id="${b.id}" ${bigToday.length >= 3 ? 'disabled title="Today already has 3"' : ''}>› Today</button>
           <button class="x" data-act="dropBig3" data-id="${b.id}" aria-label="Let go">×</button></li>`).join('')}</ul>` : ''}
       </section>
-      <section class="box">
-          <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
-          ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${evIcon(e)}${esc(e.text)}</li>`).join('')}</ul>` : ''}
-          ${gcalOn(iso).length ? `<ul class="events">${gcalOn(iso).map((g) => `<li><time>${g.time ? esc(fmtTime(g.time)) : 'All day'}</time> 📅 ${esc(g.text)}</li>`).join('')}</ul>` : ''}
-          ${idealToday.length ? `<ul class="checks compact">${idealToday.map((i) => idealRow(i, iso, true)).join('')}</ul>` : ''}
-          ${todaySched.length ? `<ul class="events">${todaySched.map((s) => `<li><time>${esc(fmtTime(s.time)) || '—'}</time> ${esc(s.text)}</li>`).join('')}</ul>` : ''}
-          ${todayWos.length ? `<ul class="checks compact">${todayWos.map((x) => `<li>${chk(`workouts.@${x.id}.done`, 'Workout done')}<span class="grow">${x.time ? `<time>${esc(fmtTime(x.time))}</time> ` : ''}Workout: ${esc(x.type)}${x.details ? ` <small class="muted">${esc(x.details)}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
-          ${!todayEvents.length && !todaySched.length && !todayWos.length && !idealToday.length && !gcalOn(iso).length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
-          <form class="add" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" aria-label="Time"><input name="text" placeholder="Add to today…" required><button aria-label="Add">+</button></form>
-        </section>
       ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/setup/5">Add your habits</a> (like "Read a book, 7 days a week") and they will appear here each day.</p></section>` : ''}
       ${tks.length ? `<section class="box">
         <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
@@ -668,6 +666,7 @@
           <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button></li>`; }).join('')}</ul>`
           : '<p class="muted">Of your annual goals, pick the 3–4 that deserve your best energy this quarter. <a href="#/goals">Choose your focus →</a></p>'}
       </section>
+      </div></div>
       <details class="box more-today" data-keep="more"><summary><strong>More for today</strong> <span class="muted">rituals, milestones, this week, goals, journal</span></summary>
         <section class="box">
           <h2>Rituals due</h2>
@@ -1019,6 +1018,61 @@
   }
   const timeGrid = (wk, dayOptsHtml) => timeGridDays(DAYS_ISO(wk), dayOptsHtml);
 
+  /* ---------- Outlook-style day timeline (24h, 15-minute granularity) ---------- */
+  function layoutDay(items) {
+    const sorted = items.slice().sort((a, b) => a.start - b.start || b.end - a.end), out = [];
+    let cluster = [], clusterEnd = -1;
+    const flush = () => {
+      if (!cluster.length) return;
+      const cols = [];
+      cluster.forEach((it) => { let c = cols.findIndex((end) => end <= it.start); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = it.end; it.col = c; });
+      cluster.forEach((it) => { it.cols = cols.length; out.push(it); });
+      cluster = [];
+    };
+    sorted.forEach((it) => { if (it.start >= clusterEnd) { flush(); clusterEnd = it.end; } else clusterEnd = Math.max(clusterEnd, it.end); cluster.push(it); });
+    flush();
+    return out;
+  }
+  const hhmm24 = (m) => `${U.pad(Math.floor(m / 60))}:${U.pad(m % 60)}`;
+  let tlScroll = null;
+  function dayTimeline(iso, opt) {
+    const height = (opt && opt.height) || 560;
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const items = [], anytime = [];
+    const push = (o) => { o.start = Math.max(0, Math.min(1439, o.start)); o.end = Math.min(1440, Math.max(o.start + 15, o.start + o.mins)); items.push(o); };
+    gcalOn(iso).forEach((g) => (g.time ? push({ cls: 'gcal', start: toMin(g.time), mins: g.mins, time: g.time, html: `📅 ${esc(g.text)}`, tip: g.text }) : anytime.push(`<span class="ad gcal">📅 ${esc(g.text)}</span>`)));
+    U.eventsOn(state.events, iso).forEach((e) => anytime.push(`<span class="ad">${evIcon(e)}${esc(e.text)}</span>`));
+    idealOn(iso).forEach((i) => {
+      const done = idealDone(i, iso), cb = `<input type="checkbox" data-act="idealDone" data-id="${i.id}" data-date="${iso}" ${done ? 'checked' : ''} aria-label="Done: ${esc(i.text)}">`;
+      if (i.time) push({ cls: `ideal${done ? ' done' : ''}`, start: toMin(i.time), mins: 60, time: i.time, html: `${cb} ${esc(i.text)}${i.workout ? ' 🏃' : ''}`, tip: i.text });
+      else anytime.push(`<label class="ad ideal">${cb} ${esc(i.text)}</label>`);
+    });
+    scheduleOn(iso).forEach((x) => {
+      const html = `${esc(x.text)}${x.cal ? ` <small>${esc(x.cal)}</small>` : ''}<button class="x" data-act="del" data-path="schedule" data-id="${x.id}" aria-label="Remove">×</button>`;
+      if (x.time) push({ cls: 'sched', start: toMin(x.time), mins: Number(x.mins) || 30, time: x.time, html, tip: x.text });
+      else anytime.push(`<span class="ad sched">${html}</span>`);
+    });
+    state.workouts.filter((x) => x.date === iso && !x.ideal).forEach((x) => {
+      const cb = chk(`workouts.@${x.id}.done`, 'Workout done');
+      if (x.time) push({ cls: `wo${x.done ? ' done' : ''}`, start: toMin(x.time), mins: Number(x.minutes) || 45, time: x.time, html: `${cb} ${esc(x.type)}`, tip: x.type });
+      else anytime.push(`<label class="ad wo">${cb} ${esc(x.type)}</label>`);
+    });
+    const placed = layoutDay(items);
+    const hours = Array.from({ length: 24 }, (_, h) => `<div class="tl-hr" style="top:${h * 60}px">${h === 0 ? '' : esc(fmtTime(`${U.pad(h)}:00`))}</div>`).join('');
+    const slots = Array.from({ length: 96 }, (_, i) => `<div class="tl-slot${i % 4 === 0 ? ' hr' : ''}" style="top:${i * 15}px" data-time="${hhmm24(i * 15)}" title="${esc(fmtTime(hhmm24(i * 15)))}"></div>`).join('');
+    const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}${o.end - o.start <= 20 ? ' tiny' : ''}" style="top:${o.start}px;height:${o.end - o.start - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)" title="${esc(fmtTime(o.time))} ${esc(o.tip)}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
+    const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+    const now = iso === todayISO() ? `<div class="tl-now" style="top:${nowMin}px"><i></i></div>` : '';
+    const start = iso === todayISO() ? Math.max(0, nowMin - 90) : 7 * 60;
+    return `<div class="tl-box">
+      <form class="add wrap tl-form" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" step="900" required aria-label="Start time">
+        <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60 === Math.floor(n / 60) ? n / 60 : (n / 60).toFixed(1)} hr` : `${n} min` })), 30)}</select>
+        <input name="text" placeholder="Click a time slot below, or type an event here…" required><button aria-label="Add event">+</button></form>
+      ${anytime.length ? `<div class="tl-anytime"><small class="muted">All day / anytime</small> ${anytime.join(' ')}</div>` : ''}
+      <div class="tl-wrap" data-start="${start}" style="height:${height}px"><div class="tl"><div class="tl-hours">${hours}</div><div class="tl-canvas">${slots}${blocks}${now}</div></div></div>
+    </div>`;
+  }
+
   /* ---------- calendar: day / week / month ---------- */
   function calParse(arg) {
     const [m0, v0 = ''] = String(arg || '').split(':');
@@ -1034,6 +1088,16 @@
     return { mode, focus, fd, from, to };
   }
 
+  function photoImports() {
+    const b = {};
+    state.schedule.filter((x) => x.batch).forEach((x) => { (b[x.batch] = b[x.batch] || { id: x.batch, name: x.batchName || 'Photo import', items: [] }).items.push(x); });
+    const list = Object.values(b);
+    if (!list.length) return '';
+    return `<section class="box"><h3>Imported from photos</h3><ul class="habit-sum batches">${list.map((g) => { const ds = g.items.map((x) => x.date).sort();
+      return `<li><span><strong>${esc(g.name)}</strong> <small class="muted">${g.items.length} events · ${U.fmtDate(ds[0])} – ${U.fmtDate(ds[ds.length - 1])}</small></span>
+        <button class="x" data-act="delImport" data-id="${g.id}" aria-label="Remove this import">×</button></li>`; }).join('')}</ul></section>`;
+  }
+
   function viewCalendar(arg) {
     const c = calParse(arg), { mode, fd } = c, tIso = todayISO();
     const fIso = c.focus, link = (m, f) => `#/calendar/${m}:${m === 'month' ? U.monthKey(U.parseISO(f)) : m === 'week' ? U.weekKey(U.parseISO(f), ws()) : f}`;
@@ -1047,7 +1111,7 @@
     const dayOpts = (days) => opts(days.map((d) => ({ v: d, l: `${U.DAYS[U.parseISO(d).getDay()].slice(0, 3)} ${U.fmtDate(d)}` })), days.includes(tIso) ? tIso : days[0]);
     if (mode === 'day') {
       title = U.fmtDate(fIso, { weekday: 'long', month: 'long', day: 'numeric' }); sub = U.parseISO(fIso).getFullYear();
-      content = timeGridDays([fIso], dayOpts([fIso]));
+      content = dayTimeline(fIso, { height: 680 });
     } else if (mode === 'week') {
       const days = DAYS_ISO(U.weekKey(fd, ws()));
       title = `Week of ${U.fmtDate(days[0], { month: 'short', day: 'numeric' })}`; sub = `${U.fmtDate(days[0])} – ${U.fmtDate(days[6])}`;
@@ -1073,6 +1137,7 @@
     const body = `<div class="row cal-bar"><div class="chips">${switcher}</div><span class="grow"></span>${nav}</div>
       ${gcalStatusLine(c.from, c.to)}
       <section class="box">${content}</section>
+      ${photoImports()}
       <p class="muted small"><span class="key gcal"></span> Google Calendar · <span class="key ideal"></span> Ideal week · <span class="key sched"></span> Your schedule · <span class="key wo"></span> Workouts</p>`;
     return page(title, sub, body);
   }
@@ -1101,7 +1166,7 @@
         ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${evIcon(e)}${esc(e.text)}</div>`).join('')}
         <ul class="sched">${gcalOn(iso).map((g) => `<li class="gcal"><span class="grow">${g.time ? `<time>${esc(fmtTime(g.time))}</time> ` : ''}📅 ${esc(g.text)}</span></li>`).join('')}
           ${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
-          ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
+          ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}${s.cal ? ` <small class="muted">${esc(s.cal)}</small>` : ''}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
           ${wos.filter((x) => x.date === iso).map((x) => `<li class="wo ${x.done ? 'done' : ''}"><span class="grow">${x.done ? '✓' : '◦'} ${esc(x.type)}</span></li>`).join('')}</ul>
       </div>`;
     }).join('')}</div>
@@ -2002,6 +2067,11 @@
       if (!confirm('Remove the sample roles and goals? Your own goals are kept.')) return;
       removeSamples(); commit();
     },
+    delImport(el) {
+      const n = state.schedule.filter((x) => x.batch === el.dataset.id).length;
+      if (!confirm(`Remove all ${n} events from this photo import?`)) return;
+      state.schedule = state.schedule.filter((x) => x.batch !== el.dataset.id); commit();
+    },
     delBatch(el) {
       const n = state.workouts.filter((x) => x.batch === el.dataset.id).length;
       if (!confirm(`Remove all ${n} sessions from this plan?`)) return;
@@ -2450,6 +2520,14 @@
   }
 
   /* ---------- router ---------- */
+  document.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('tl-wrap')) tlScroll = e.target.scrollTop; }, true);
+  document.addEventListener('click', (e) => {
+    const slot = e.target.closest && e.target.closest('.tl-slot');
+    if (!slot) return;
+    const f = slot.closest('.tl-box').querySelector('form');
+    f.querySelector('input[name=time]').value = slot.dataset.time;
+    f.querySelector('input[name=text]').focus();
+  });
   const keepOpen = {};
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
@@ -2471,6 +2549,8 @@
     });
     moreBtn.classList.toggle('sel', moreBtn.dataset.moreRoutes.split(' ').includes(active));
     setMore(false);
+    const tlw = app.querySelector('.tl-wrap');
+    if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : Number(tlw.dataset.start) || 0;
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
     render.last = location.hash;
     if (focused) { const f = app.querySelector(`[data-bind="${CSS.escape(focused)}"]`); if (f) f.focus(); }
@@ -2535,14 +2615,80 @@
   }
 
   let ocrSuggestions = [];
+  let calReviewName = '';
+  const uploadType = document.getElementById('uploadType');
+  uploadType.addEventListener('change', () => {
+    const cal = uploadType.value === 'calendar';
+    document.getElementById('uploadCalWrap').hidden = !cal; document.getElementById('uploadCalTip').hidden = !cal;
+  });
+
+  function showCalendarReview(rawEvents, calName) {
+    calReviewName = calName || '';
+    const events = [];
+    rawEvents.forEach((ev) => {
+      if (ev.allDay && ev.endDate && ev.endDate > ev.date) {
+        for (let d = U.parseISO(ev.date), i = 0; U.toISO(d) <= ev.endDate && i < 14; d = U.addDays(d, 1), i++) events.push({ ...ev, date: U.toISO(d), endDate: '' });
+      } else events.push(ev);
+    });
+    events.sort((a, b) => ((a.date + (a.time || '')) < (b.date + (b.time || '')) ? -1 : 1));
+    const approxN = events.filter((e) => e.approx).length;
+    document.getElementById('ocrTitle').textContent = 'Review calendar events';
+    document.getElementById('ocrType').textContent = events.length
+      ? `${events.length} event${events.length === 1 ? '' : 's'} found${calName ? ` in "${calName}"` : ''}${approxN ? ` · ${approxN} marked ⚠ need a check (estimated time or cut-off title)` : ''}. Fix anything wrong, untick what you don't want.`
+      : 'No events were found. Try a clearer screenshot that shows the day headers.';
+    const preview = document.getElementById('ocrPreview');
+    preview.style.maxHeight = '50vh';
+    preview.innerHTML = events.length ? `<table class="rev-table"><tbody>${events.map((e) => `<tr class="rev-row${e.approx ? ' approx' : ''}">
+      <td><input type="checkbox" checked aria-label="Include"></td>
+      <td><input type="date" value="${esc(e.date)}" aria-label="Date"></td>
+      <td><input type="time" value="${esc(e.time || '')}" aria-label="Start time"></td>
+      <td><input type="number" class="num" min="0" step="5" value="${esc(e.mins)}" placeholder="min" aria-label="Minutes"></td>
+      <td><input class="rev-text" value="${esc(e.text)}" aria-label="Title"></td>
+      <td>${e.approx ? '<span title="Estimated or cut off. Please check">⚠</span>' : ''}</td></tr>`).join('')}</tbody></table>` : '';
+    document.getElementById('routeButtons').innerHTML = events.length
+      ? `<button type="button" class="btn primary" data-cal-act="local">Add selected to my calendar</button>${gcalConnected() ? '<button type="button" class="btn" data-cal-act="google">Add to my calendar + Google Calendar</button>' : ''}` : '';
+    ocrSuggestions = [];
+    uploadDlg.close(); ocrResultDlg.showModal();
+  }
+
+  function addReviewedEvents(mode) {
+    const rows = [...document.querySelectorAll('#ocrPreview .rev-row')].filter((r) => r.querySelector('input[type=checkbox]').checked).map((r) => ({
+      date: r.querySelector('input[type=date]').value, time: r.querySelector('input[type=time]').value,
+      mins: Number(r.querySelector('input[type=number]').value) || '', text: r.querySelector('input.rev-text').value.trim(),
+    })).filter((x) => x.date && x.text);
+    if (!rows.length) { toast('Nothing selected'); return; }
+    const batch = S.uid(), batchName = `${calReviewName || 'Photo'} · ${U.fmtDate(todayISO(), { month: 'short', day: 'numeric' })}`;
+    let added = 0;
+    rows.forEach((x) => {
+      if (state.schedule.some((s) => s.date === x.date && (s.time || '') === x.time && s.text.toLowerCase() === x.text.toLowerCase())) return;
+      state.schedule.push({ id: S.uid(), date: x.date, time: x.time, mins: x.mins, text: x.text, cal: calReviewName, batch, batchName }); added++;
+    });
+    if (mode === 'google') pushToGoogleCalendar(rows);
+    ocrResultDlg.close();
+    S.save(state);
+    toast(added ? `Added ${added} event${added === 1 ? '' : 's'} to your calendar` : 'Those events were already on your calendar');
+    location.hash = `#/calendar/week:${U.weekKey(U.parseISO(rows[0].date), ws())}`;
+    render();
+  }
+
   uploadInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    toast('Reading photo…');
+    const files = [...e.target.files];
+    if (!files.length) return;
+    const type = uploadType.value || 'auto', calName = document.getElementById('uploadCal').value.trim();
+    toast(files.length > 1 ? `Reading ${files.length} photos…` : 'Reading photo…');
     try {
-      const { type, data, suggestions = [] } = await uploadPhotoOCR(file);
+      if (type === 'calendar') {
+        const events = [];
+        for (const f of files) { const r = await uploadPhotoOCR(f, 'calendar'); (r.data.events || []).forEach((ev) => events.push(ev)); }
+        showCalendarReview(events, calName); return;
+      }
+      const result = await uploadPhotoOCR(files[0], type);
+      if (result.type === 'calendar') { showCalendarReview(result.data.events || [], calName); return; }
+      const { type: detected, data, suggestions = [] } = result;
       ocrSuggestions = suggestions;
-      document.getElementById('ocrType').textContent = `Detected: ${type}`;
+      document.getElementById('ocrTitle').textContent = 'What is this?';
+      document.getElementById('ocrPreview').style.maxHeight = '200px';
+      document.getElementById('ocrType').textContent = `Detected: ${detected}`;
       document.getElementById('ocrPreview').innerHTML = `<pre>${esc(JSON.stringify(data, null, 2).slice(0, 800))}</pre>`;
       document.getElementById('routeButtons').innerHTML = suggestions.map((s, i) => `<button type="button" class="btn" data-ocr-route="${i}">→ ${esc(s.label)}</button>`).join('');
       uploadDlg.close();
@@ -2553,6 +2699,8 @@
     } finally { uploadInput.value = ''; }
   });
   document.getElementById('routeButtons').addEventListener('click', (e) => {
+    const cb = e.target.closest('[data-cal-act]');
+    if (cb) { addReviewedEvents(cb.dataset.calAct); return; }
     const btn = e.target.closest('[data-ocr-route]');
     const s = btn && ocrSuggestions[Number(btn.dataset.ocrRoute)];
     if (!s) return;

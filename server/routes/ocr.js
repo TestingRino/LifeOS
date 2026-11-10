@@ -8,6 +8,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 const client = new Anthropic();
 
 const OCR_PROMPTS = {
+  calendar: `This is a screenshot or photo of a calendar (day, week or month view; possibly dark mode; from Outlook, Google, Apple or similar). Read each day header to work out the date of every column, using today's date to resolve the month and year. Extract EVERY event. For each give: date (YYYY-MM-DD); start (24-hour HH:MM) and end (HH:MM) read from the hour labels on the left if they are visible; if the hour labels are NOT visible, estimate start and end from the vertical position and block height relative to other events and any current-time marker, and set approx true; title exactly as written (if it is cut off, give your best reading and set approx true); allDay true for banner events at the top of a day or events that span several days, with endDate (the last day, inclusive) for multi-day ones. A recurring event that shows on several days is listed once per day. Return ONLY JSON: {events: [{date, start, end, title, allDay, endDate, approx}]}`,
   schedule: `Extract schedule entries from this image. For each entry, extract: date (YYYY-MM-DD if visible), time (HH:MM), and activity text. Return JSON: {entries: [{date, time, text}]}`,
   goals: `This is a roles-and-goals planner page. Read the handwriting carefully. Extract: each role (e.g. Parent) with its WHY (the underlying reasons the role matters); every written goal; and the handwritten Monthly, Weekly and Daily action text for the role. For each goal give: title, why (if any), target date (YYYY-MM-DD, empty if none), area (work|home|friends|projects|fun|health), role, and cadence: "daily" if it repeats every day, "weekly" if it repeats every week, "monthly" if it repeats every month, otherwise "once". Return ONLY JSON: {roles: [{name, why, monthly, weekly, daily}], goals: [{title, why, target, area, role, cadence}]}`,
   workouts: `Extract workout log from this image. For each entry, extract: date (YYYY-MM-DD), type (e.g., running, lifting), duration in minutes, details. Return JSON: {workouts: [{date, type, minutes, details}]}`,
@@ -24,16 +25,17 @@ const OCR_PROMPTS = {
 
 const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-async function analyzeImage(base64Image, mediaType, type = 'auto') {
+async function analyzeImage(base64Image, mediaType, type = 'auto', ctx = {}) {
   const formats = Object.entries(OCR_PROMPTS).map(([k, v]) => `- type "${k}": ${v}`).join('\n');
   const prompt = type === 'auto'
-    ? `Analyze this image of a handwritten or printed planner page and decide which type of life planning data it contains. Types and the JSON shape of "data" for each:\n${formats}\nA roles-and-goals page (a role with its WHY, goals and monthly/weekly/daily actions) is type "goals". Pick the single best type, read the handwriting carefully, then return ONLY JSON: {"type": "<type>", "data": {...}} with data in that type's shape.`
+    ? `Analyze this image of a handwritten or printed planner page and decide which type of life planning data it contains. Types and the JSON shape of "data" for each:\n${formats}\nA screenshot or photo of a calendar grid with time slots or day columns is type \"calendar\". A roles-and-goals page (a role with its WHY, goals and monthly/weekly/daily actions) is type "goals". Pick the single best type, read the handwriting carefully, then return ONLY JSON: {"type": "<type>", "data": {...}} with data in that type's shape.`
     : (OCR_PROMPTS[type] || OCR_PROMPTS.journal);
 
+  const dated = ctx.today && /^\d{4}-\d{2}-\d{2}$/.test(ctx.today) ? `${prompt}\n\nToday's date is ${ctx.today} (${new Date(`${ctx.today}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}).` : prompt;
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-5-5',
-      max_tokens: 4000,
+      max_tokens: 8000,
       messages: [
         {
           role: 'user',
@@ -42,7 +44,7 @@ async function analyzeImage(base64Image, mediaType, type = 'auto') {
               type: 'image',
               source: { type: 'base64', media_type: MEDIA_TYPES.includes(mediaType) ? mediaType : 'image/jpeg', data: base64Image },
             },
-            { type: 'text', text: prompt },
+            { type: 'text', text: dated },
           ],
         },
       ],
@@ -68,14 +70,15 @@ async function analyzeImage(base64Image, mediaType, type = 'auto') {
 router.post('/analyze', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image provided' });
 
-  const { type = 'auto' } = req.body;
+  const { type = 'auto', today } = req.body;
   const base64 = req.file.buffer.toString('base64');
 
   try {
-    const result = await analyzeImage(base64, req.file.mimetype, type);
+    const result = await analyzeImage(base64, req.file.mimetype, type, { today });
     if (result.error) return res.status(502).json({ error: 'Could not read structured data from that photo. Try a clearer, closer shot.' });
     const detected = type === 'auto' ? (result.type || 'journal') : type;
-    const parsed = parse.normalizeByType(detected, (type === 'auto' ? result.data : result) || {});
+    const unwrapped = type !== 'auto' && result.data && typeof result.data === 'object' && !Array.isArray(result.data) ? result.data : result;
+    const parsed = parse.normalizeByType(detected, (type === 'auto' ? result.data : unwrapped) || {});
     res.json({ type: detected, data: parsed, suggestions: parse.getRoutingSuggestions(detected, parsed) });
   } catch (err) {
     console.error('OCR analyze failed:', err.message);

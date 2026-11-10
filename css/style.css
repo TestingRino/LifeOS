@@ -549,3 +549,43 @@ ol.session-steps li > input[type=checkbox] { margin-top: .3rem; }
 .key.gcal { background: color-mix(in srgb, #2f6fb0 40%, var(--paper)); } .key.ideal { background: color-mix(in srgb, var(--ok) 40%, var(--paper)); }
 .key.sched { background: color-mix(in srgb, var(--navy) 35%, var(--paper)); } .key.wo { background: color-mix(in srgb, #b8671f 40%, var(--paper)); }
 .nav { overflow-x: auto; }
+
+/* calendar photo review */
+.rev-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.rev-table td { padding: .15rem .2rem; vertical-align: middle; }
+.rev-table input { width: 100%; min-width: 0; padding: .2rem .3rem; font-size: .85rem; }
+.rev-table input[type=checkbox] { width: auto; }
+.rev-table input.num { width: 4rem; }
+.rev-table tr.approx { background: color-mix(in srgb, #b8671f 12%, transparent); }
+
+/* Outlook-style day timeline: 1px per minute, 15-minute slots */
+.tl-wrap { overflow-y: auto; position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.tl { position: relative; display: grid; grid-template-columns: 3.6rem 1fr; height: 1440px; }
+.tl-hours { position: relative; }
+.tl-hr { position: absolute; right: .4rem; transform: translateY(-.55em); font-size: .72rem; color: var(--muted); }
+.tl-canvas { position: relative; border-left: 1px solid var(--line); }
+.tl-slot { position: absolute; left: 0; right: 0; height: 15px; border-top: 1px dotted var(--line); cursor: cell; }
+.tl-slot.hr { border-top: 1px solid var(--line); }
+.tl-slot:hover { background: color-mix(in srgb, #2f6fb0 10%, transparent); }
+.tl-blk { position: absolute; z-index: 2; overflow: hidden; border-radius: 4px; padding: 1px 5px; font-size: .78rem; line-height: 1.25; background: color-mix(in srgb, var(--navy) 18%, var(--paper)); border-left: 3px solid var(--navy); }
+.tl-blk.gcal { background: color-mix(in srgb, #2f6fb0 26%, var(--paper)); border-left-color: #2f6fb0; }
+.tl-blk.ideal { background: color-mix(in srgb, var(--ok) 20%, var(--paper)); border-left-color: var(--ok); }
+.tl-blk.wo { background: color-mix(in srgb, #b8671f 22%, var(--paper)); border-left-color: #b8671f; }
+.tl-blk.done { opacity: .6; text-decoration: line-through; }
+.tl-blk.tiny { white-space: nowrap; text-overflow: ellipsis; padding-top: 0; padding-bottom: 0; font-size: .72rem; }
+.tl-blk .x { float: right; }
+.tl-blk input[type=checkbox] { margin: 0 .2rem 0 0; vertical-align: middle; }
+.tl-now { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #c0392b; z-index: 3; pointer-events: none; }
+.tl-now i { position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: #c0392b; }
+.tl-anytime { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: .2rem 0 .5rem; }
+.tl-anytime .ad { font-size: .8rem; border-radius: 4px; padding: 1px 6px; background: color-mix(in srgb, var(--navy) 12%, var(--paper)); }
+.tl-anytime .ad.gcal { background: color-mix(in srgb, #2f6fb0 22%, var(--paper)); color: #2f6fb0; }
+.tl-anytime .ad.ideal { background: color-mix(in srgb, var(--ok) 18%, var(--paper)); }
+.tl-form { margin-bottom: .5rem; }
+
+/* Today: calendar beside the day's focus on wide screens */
+.today-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.today-left, .today-right { min-width: 0; }
+@media (max-width: 1000px) { .today-cols { grid-template-columns: 1fr; } .today-right { order: 1; } .today-left { order: 2; } }
+#ocrResultDlg { width: min(900px, 94vw); }
+.rev-table input.rev-text { min-width: 14rem; }
