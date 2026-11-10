@@ -1928,6 +1928,7 @@
         <p>Everything is stored only in this browser. Export a backup regularly, and use it to move between devices.</p>
         <div class="row wrap">
           <button class="btn" data-act="export">Export backup (.json)</button>
+          <a class="btn ghost" href="#/welcome/1">Take the tour</a>
           <a class="btn ghost" href="#/setup/1">Run setup guide</a>
           ${state.goals.some((g) => g.seed) ? '<button class="btn ghost" data-act="removeSamples">Remove sample goals</button>' : ''}
           <label class="btn ghost file">Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
@@ -2109,6 +2110,24 @@
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
+    demoFocus(el) {
+      const id = el.dataset.id, i = demo.focus.indexOf(id);
+      if (i >= 0) demo.focus.splice(i, 1); else if (demo.focus.length >= 4) { toast('Focus on 3–4 goals. Untick one first.'); return; } else demo.focus.push(id);
+      render();
+    },
+    demoAssign(el) { const { id, day } = el.dataset; demo.assigned[id] = demo.assigned[id] === Number(day) ? 0 : Number(day); render(); },
+    demoPulse(el) { demo.pulse[el.dataset.id] = demo.pulse[el.dataset.id] === el.dataset.v ? '' : el.dataset.v; render(); },
+    demoDay(el) { demo.day = Number(el.dataset.day); render(); },
+    demoHabit(el) { demo.habit[el.dataset.id] = !demo.habit[el.dataset.id]; render(); },
+    demoReset() { demo = demoFresh(); location.hash = '#/welcome/1'; },
+    demoSchedule(el) {
+      const task = demoTasks().find((t) => t.id === el.dataset.id) || (() => { const g = dg(el.dataset.id.replace('step:', '')); return g ? { text: g.steps[0], g } : null; })();
+      if (!task) return;
+      const dow = demo.day, busy = demoBlocksFor(dow).map((b) => [b.start, b.start + b.mins]);
+      let t0 = 9 * 60; while (t0 < 17 * 60 && busy.some(([a, b]) => t0 < b && t0 + 45 > a)) t0 += 15;
+      (demo.scheduled[dow] = demo.scheduled[dow] || []).push({ text: task.text, start: t0, mins: 45, color: task.g.color });
+      toast(`Scheduled for ${fmtTime(hhmm24(t0))}`); render();
+    },
     assignTask(el) { const it = get(el.dataset.path); if (it) { it.day = el.dataset.day; commit(); } },
     unassignTask(el) { const it = get(el.dataset.path); if (it) { it.day = ''; commit(); } },
     assignStep(el) {
@@ -2676,6 +2695,104 @@
     return page(st.def.title, st.per.label, body);
   }
 
+  /* ---------- welcome: an interactive demo with sample data (never touches your real data) ---------- */
+  const DEMO_GOALS = [
+    { id: 'run', title: 'Run a 10K', color: '#2f6fb0', steps: ['Run 5K without stopping', 'Register for a race'], actions: ['Plan three runs this week', 'Register for the 10K race'] },
+    { id: 'trip', title: 'Take a family trip', color: '#cc3366', steps: ['Pick the destination and dates', 'Set the trip budget'], actions: ['Choose trip dates', 'Set the trip budget'] },
+    { id: 'course', title: 'Finish a skill course', color: '#339966', steps: ['Choose the course', 'Block weekly study time'], actions: ['Pick the course', 'Block study time'] },
+    { id: 'fund', title: 'Save an emergency fund', color: '#b8671f', steps: ['Total up 3 months of expenses', 'Open a savings account'], actions: ['Open the savings account', 'Set up auto-transfer'] },
+    { id: 'host', title: 'Host friends monthly', color: '#7a5cc0', steps: ['Pick a date and guest list', 'Plan the menu'], actions: ['Send invitations', 'Plan the menu'] },
+    { id: 'home', title: 'Declutter the house', color: '#7a7a7a', steps: ['Pick the first room', 'Donate one box'], actions: ['Tackle the garage shelf', 'Donate one box'] },
+  ];
+  const DEMO_HABITS = [{ id: 'read', text: 'Read to the kids before bed', per: 'every day' }, { id: 'work', text: 'Workout', per: '5× a week' }];
+  const DEMO_DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri']];
+  const demoFresh = () => ({
+    purpose: 'To raise confident kids, stay healthy, and serve my community.',
+    focus: ['run', 'trip', 'course'], day: 2, scheduled: {}, pulse: {}, habit: {},
+    assigned: { 'run:0': 2, 'trip:0': 2, 'course:0': 3, 'run:1': 4, 'trip:1': 5 },
+  });
+  let demo = demoFresh();
+  const dg = (id) => DEMO_GOALS.find((g) => g.id === id);
+  const gtag = (g) => `<span class="gtag" style="--c:${g.color}"><i></i>${esc(g.title)}</span>`;
+  const demoTasks = () => demo.focus.flatMap((id) => dg(id).actions.map((text, i) => ({ id: `${id}:${i}`, text, g: dg(id) })));
+  const demoBlocksFor = (dow) => {
+    const b = [];
+    if (dow >= 1 && dow <= 5) b.push({ cls: 'ideal', start: 390, mins: 60, time: '06:30', html: '🏃 Workout' });
+    const themed = { 1: ['Home & car maintenance', 1050], 2: ['Family night', 1080], 3: ['Activities', 960], 4: ['Community impact', 1050], 5: ['Plan next week', 900] }[dow];
+    if (themed) b.push({ cls: 'ideal', start: themed[1], mins: 60, time: hhmm24(themed[1]), html: themed[0] });
+    if (dow === 2 || dow === 4) b.push({ cls: 'gcal', start: 600, mins: 60, time: '10:00', html: '📅 Team meeting', c: '#2f6fb0' });
+    (demo.scheduled[dow] || []).forEach((x) => b.push({ cls: 'sched', start: x.start, mins: x.mins, time: hhmm24(x.start), html: `${esc(x.text)}`, c: x.color }));
+    return b;
+  };
+
+  function viewWelcome(arg) {
+    const n = Math.min(4, Math.max(1, Number(arg) || 1));
+    const labels = ['Purpose & goals', 'Weekly plan', 'Daily calendar', 'Make it yours'];
+    const stepper = `<ol class="setup-steps">${labels.map((l, i) => `<li class="${i + 1 === n ? 'cur' : ''}${i + 1 < n ? ' ok' : ''}"><a href="#/welcome/${i + 1}"><b>${i + 1 < n ? '✓' : i + 1}</b><span>${l}</span></a></li>`).join('')}</ol>`;
+    const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/welcome/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 4 ? `<a class="btn primary" href="#/welcome/${n + 1}">Next: ${labels[n]} →</a>` : ''}</div>`;
+    const fg = demo.focus.map(dg);
+    let body = stepper;
+
+    if (n === 1) {
+      body += `<section class="box hero demo-hero"><h2>Turn your purpose into your calendar</h2>
+          <p class="lead">Life.OS connects <strong>why you do things</strong> to <strong>what you do this week</strong> to <strong>what is on your calendar today</strong>. Here is a quick tour with sample data. Nothing you do here is saved.</p>
+          <div class="demo-flow"><span>Purpose</span> → <span>Focus goals</span> → <span>Weekly plan</span> → <span>Daily calendar</span></div></section>
+        <section class="box"><h2>1 · Start with your purpose</h2>
+          <p class="prompt">Write it once, in your own words. You will see it in your daily review, so every day starts with your why.</p>
+          <textarea data-demo="purpose" rows="3">${esc(demo.purpose)}</textarea></section>
+        <section class="box"><h2>Then choose this quarter's focus goals <span class="muted">· ${fg.length}/4</span></h2>
+          <p class="prompt">You will have about ten annual goals. Each quarter, pick the 3–4 that deserve your best energy. Try tapping a few.</p>
+          <div class="chips">${DEMO_GOALS.map((g) => { const on = demo.focus.includes(g.id); return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${g.color}" data-act="demoFocus" data-id="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('')}</div>
+          ${fg.length ? `<h3>Each focus goal gets a clear next step</h3><ul class="plain-list">${fg.map((g) => `<li>${gtag(g)} <span class="muted">next:</span> ${esc(g.steps[0])}</li>`).join('')}</ul>` : '<p class="muted">Pick at least one focus goal to continue.</p>'}
+        </section>`;
+    } else if (n === 2) {
+      const tasks = demoTasks();
+      body += `<section class="box"><h2>2 · Your focus goals become the weekly plan</h2>
+          <p class="prompt">In your weekly planning session, each focus goal turns into a Top 3 and priority actions. Assign each action to a day. Notice how every item stays tied to its goal by colour.</p></section>
+        <div class="grid2"><section class="box"><h3>Top 3 for the week</h3>
+            <ul class="plain-list">${fg.slice(0, 3).map((g) => `<li>${gtag(g)} ${esc(g.steps[0])}</li>`).join('') || '<li class="muted">No focus goals chosen.</li>'}</ul>
+            <h3>Priority actions <small class="muted">tap a day to assign</small></h3>
+            ${tasks.map((t) => `<div class="demo-task"><div class="grow">${gtag(t.g)} ${esc(t.text)}</div><div class="daychips">${DEMO_DAYS.map(([d, l]) => `<button type="button" class="chip small${demo.assigned[t.id] === d ? ' on' : ''}" data-act="demoAssign" data-id="${t.id}" data-day="${d}">${l}</button>`).join('')}</div></div>`).join('') || '<p class="muted">Pick focus goals in step 1.</p>'}</section>
+          <section class="box"><h3>The week at a glance</h3>
+            <div class="board">${DEMO_DAYS.map(([d, l]) => `<div class="board-col"><strong>${l}</strong>${tasks.filter((t) => demo.assigned[t.id] === d).map((t) => `<div class="board-item" style="--c:${t.g.color}">${esc(t.text)}</div>`).join('') || '<small class="muted">—</small>'}</div>`).join('')}</div>
+            <h3>Weekly review <small class="muted">is each goal moving?</small></h3>
+            ${fg.map((g) => `<div class="demo-task"><div class="grow">${gtag(g)}</div><div class="daychips">${[['on', 'On track'], ['slip', 'Slipping'], ['off', 'Stalled']].map(([k, l]) => `<button type="button" class="chip small${demo.pulse[g.id] === k ? ' on' : ''}" data-act="demoPulse" data-id="${g.id}" data-v="${k}">${l}</button>`).join('')}</div></div>`).join('')}
+          </section></div>`;
+    } else if (n === 3) {
+      const dow = demo.day, dayName = DEMO_DAYS.find((x) => x[0] === dow)[1];
+      const tasks = demoTasks().filter((t) => demo.assigned[t.id] === dow);
+      const big = [...tasks.slice(0, 3)];
+      fg.forEach((g) => { if (big.length < 3 && !big.some((t) => t.g.id === g.id)) big.push({ id: `step:${g.id}`, text: g.steps[0], g }); });
+      const others = tasks.filter((t) => !big.includes(t));
+      const placed = layoutDay(demoBlocksFor(dow).map((o) => ({ ...o, start: o.start, end: o.start + o.mins })));
+      const hours = Array.from({ length: 24 }, (_, h) => `<div class="tl-hr" style="top:${h * 60}px">${h === 0 ? '' : esc(fmtTime(`${U.pad(h)}:00`))}</div>`).join('');
+      const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}" style="top:${o.start}px;height:${o.end - o.start - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)${o.c ? `;--c:${o.c}` : ''}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
+      const taskRow = (t) => `<div class="demo-task"><div class="grow">${gtag(t.g)} ${esc(t.text)}</div><button type="button" class="btn ghost small" data-act="demoSchedule" data-id="${t.id}">📅 Schedule</button></div>`;
+      body += `<section class="box"><h2>3 · The plan lands on today's calendar</h2>
+          <p class="prompt">Open any day to see your full calendar: your ideal-week blocks, Google Calendar events, and the tasks you assigned. Tap 📅 on a task to put it on a free time.</p>
+          <div class="chips">${DEMO_DAYS.map(([d, l]) => `<button type="button" class="chip${d === dow ? ' on' : ''}" data-act="demoDay" data-day="${d}">${l}</button>`).join('')}</div></section>
+        <div class="today-cols"><div class="today-left"><section class="box"><h2>${dayName}'s schedule</h2>
+            <p class="muted small"><span class="key ideal"></span> Ideal week · <span class="key gcal"></span> Google Calendar · <span class="key sched"></span> Your tasks</p>
+            <div class="tl-wrap" data-start="360" style="height:440px"><div class="tl"><div class="tl-hours">${hours}</div><div class="tl-canvas">${Array.from({ length: 24 }, (_, h) => `<div class="tl-slot hr" style="top:${h * 60}px"></div>`).join('')}${blocks}</div></div></div></section></div>
+          <div class="today-right">
+            <section class="box review"><h3>Daily review</h3><blockquote class="vision small">${esc(demo.purpose)}</blockquote>
+              <p class="muted small">Focus: ${fg.map(gtag).join(' ') || '—'}</p></section>
+            <section class="box"><h3>Today's Big 3</h3>${big.map(taskRow).join('') || '<p class="muted small">Choose focus goals in step 1.</p>'}</section>
+            <section class="box"><h3>Other tasks</h3>${others.map(taskRow).join('') || '<p class="muted small">Nothing else assigned to this day.</p>'}</section>
+            <section class="box"><h3>Habits</h3>${DEMO_HABITS.map((h) => `<label class="inline-check demo-habit"><input type="checkbox" data-act="demoHabit" data-id="${h.id}:${dow}" ${demo.habit[`${h.id}:${dow}`] ? 'checked' : ''}> ${esc(h.text)} <small class="muted">${h.per}</small></label>`).join('')}</section>
+          </div></div>`;
+    } else {
+      body += `<section class="box hero demo-hero"><h2>4 · Make it yours</h2>
+          <p class="lead">That is the whole loop: <strong>purpose → focus goals → weekly plan → daily calendar</strong>, with a quick review each day, week, month, quarter and year to keep it honest.</p>
+          <ul class="plain-list"><li><strong>Photo import:</strong> snap your paper planner or a calendar screenshot and review what it read.</li>
+            <li><strong>Google Calendar:</strong> see all your calendars next to your plan, view-only.</li>
+            <li><strong>Guided sessions:</strong> checklists for your yearly, quarterly, monthly, weekly and daily planning.</li></ul>
+          <div class="row"><a class="btn primary" href="#/setup/1">Set up my own (about 5 minutes)</a><a class="btn ghost" href="#/today">Skip setup, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
+    }
+    return page('Welcome to Life.OS', `Interactive demo · step ${n} of 4 · sample data only`, body + nav);
+  }
+  document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.demo === 'purpose') demo.purpose = e.target.value; });
+
   /* ---------- router ---------- */
   document.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('tl-wrap')) tlScroll = e.target.scrollTop; }, true);
   document.addEventListener('click', (e) => {
@@ -2689,7 +2806,7 @@
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
     today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
     const [, name = 'today', arg] = (location.hash || '#/today').split('/');
@@ -2981,7 +3098,7 @@
   });
 
   if (state.idealWeek.some((i) => !i.quarter)) { state.idealWeek.forEach((i) => { if (!i.quarter) i.quarter = quarterKey(todayISO()); }); if (!firstRun) S.save(state); }
-  if (firstRun) location.hash = '#/setup/1';
+  if (firstRun && !/^#\/(welcome|setup)/.test(location.hash)) location.hash = '#/welcome/1';
   render();
   checkNotifications();
 })();
