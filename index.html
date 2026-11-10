@@ -21,13 +21,13 @@
     <a class="brand" href="#/today">Life<span>.</span>OS</a>
     <nav class="nav" aria-label="Main">
       <a href="#/today" data-route="today">Today</a>
-      <a href="#/foundation" data-route="foundation">Foundation</a>
-      <a href="#/goals" data-route="goals">Roles & Goals</a>
-      <a href="#/year" data-route="year">Year</a>
-      <a href="#/month" data-route="month">Month</a>
       <a href="#/week" data-route="week">Week</a>
+      <a href="#/month" data-route="month">Month</a>
+      <a href="#/year" data-route="year">Year</a>
       <a href="#/calendar" data-route="calendar">Calendar</a>
       <a href="#/session" data-route="session">Planning</a>
+      <a href="#/goals" data-route="goals">Roles & Goals</a>
+      <a href="#/foundation" data-route="foundation">Foundation</a>
       <a href="#/ideal" data-route="ideal">Ideal week</a>
       <a href="#/track" data-route="track">Track</a>
       <a href="#/wheel" data-route="wheel">Wheel</a>
@@ -102,6 +102,21 @@
       <div id="ocrPreview" style="max-height:200px; overflow-y:auto; margin:1rem 0; border:1px solid var(--ink); border-radius:4px; padding:0.5rem;"></div>
       <div id="routeButtons" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
       <div class="row end"><button class="btn ghost">Cancel</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="scheduleDlg">
+    <form id="scheduleForm" method="dialog">
+      <h2>Put it on the calendar</h2>
+      <label class="field">What <input id="schText" required></label>
+      <div class="row">
+        <label>Date <input type="date" id="schDate" required></label>
+        <label>Start <input type="time" id="schTime" step="900"></label>
+        <label>Length <select id="schMins"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">1 hr</option><option value="90">1.5 hr</option><option value="120">2 hr</option><option value="180">3 hr</option></select></label>
+      </div>
+      <label class="inline-check" id="schGoogleWrap" hidden><input type="checkbox" id="schGoogle"> Also add to Google Calendar</label>
+      <p class="muted small">We suggest the next free time. Clear the time to keep it as an anytime item that day.</p>
+      <div class="row end"><button type="button" class="btn ghost" id="schCancel">Cancel</button><button class="btn primary">Add to calendar</button></div>
     </form>
   </dialog>
 

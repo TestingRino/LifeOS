@@ -178,6 +178,8 @@
   }
   const reviewDone = (iso) => { const r = state.reviews[iso]; return !!(r && r.purpose && r.goals && r.ideal); };
 
+  const schedBtn = (text, mins) => `<button type="button" class="x sched-btn" data-act="scheduleItem" data-text="${esc(text)}"${mins ? ` data-mins="${mins}"` : ''} title="Put on the calendar" aria-label="Put on the calendar">📅</button>`;
+  const dragAttr = (text, mins) => `draggable="true" data-drag="${esc(JSON.stringify({ text, mins: mins || 30 }))}"`;
   const EV_KINDS = { event: '', vacation: '✈ ', relax: '☀ ', birthday: '🎂 ' };
   const evIcon = (e) => EV_KINDS[e.kind] || '';
 
@@ -229,7 +231,7 @@
         <input class="inline" data-bind="${p}.text" value="${esc(i.text)}" aria-label="Action">
         <select class="link" data-bind="${p}.goalId" data-rerender aria-label="Linked goal">${goalOpts(goals, i.goalId)}</select>
       </div>
-      <button class="x" data-act="del" data-path="${base}" data-id="${i.id}" aria-label="Remove">×</button>
+      ${schedBtn(i.text)}<button class="x" data-act="del" data-path="${base}" data-id="${i.id}" aria-label="Remove">×</button>
     </li>`;
   }
 
@@ -667,10 +669,10 @@
       </section>
       <section class="box">
         <h2>Today's Big 3 <span class="muted">· ${bigToday.filter((b) => b.done).length}/${bigToday.length} done</span></h2>
-        ${bigToday.length ? `<ul class="checks">${bigToday.map((b) => `<li class="${b.done ? 'done' : ''}">${chk(`big3.@${b.id}.done`, 'Done')}
+        ${bigToday.length ? `<ul class="checks">${bigToday.map((b) => `<li class="${b.done ? 'done' : ''}" ${dragAttr(b.text)}>${chk(`big3.@${b.id}.done`, 'Done')}
           <div class="grow"><input class="inline" data-bind="big3.@${b.id}.text" value="${esc(b.text)}" aria-label="Big 3 task">
           ${b.goalId && state.goals.some((g) => g.id === b.goalId) ? `<small class="muted">${esc(state.goals.find((g) => g.id === b.goalId).title)}</small>` : ''}</div>
-          <button class="x" data-act="del" data-path="big3" data-id="${b.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">What are the three most important things to finish today? Do these first.</p>'}
+          ${schedBtn(b.text)}<button class="x" data-act="del" data-path="big3" data-id="${b.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">What are the three most important things to finish today? Do these first.</p>'}
         ${bigToday.length < 3 ? `<form class="add" data-add="big3"><input type="hidden" name="date" value="${iso}"><input name="text" placeholder="Most important task…" required aria-label="Big 3 task">
           <select name="goalId" aria-label="Linked goal">${goalOpts(fgoals.length ? fgoals : goals, '')}</select><button aria-label="Add">+</button></form>` : '<p class="muted small">Big 3 set. Finish these before anything else.</p>'}
         ${carry.length ? `<h3>Unfinished from earlier <small class="muted">move forward or let go</small></h3><ul class="checks compact">${carry.map((b) => `<li><span class="grow">${esc(b.text)} <small class="muted">${U.fmtDate(b.date, { month: 'short', day: 'numeric' })}</small></span>
@@ -684,10 +686,10 @@
       </section>` : ''}
       <section class="box focus">
         <h2>Quarterly focus <span class="muted">· ${quarterLabel(iso)}</span><a class="more" href="#/goals">Choose →</a></h2>
-        ${fgoals.length ? `<ul class="focus-list">${fgoals.map((g) => { const ns = nextStep(g); return `<li>
+        ${fgoals.length ? `<ul class="focus-list">${fgoals.map((g) => { const ns = nextStep(g); return `<li ${dragAttr(ns ? ns.text : `Work on: ${g.title}`, 60)}>
           <div class="grow"><strong>${g.tier === 'purpose' ? '<span class="star">★</span> ' : ''}${esc(g.title)}</strong> ${progressBar(g.progress)} <small>${Number(g.progress) || 0}%</small>
             <br><small class="muted">Next: ${ns ? esc(ns.text) : 'add a milestone or objective'}</small></div>
-          <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button></li>`; }).join('')}</ul>`
+          <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button>${schedBtn(ns ? ns.text : `Work on: ${g.title}`, 60)}</li>`; }).join('')}</ul>`
           : '<p class="muted">Of your annual goals, pick the 3–4 that deserve your best energy this quarter. <a href="#/goals">Choose your focus →</a></p>'}
       </section>
       </div></div>
@@ -807,7 +809,7 @@
           <select data-bind="${p}.kind" data-rerender class="tier" aria-label="Goal type">${opts([{ v: 'achievement', l: 'Achievement' }, { v: 'habit', l: 'Habit' }], g.kind || 'achievement')}</select>
           <input class="inline title" data-bind="${p}.title" value="${esc(g.title)}" aria-label="Goal">
           ${g.kind === 'habit' ? '' : `<button type="button" class="chip${focusGoals(todayISO()).some((f) => f.id === g.id) ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" title="Quarterly focus">⚑ Focus</button>`}
-          <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete goal">×</button>
+          ${schedBtn(`Work on: ${g.title}`, 60)}<button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete goal">×</button>
         </div>
         <div class="goal-meta">
           <label>Area <select data-bind="${p}.area" aria-label="Area">${areaOpts(g.area)}</select></label>
@@ -826,7 +828,7 @@
       const list = (key, ph, extra) => `<ul class="checks compact">${(g[key] || []).map((i) => `<li class="${i.done ? 'done' : ''}">${chk(`${p}.${key}.@${i.id}.done`, 'Done')}
           <input class="inline grow" data-bind="${p}.${key}.@${i.id}.text" value="${esc(i.text)}" aria-label="${ph}">
           <input type="date" data-bind="${p}.${key}.@${i.id}.due" value="${esc(i.due)}" aria-label="Due date">
-          <button class="x" data-act="del" data-path="${p}.${key}" data-id="${i.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+          ${schedBtn(i.text)}<button class="x" data-act="del" data-path="${p}.${key}" data-id="${i.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
         <form class="add" data-add="${p}.${key}"><input name="text" placeholder="${ph}" required><input type="date" name="due" aria-label="Due date"><button aria-label="Add">+</button></form>`;
       const routines = `<ul class="checks compact">${(g.routines || []).map((r) => `<li>
           <input class="inline grow" data-bind="${p}.routines.@${r.id}.text" value="${esc(r.text)}" aria-label="Routine">
@@ -1088,13 +1090,50 @@
     const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
     const now = iso === todayISO() ? `<div class="tl-now" style="top:${nowMin}px"><i></i></div>` : '';
     const start = iso === todayISO() ? Math.max(0, nowMin - 90) : 7 * 60;
-    return `<div class="tl-box">
+    return `<div class="tl-box" data-date="${iso}">
       <form class="add wrap tl-form" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" step="900" required aria-label="Start time">
         <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60 === Math.floor(n / 60) ? n / 60 : (n / 60).toFixed(1)} hr` : `${n} min` })), 30)}</select>
         <input name="text" placeholder="Click a time slot below, or type an event here…" required><button aria-label="Add event">+</button></form>
       ${anytime.length ? `<div class="tl-anytime"><small class="muted">All day / anytime</small> ${anytime.join(' ')}</div>` : ''}
       <div class="tl-wrap" data-start="${start}" style="height:${height}px"><div class="tl"><div class="tl-hours">${hours}</div><div class="tl-canvas">${slots}${blocks}${now}</div></div></div>
     </div>`;
+  }
+
+  /* ---------- scheduling items from goals, tasks and priorities ---------- */
+  function addScheduleItem(o) {
+    if (state.schedule.some((x) => x.date === o.date && (x.time || '') === (o.time || '') && x.text === o.text)) return false;
+    state.schedule.push({ id: S.uid(), date: o.date, time: o.time || '', mins: o.mins || 30, text: o.text, src: o.src || 'plan' });
+    return true;
+  }
+  function busyOn(iso) {
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; }, iv = [];
+    gcalOn(iso).filter((g) => g.time).forEach((g) => iv.push([toMin(g.time), toMin(g.time) + g.mins]));
+    idealOn(iso).filter((i) => i.time).forEach((i) => iv.push([toMin(i.time), toMin(i.time) + 60]));
+    scheduleOn(iso).filter((x) => x.time).forEach((x) => iv.push([toMin(x.time), toMin(x.time) + (Number(x.mins) || 30)]));
+    state.workouts.filter((w) => w.date === iso && w.time && !w.ideal).forEach((w) => iv.push([toMin(w.time), toMin(w.time) + (Number(w.minutes) || 45)]));
+    return iv;
+  }
+  function suggestSlot(iso, mins) {
+    const busy = busyOn(iso), now = new Date();
+    let start = 9 * 60;
+    if (iso === todayISO()) start = Math.max(start, Math.ceil((now.getHours() * 60 + now.getMinutes() + 15) / 15) * 15);
+    for (let t = start; t + mins <= 20 * 60; t += 15) if (!busy.some(([a, b]) => t < b && t + mins > a)) return hhmm24(t);
+    return '';
+  }
+  function planCandidates() {
+    const iso = todayISO(), wk = U.weekKey(today(), ws()), w = state.weeks[wk] || {}, out = [];
+    state.big3.filter((b) => b.date === iso && !b.done).forEach((b) => out.push({ group: "Today's Big 3", text: b.text }));
+    (w.top3 || []).filter((x) => !x.done).forEach((x) => out.push({ group: 'Top 3 this week', text: x.text }));
+    (w.actions || []).filter((a) => !a.done).forEach((a) => out.push({ group: 'Priority actions', text: a.text }));
+    state.inbox.filter((x) => x.kind === 'todo' && !x.done).forEach((x) => out.push({ group: 'To-dos', text: x.text }));
+    focusGoals(iso).forEach((g) => { const ns = nextStep(g); out.push({ group: 'Goals · next steps', text: ns ? ns.text : `Work on: ${g.title}`, mins: 60 }); });
+    return out;
+  }
+  function planTray() {
+    const items = planCandidates(), groups = [...new Set(items.map((x) => x.group))];
+    return `<aside class="tl-tray"><h3>Plan from your lists</h3><p class="muted small">Drag onto a time, or tap 📅.</p>
+      ${items.length ? groups.map((g) => `<h4>${esc(g)}</h4>${items.filter((x) => x.group === g).map((x) => `<div class="tray-item" ${dragAttr(x.text, x.mins)}><span class="grow">${esc(x.text)}</span>${schedBtn(x.text, x.mins)}</div>`).join('')}`).join('')
+        : '<p class="muted small">Nothing waiting. Add priorities on the Week page, to-dos from the capture bar, or choose a quarterly focus.</p>'}</aside>`;
   }
 
   /* ---------- calendar: day / week / month ---------- */
@@ -1135,7 +1174,7 @@
     const dayOpts = (days) => opts(days.map((d) => ({ v: d, l: `${U.DAYS[U.parseISO(d).getDay()].slice(0, 3)} ${U.fmtDate(d)}` })), days.includes(tIso) ? tIso : days[0]);
     if (mode === 'day') {
       title = U.fmtDate(fIso, { weekday: 'long', month: 'long', day: 'numeric' }); sub = U.parseISO(fIso).getFullYear();
-      content = dayTimeline(fIso, { height: 680 });
+      content = `<div class="day-cols"><div class="day-main">${dayTimeline(fIso, { height: 680 })}</div>${planTray()}</div>`;
     } else if (mode === 'week') {
       const days = DAYS_ISO(U.weekKey(fd, ws()));
       title = `Week of ${U.fmtDate(days[0], { month: 'short', day: 'numeric' })}`; sub = `${U.fmtDate(days[0])} – ${U.fmtDate(days[6])}`;
@@ -1246,7 +1285,7 @@
       <ul class="checks">${(w.top3 || []).map((x) => `<li class="${x.done ? 'done' : ''}">${chk(`${base}.top3.@${x.id}.done`, 'Done')}
         <div class="grow"><input class="inline" data-bind="${base}.top3.@${x.id}.text" value="${esc(x.text)}" aria-label="Top 3 item"></div>
         <select class="link" data-bind="${base}.top3.@${x.id}.goalId" data-rerender aria-label="Linked goal">${goalOpts(goals, x.goalId)}</select>
-        <button class="x" data-act="del" data-path="${base}.top3" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+        ${schedBtn(x.text)}<button class="x" data-act="del" data-path="${base}.top3" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
       ${(w.top3 || []).length < 3 ? `<form class="add" data-add="${base}.top3"><input name="text" placeholder="One of the three most important things this week…" required><select name="goalId" aria-label="Linked goal">${goalOpts(goals, '')}</select><button aria-label="Add">+</button></form>` : '<p class="muted small">Top 3 set. Everything else is secondary.</p>'}</section>`;
     const pullBox = (() => {
       const inb = state.inbox.filter((x) => x.kind === 'todo' && !x.done).slice(0, 8), bl = state.bucket.filter((b) => !b.done && b.text).slice(0, 8);
@@ -1731,7 +1770,7 @@
           <div class="grow"><input class="inline" data-bind="inbox.@${x.id}.text" value="${esc(x.text)}" aria-label="Item"></div>
           ${x.kind === 'todo' ? `<button class="btn ghost small" data-act="pullIn" data-src="inbox" data-id="${x.id}" data-key="${wkNow}">+ This week</button>` : ''}
           ${x.kind === 'goal' ? `<button class="btn ghost small" data-act="inboxToGoal" data-id="${x.id}">→ Goal</button>` : ''}
-          <button class="x" data-act="del" data-path="inbox" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">Inbox zero. Capture anything from Today and it shows up here.</p>'}
+          ${x.kind === 'todo' ? schedBtn(x.text) : ''}<button class="x" data-act="del" data-path="inbox" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">Inbox zero. Capture anything from Today and it shows up here.</p>'}
         ${doneN ? `<p class="muted small">${doneN} processed item${doneN > 1 ? 's' : ''}. <button class="btn ghost small" data-act="clearInbox">Clear processed</button></p>` : ''}`;
     } else if (tab === 'memories') {
       const ms = state.memories.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -2008,6 +2047,7 @@
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
+    scheduleItem(el) { openScheduleDialog({ text: el.dataset.text, date: todayISO(), mins: Number(el.dataset.mins) || 30 }); },
     gcalToggle(el) {
       const prim = gcalPrimary();
       const cur = new Set(gcalSelectedIds().map((id) => (id === 'primary' && prim ? prim.id : id)));
@@ -2814,6 +2854,55 @@
     if (!s) return;
     ocrResultDlg.close();
     addOCRDataToApp(s.route, s.data);
+  });
+
+  /* ---------- schedule dialog + drag and drop ---------- */
+  const schDlg = document.getElementById('scheduleDlg');
+  const schEl = { text: document.getElementById('schText'), date: document.getElementById('schDate'), time: document.getElementById('schTime'), mins: document.getElementById('schMins'), google: document.getElementById('schGoogle'), gWrap: document.getElementById('schGoogleWrap') };
+  let schTouched = false;
+  function schSuggest() { if (!schTouched) schEl.time.value = schEl.date.value ? suggestSlot(schEl.date.value, Number(schEl.mins.value) || 30) : ''; }
+  function openScheduleDialog(o) {
+    schEl.text.value = o.text || ''; schEl.date.value = o.date || todayISO(); schEl.mins.value = String(o.mins || 30);
+    if (![...schEl.mins.options].some((x) => x.value === schEl.mins.value)) schEl.mins.value = '30';
+    schTouched = false; schSuggest();
+    schEl.gWrap.hidden = !gcalConnected(); schEl.google.checked = false;
+    schDlg.showModal();
+  }
+  schEl.date.addEventListener('change', schSuggest);
+  schEl.mins.addEventListener('change', schSuggest);
+  schEl.time.addEventListener('input', () => { schTouched = true; });
+  document.getElementById('schCancel').addEventListener('click', () => schDlg.close());
+  document.getElementById('scheduleForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const o = { text: schEl.text.value.trim(), date: schEl.date.value, time: schEl.time.value, mins: Number(schEl.mins.value) || 30 };
+    if (!o.text || !o.date) return;
+    const added = addScheduleItem(o);
+    if (added && schEl.google.checked && o.time) pushToGoogleCalendar([o]);
+    schDlg.close(); commit();
+    toast(added ? `Scheduled${o.time ? ` for ${fmtTime(o.time)}` : ''} on ${U.fmtDate(o.date, { weekday: 'short', month: 'short', day: 'numeric' })}` : 'Already on your calendar');
+  });
+  document.addEventListener('dragstart', (e) => {
+    const el = e.target.closest && e.target.closest('[data-drag]');
+    if (!el) return;
+    e.dataTransfer.setData('text/plain', el.dataset.drag); e.dataTransfer.effectAllowed = 'copy';
+  });
+  document.addEventListener('dragover', (e) => {
+    const slot = e.target.closest && e.target.closest('.tl-slot');
+    if (!slot) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    document.querySelectorAll('.tl-slot.drop').forEach((x) => { if (x !== slot) x.classList.remove('drop'); });
+    slot.classList.add('drop');
+  });
+  document.addEventListener('drop', (e) => {
+    const slot = e.target.closest && e.target.closest('.tl-slot');
+    document.querySelectorAll('.tl-slot.drop').forEach((x) => x.classList.remove('drop'));
+    if (!slot) return;
+    e.preventDefault();
+    let d; try { d = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (err) { return; }
+    if (!d || !d.text) return;
+    const date = slot.closest('.tl-box').dataset.date, added = addScheduleItem({ text: d.text, date, time: slot.dataset.time, mins: d.mins || 30 });
+    commit();
+    toast(added ? `Scheduled for ${fmtTime(slot.dataset.time)}` : 'Already on your calendar');
   });
 
   if (state.idealWeek.some((i) => !i.quarter)) { state.idealWeek.forEach((i) => { if (!i.quarter) i.quarter = quarterKey(todayISO()); }); if (!firstRun) S.save(state); }
