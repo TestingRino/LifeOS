@@ -26,13 +26,14 @@ function normalizeByType(type, data) {
       })) };
     case 'goals':
       return {
-        roles: (data.roles || []).map(r => ({ name: r.name, why: r.why || '' })),
+        roles: (data.roles || []).map(r => ({ name: r.name, why: r.why || '', monthly: r.monthly || '', weekly: r.weekly || '', daily: r.daily || '' })),
         goals: (data.goals || []).map(g => ({
           title: g.title,
           why: g.why || '',
           target: g.target || '',
           area: g.area || 'work',
           role: g.role || '',
+          cadence: ['daily', 'weekly', 'monthly'].includes(g.cadence) ? g.cadence : 'once',
         })),
       };
     case 'workouts':

@@ -388,12 +388,16 @@
             if (!r.name) return;
             const id = roleId(r.name), role = state.roles.find((x) => x.id === id);
             if (r.why && !role.why) role.why = r.why;
+            const ra = (cyc.roleActions[id] = Object.assign({ monthly: '', weekly: '', daily: '' }, cyc.roleActions[id]));
+            ['monthly', 'weekly', 'daily'].forEach((k) => { if (r[k] && !ra[k].includes(r[k])) ra[k] = ra[k] ? `${ra[k]}\n${r[k]}` : r[k]; });
           });
           (data.goals || []).forEach((g) => {
             if (!g.title) return;
             state.goals.push({
               id: S.uid(), cycleId: cyc.id, roleId: roleId(g.role), title: g.title, why: g.why || '', area: g.area || 'work', tier: 'pursuit',
-              progress: 0, status: 'active', target: g.target || '', doneBy: g.target || '', measure: '', kind: 'achievement', perWeek: 5, log: {}, milestones: [], objectives: [], routines: []
+              progress: 0, status: 'active', target: g.target || '', doneBy: g.target || '', measure: '',
+              kind: g.cadence === 'daily' || g.cadence === 'weekly' ? 'habit' : 'achievement', perWeek: g.cadence === 'daily' ? 7 : g.cadence === 'weekly' ? 1 : 5,
+              log: {}, milestones: [], objectives: [], routines: []
             });
           });
           break;
