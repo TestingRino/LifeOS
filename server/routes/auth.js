@@ -4,7 +4,7 @@ import axios from 'axios';
 const router = express.Router();
 
 const GOOGLE_OAUTH_URL = 'https://oauth2.googleapis.com/token';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/callback';
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'https://testingrino.github.io/LifeOS/';
 
 router.post('/google/token', async (req, res) => {
   const { code } = req.body;

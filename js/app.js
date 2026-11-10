@@ -9,7 +9,7 @@
   const app = document.getElementById('app');
 
   /* ---------- basics ---------- */
-  const DEFAULT_API_BASE = 'https://lifeos-api.example.com';
+  const DEFAULT_API_BASE = 'https://life-os-bice-xi.vercel.app';
   const API_BASE = localStorage.getItem('api_base') || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : DEFAULT_API_BASE);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1368,6 +1368,22 @@
     if (!moreSheet.hidden && (!moreSheet.contains(e.target) || e.target.closest('a'))) setMore(false);
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMore(false); });
+  (async function finishGoogleLogin() {
+    const code = new URLSearchParams(location.search).get('code');
+    if (!code) return;
+    history.replaceState(null, '', location.pathname + (location.hash || '#/settings'));
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/google/token`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const t = await res.json();
+      localStorage.setItem('google_access_token', t.access_token);
+      if (t.refresh_token) localStorage.setItem('google_refresh_token', t.refresh_token);
+      toast('Google Calendar connected');
+      render();
+    } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
+  })();
   window.addEventListener('hashchange', render);
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
