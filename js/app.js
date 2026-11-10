@@ -2697,19 +2697,21 @@
 
   /* ---------- welcome: an interactive demo with sample data (never touches your real data) ---------- */
   const DEMO_GOALS = [
-    { id: 'run', title: 'Run a 10K', color: '#2f6fb0', steps: ['Run 5K without stopping', 'Register for a race'], actions: ['Plan three runs this week', 'Register for the 10K race'] },
-    { id: 'trip', title: 'Take a family trip', color: '#cc3366', steps: ['Pick the destination and dates', 'Set the trip budget'], actions: ['Choose trip dates', 'Set the trip budget'] },
-    { id: 'course', title: 'Finish a skill course', color: '#339966', steps: ['Choose the course', 'Block weekly study time'], actions: ['Pick the course', 'Block study time'] },
-    { id: 'fund', title: 'Save an emergency fund', color: '#b8671f', steps: ['Total up 3 months of expenses', 'Open a savings account'], actions: ['Open the savings account', 'Set up auto-transfer'] },
-    { id: 'host', title: 'Host friends monthly', color: '#7a5cc0', steps: ['Pick a date and guest list', 'Plan the menu'], actions: ['Send invitations', 'Plan the menu'] },
-    { id: 'home', title: 'Declutter the house', color: '#7a7a7a', steps: ['Pick the first room', 'Donate one box'], actions: ['Tackle the garage shelf', 'Donate one box'] },
+    { id: 'dad', title: 'Build a closer relationship with Dad', color: '#c0782f', why: 'He will not always be a phone call away.', steps: ['Pick a regular call day and time', 'Plan a weekend visit'], actions: ['Pick a call day and time with Dad', 'Plan a weekend visit to see Dad'], routine: { text: 'Call Dad', per: 'once a week' } },
+    { id: 'spouse', title: 'Deepen my marriage', color: '#cc3366', why: 'Our kids learn love by watching ours.', steps: ['Plan a monthly date night', 'Book a weekend away'], actions: ['Pick a date-night restaurant', 'Book childcare for Saturday'], routine: { text: 'Daily check-in with my spouse', per: 'every day' } },
+    { id: 'kids', title: 'One-on-one time with each kid', color: '#7a5cc0', why: 'They will remember the time, not the stuff.', steps: ['Pick an activity for each child', 'Put it on the calendar'], actions: ['Take Emma to breakfast', 'Build Legos with Sam'], routine: { text: 'Bedtime talk with one child', per: '3× a week' } },
+    { id: 'friend', title: 'Reconnect with a close friend', color: '#339966', why: 'Friendships fade unless I tend them.', steps: ['Text Alex to set a coffee', 'Send a birthday card'], actions: ['Text Alex about coffee', 'Mail the birthday card'] },
+    { id: 'run', title: 'Run a 10K', color: '#2f6fb0', why: 'Health gives me energy for everyone else.', steps: ['Run 5K without stopping', 'Register for a race'], actions: ['Plan three runs this week', 'Register for the 10K race'] },
+    { id: 'trip', title: 'Take a family trip', color: '#b8671f', why: 'Shared adventures become family stories.', steps: ['Pick the destination and dates', 'Set the trip budget'], actions: ['Choose trip dates', 'Set the trip budget'] },
+    { id: 'course', title: 'Finish a skill course', color: '#4a7a8c', why: 'Growing opens the next opportunity.', steps: ['Choose the course', 'Block weekly study time'], actions: ['Pick the course', 'Block study time'] },
+    { id: 'fund', title: 'Save an emergency fund', color: '#7a7a7a', why: 'Peace of mind for my family.', steps: ['Total up 3 months of expenses', 'Open a savings account'], actions: ['Open the savings account', 'Set up auto-transfer'] },
   ];
   const DEMO_HABITS = [{ id: 'read', text: 'Read to the kids before bed', per: 'every day' }, { id: 'work', text: 'Workout', per: '5× a week' }];
   const DEMO_DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri']];
   const demoFresh = () => ({
     purpose: 'To raise confident kids, stay healthy, and serve my community.',
-    focus: ['run', 'trip', 'course'], day: 2, scheduled: {}, pulse: {}, habit: {},
-    assigned: { 'run:0': 2, 'trip:0': 2, 'course:0': 3, 'run:1': 4, 'trip:1': 5 },
+    focus: ['dad', 'kids', 'run'], day: 2, scheduled: {}, pulse: {}, habit: {},
+    assigned: { 'dad:0': 2, 'dad:1': 4, 'kids:0': 3, 'kids:1': 5, 'run:0': 1, 'run:1': 4 },
   });
   let demo = demoFresh();
   const dg = (id) => DEMO_GOALS.find((g) => g.id === id);
@@ -2743,7 +2745,7 @@
         <section class="box"><h2>Then choose this quarter's focus goals <span class="muted">· ${fg.length}/4</span></h2>
           <p class="prompt">You will have about ten annual goals. Each quarter, pick the 3–4 that deserve your best energy. Try tapping a few.</p>
           <div class="chips">${DEMO_GOALS.map((g) => { const on = demo.focus.includes(g.id); return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${g.color}" data-act="demoFocus" data-id="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('')}</div>
-          ${fg.length ? `<h3>Each focus goal gets a clear next step</h3><ul class="plain-list">${fg.map((g) => `<li>${gtag(g)} <span class="muted">next:</span> ${esc(g.steps[0])}</li>`).join('')}</ul>` : '<p class="muted">Pick at least one focus goal to continue.</p>'}
+          ${fg.length ? `<h3>Each focus goal gets a reason, a next step and, often, a routine</h3><ul class="plain-list">${fg.map((g) => `<li>${gtag(g)} <span class="muted">next:</span> ${esc(g.steps[0])}<br><small class="muted">Why: ${esc(g.why)}${g.routine ? ` · Routine: ${esc(g.routine.text)}, ${esc(g.routine.per)}` : ''}</small></li>`).join('')}</ul>` : '<p class="muted">Pick at least one focus goal to continue.</p>'}
         </section>`;
     } else if (n === 2) {
       const tasks = demoTasks();
@@ -2752,7 +2754,8 @@
         <div class="grid2"><section class="box"><h3>Top 3 for the week</h3>
             <ul class="plain-list">${fg.slice(0, 3).map((g) => `<li>${gtag(g)} ${esc(g.steps[0])}</li>`).join('') || '<li class="muted">No focus goals chosen.</li>'}</ul>
             <h3>Priority actions <small class="muted">tap a day to assign</small></h3>
-            ${tasks.map((t) => `<div class="demo-task"><div class="grow">${gtag(t.g)} ${esc(t.text)}</div><div class="daychips">${DEMO_DAYS.map(([d, l]) => `<button type="button" class="chip small${demo.assigned[t.id] === d ? ' on' : ''}" data-act="demoAssign" data-id="${t.id}" data-day="${d}">${l}</button>`).join('')}</div></div>`).join('') || '<p class="muted">Pick focus goals in step 1.</p>'}</section>
+            ${tasks.map((t) => `<div class="demo-task"><div class="grow">${gtag(t.g)} ${esc(t.text)}</div><div class="daychips">${DEMO_DAYS.map(([d, l]) => `<button type="button" class="chip small${demo.assigned[t.id] === d ? ' on' : ''}" data-act="demoAssign" data-id="${t.id}" data-day="${d}">${l}</button>`).join('')}</div></div>`).join('') || '<p class="muted">Pick focus goals in step 1.</p>'}
+            ${fg.some((g) => g.routine) ? `<h3>Routines that repeat <small class="muted">tracked every day or week</small></h3>${fg.filter((g) => g.routine).map((g) => `<div class="demo-task"><div class="grow">${gtag(g)} ${esc(g.routine.text)}</div><small class="muted">${esc(g.routine.per)}</small></div>`).join('')}` : ''}</section>
           <section class="box"><h3>The week at a glance</h3>
             <div class="board">${DEMO_DAYS.map(([d, l]) => `<div class="board-col"><strong>${l}</strong>${tasks.filter((t) => demo.assigned[t.id] === d).map((t) => `<div class="board-item" style="--c:${t.g.color}">${esc(t.text)}</div>`).join('') || '<small class="muted">—</small>'}</div>`).join('')}</div>
             <h3>Weekly review <small class="muted">is each goal moving?</small></h3>
@@ -2779,7 +2782,7 @@
               <p class="muted small">Focus: ${fg.map(gtag).join(' ') || '—'}</p></section>
             <section class="box"><h3>Today's Big 3</h3>${big.map(taskRow).join('') || '<p class="muted small">Choose focus goals in step 1.</p>'}</section>
             <section class="box"><h3>Other tasks</h3>${others.map(taskRow).join('') || '<p class="muted small">Nothing else assigned to this day.</p>'}</section>
-            <section class="box"><h3>Habits</h3>${DEMO_HABITS.map((h) => `<label class="inline-check demo-habit"><input type="checkbox" data-act="demoHabit" data-id="${h.id}:${dow}" ${demo.habit[`${h.id}:${dow}`] ? 'checked' : ''}> ${esc(h.text)} <small class="muted">${h.per}</small></label>`).join('')}</section>
+            <section class="box"><h3>Habits &amp; routines</h3>${[...DEMO_HABITS, ...fg.filter((g) => g.routine).map((g) => ({ id: `r-${g.id}`, text: g.routine.text, per: g.routine.per, g }))].map((h) => `<label class="inline-check demo-habit"><input type="checkbox" data-act="demoHabit" data-id="${h.id}:${dow}" ${demo.habit[`${h.id}:${dow}`] ? 'checked' : ''}> ${h.g ? gtag(h.g) + ' ' : ''}${esc(h.text)} <small class="muted">${h.per}</small></label>`).join('')}</section>
           </div></div>`;
     } else {
       body += `<section class="box hero demo-hero"><h2>4 · Make it yours</h2>
