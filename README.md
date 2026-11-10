@@ -42,7 +42,7 @@ Then visit http://localhost:8080. It also works as-is on GitHub Pages.
 
 ## On your phone
 
-Life.OS is built mobile-first for phones as well as desktop: a bottom tab bar (Today, Week, Month, Goals,
+Life.OS adapts to phones: a bottom tab bar (Today, Week, Month, Goals,
 Track, More), 16px fields so iOS doesn't zoom on every tap, touch-sized controls, and phone layouts for the
 calendar, schedule and habit tracker.
 
