@@ -334,35 +334,44 @@
   }
 
   /* ---------- backend integration ---------- */
-  /* ---------- Google Calendar events (read-only overlay) ---------- */
-  const gcal = { events: [], ranges: {}, busy: false, status: '', ok: true };
+  /* ---------- Google Calendar events (read-only overlay, any number of calendars) ---------- */
+  const GCAL_COLOR = '#2f6fb0';
+  const gcal = { events: [], ranges: {}, busy: false, status: '', ok: true, listTried: false, listError: '' };
   const gcalConnected = () => !!localStorage.getItem('google_access_token');
-  function gcalNormalize(items) {
-    const out = [];
+  const gcalSelectedIds = () => { const sel = (state.settings.gcalSelected || []).filter(Boolean); return (sel.length ? sel : ['primary']).slice(0, 10); };
+  const gcalPrimary = () => state.gcalCalendars.find((c) => c.primary);
+  const gcalMeta = (id) => state.gcalCalendars.find((c) => c.id === id) || (id === 'primary' ? gcalPrimary() : null) || { id, name: id === 'primary' ? 'Primary' : id, color: GCAL_COLOR };
+  const gcalIsSelected = (c) => { const ids = gcalSelectedIds(); return ids.includes(c.id) || (c.primary && ids.includes('primary')); };
+  const gcalMulti = () => gcalSelectedIds().length > 1;
+  const gcalTag = (g) => (gcalMulti() && g.cal ? ` <small class="muted">${esc(g.cal)}</small>` : '');
+  const gcalVar = (color) => `--c:${esc(color || GCAL_COLOR)}`;
+
+  function gcalNormalize(items, meta) {
+    const out = [], cal = meta.name, color = meta.color, pre = `${meta.id}|`;
     (items || []).forEach((ev) => {
       if (ev.status === 'cancelled' || !ev.start) return;
       const text = ev.summary || '(busy)';
       if (ev.start.dateTime) {
         const s0 = new Date(ev.start.dateTime), e0 = new Date((ev.end && ev.end.dateTime) || ev.start.dateTime);
-        out.push({ id: ev.id, text, date: U.toISO(s0), time: `${U.pad(s0.getHours())}:${U.pad(s0.getMinutes())}`, mins: Math.max(15, Math.round((e0 - s0) / 60000)), allDay: false });
+        out.push({ id: pre + ev.id, text, cal, color, date: U.toISO(s0), time: `${U.pad(s0.getHours())}:${U.pad(s0.getMinutes())}`, mins: Math.max(15, Math.round((e0 - s0) / 60000)), allDay: false });
       } else if (ev.start.date) {
         const end = U.parseISO((ev.end && ev.end.date) || ev.start.date);
         let d = U.parseISO(ev.start.date);
-        for (let i = 0; i < 31 && (i === 0 || d < end); i++, d = U.addDays(d, 1)) out.push({ id: `${ev.id}:${i}`, text, date: U.toISO(d), time: '', mins: 0, allDay: true });
+        for (let i = 0; i < 31 && (i === 0 || d < end); i++, d = U.addDays(d, 1)) out.push({ id: `${pre}${ev.id}:${i}`, text, cal, color, date: U.toISO(d), time: '', mins: 0, allDay: true });
       }
     });
     return out;
   }
   const gcalOn = (iso) => gcal.events.filter((g) => g.date === iso).sort((a, b) => ((a.time || '') < (b.time || '') ? -1 : 1));
-  async function gcalFetch(fromIso, toIso, retried) {
-    const token = localStorage.getItem('google_access_token');
-    const timeMin = new Date(`${fromIso}T00:00:00`).toISOString(), timeMax = new Date(`${toIso}T00:00:00`).toISOString();
-    const res = await fetch(`${API_BASE}/api/calendar/events?accessToken=${encodeURIComponent(token)}&from=${encodeURIComponent(timeMin)}&to=${encodeURIComponent(timeMax)}`);
+
+  async function gcalApi(path, params, retried) {
+    const qs = new URLSearchParams({ accessToken: localStorage.getItem('google_access_token') || '', ...params });
+    const res = await fetch(`${API_BASE}${path}?${qs}`);
     if (res.status === 401 && !retried) {
       const rt = localStorage.getItem('google_refresh_token');
       if (rt) {
         const r = await fetch(`${API_BASE}/api/auth/google/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt }) });
-        if (r.ok) { localStorage.setItem('google_access_token', (await r.json()).access_token); return gcalFetch(fromIso, toIso, true); }
+        if (r.ok) { localStorage.setItem('google_access_token', (await r.json()).access_token); return gcalApi(path, params, true); }
       }
       localStorage.removeItem('google_access_token');
       throw new Error('Google sign-in expired. Reconnect in Settings.');
@@ -372,25 +381,44 @@
       try { m = (await res.json()).error || ''; } catch (e) { /* non-JSON error */ }
       throw new Error(m ? `Google Calendar: ${m}`.slice(0, 160) : `Calendar error ${res.status}`);
     }
-    return (await res.json()).events || [];
+    return res.json();
   }
+
   async function loadGcal(fromIso, toIso, force) {
     if (!gcalConnected() || gcal.busy) return;
-    const key = `${fromIso}_${toIso}`, seen = gcal.ranges[key];
+    const ids = gcalSelectedIds(), key = `${fromIso}_${toIso}_${ids.join(',')}`, seen = gcal.ranges[key];
     if (seen && !force && (seen.ok || Date.now() - seen.t < 60000)) return;
     gcal.busy = true; gcal.status = 'Syncing…'; gcal.ok = true;
+    const timeMin = new Date(`${fromIso}T00:00:00`).toISOString(), timeMax = new Date(`${toIso}T00:00:00`).toISOString();
     try {
-      const evs = gcalNormalize(await gcalFetch(fromIso, toIso));
+      const results = await Promise.allSettled(ids.map((id) => gcalApi('/api/calendar/events', { from: timeMin, to: timeMax, calendarId: id }).then((r) => gcalNormalize(r.events, gcalMeta(id)))));
+      const evs = [], failed = [];
+      results.forEach((r, i) => (r.status === 'fulfilled' ? evs.push(...r.value) : failed.push({ name: gcalMeta(ids[i]).name, msg: r.reason && r.reason.message })));
+      if (failed.length === ids.length) throw new Error(failed[0].msg || 'Could not sync');
       gcal.events = gcal.events.filter((g) => g.date < fromIso || g.date >= toIso).concat(evs);
       gcal.ranges[key] = { ok: true, t: Date.now() };
-      gcal.status = `Synced ${evs.length} event${evs.length === 1 ? '' : 's'}`; gcal.ok = true;
+      gcal.status = `Synced ${evs.length} event${evs.length === 1 ? '' : 's'}${ids.length > 1 ? ` from ${ids.length - failed.length} calendar${ids.length - failed.length === 1 ? '' : 's'}` : ''}`;
+      gcal.ok = failed.length === 0;
+      if (failed.length) gcal.status += ` · could not read ${failed.map((f) => f.name).join(', ')}`;
     } catch (e) {
       gcal.ranges[key] = { ok: false, t: Date.now() };
       gcal.status = e.message || 'Could not sync'; gcal.ok = false; console.error('Calendar sync failed:', e);
     } finally { gcal.busy = false; render(); }
   }
+  async function loadCalendarList() {
+    if (!gcalConnected()) return;
+    gcal.listTried = true; gcal.listError = '';
+    try {
+      state.gcalCalendars = (await gcalApi('/api/calendar/list', {})).calendars || [];
+      S.save(state);
+    } catch (e) { gcal.listError = e.message; console.error('Calendar list failed:', e); }
+    render();
+  }
+  function gcalReset() { gcal.events = []; gcal.ranges = {}; gcal.status = ''; }
+
   function gcalKick(name, arg) {
     if (!gcalConnected()) return;
+    if (!state.gcalCalendars.length && !gcal.listTried) loadCalendarList();
     let from, to;
     if (name === 'week' || name === 'today') { from = name === 'week' && arg ? arg : U.weekKey(today(), ws()); to = U.toISO(U.addDays(U.parseISO(from), 7)); }
     else if (name === 'calendar') ({ from, to } = calParse(arg));
@@ -399,8 +427,10 @@
     loadGcal(from, to);
   }
   const gcalStatusLine = (from, to) => gcalConnected()
-    ? `<p class="gcal-status ${gcal.ok ? 'muted small' : 'nudge'}">📅 Google Calendar · ${esc(gcal.status || 'loading…')} <button class="btn ghost small" data-act="gcalRefresh" data-from="${from}" data-to="${to}">↻ Refresh</button>${gcal.ok ? '' : ' <a href="#/settings">Reconnect in Settings</a>'}</p>`
+    ? `<p class="gcal-status ${gcal.ok ? 'muted small' : 'nudge'}">📅 Google Calendar · ${esc(gcal.status || 'loading…')} <button class="btn ghost small" data-act="gcalRefresh" data-from="${from}" data-to="${to}">↻ Refresh</button> <a href="#/settings">Choose calendars</a></p>`
     : '<p class="muted small gcal-status">📅 <a href="#/settings">Connect Google Calendar</a> to see your events here.</p>';
+  const gcalChips = () => (state.gcalCalendars.length > 1 && gcalConnected()
+    ? `<div class="chips gcal-chips">${state.gcalCalendars.map((c) => `<button type="button" class="chip cal-chip${gcalIsSelected(c) ? ' on' : ''}" style="${gcalVar(c.color)}" data-act="gcalToggle" data-id="${esc(c.id)}" aria-pressed="${gcalIsSelected(c)}"><span class="swatch"></span>${esc(c.name)}</button>`).join('')}</div>` : '');
 
   /* Phone photos can exceed the host's request limit, so downscale to a JPEG first. */
   async function shrinkImage(file, maxDim = 1800, quality = 0.85) {
@@ -456,7 +486,7 @@
     toast(ok ? `Created ${ok} calendar event${ok === 1 ? '' : 's'}` : 'Could not create calendar events');
   }
 
-  const OCR_DEST = { schedule: '#/week', goals: '#/goals', workouts: '#/track/workouts', weights: '#/track/weight', habits: '#/week', shopping: '#/lists/shopping',
+  const OCR_DEST = { schedule: '#/week', goals: '#/goals', workouts: '#/track/workouts', weights: '#/track/weight', habits: '#/today', shopping: '#/lists/shopping',
     journal: '#/lists/journal', bucket: '#/lists/bucket', reading: '#/lists/reading', projects: '#/lists/hobbies', events: '#/year' };
   const countAll = () => ['goals', 'roles', 'schedule', 'workouts', 'weights', 'shopping', 'journals', 'bucket', 'reading', 'projects', 'events']
     .reduce((n, k) => n + state[k].length, 0) + Object.values(state.weeks).reduce((n, w) => n + (w.habits || []).length, 0);
@@ -516,13 +546,7 @@
           });
           break;
         case 'habits':
-          const wk = U.weekKey(today(), ws());
-          const week = getWeek(wk);
-          data.habits.forEach(h => {
-            if (h.name && !week.habits.find(x => x.name === h.name)) {
-              week.habits.push({ id: S.uid(), name: h.name, target: h.target || 5, days: [false, false, false, false, false, false, false] });
-            }
-          });
+          data.habits.forEach((h) => { if (h.name) addSuggestedGoal({ title: h.name, perWeek: Math.min(7, Math.max(1, Number(h.target) || 5)), area: 'health' }, 'habit'); });
           break;
         case 'shopping':
           data.items.forEach(i => { if (i.text) state.shopping.push({ id: S.uid(), text: i.text, done: false }); });
@@ -550,9 +574,9 @@
           break;
         case 'events':
           data.events.forEach(e => {
-            if (e.date && e.text) state.events.push({
-              id: S.uid(), start: e.date, end: e.date, text: e.text, yearly: e.yearly || false
-            });
+            if (!e.date || !e.text) return;
+            const yearly = !!e.yearly || /^\d{2}-\d{2}$/.test(e.date);
+            state.events.push({ id: S.uid(), start: /^\d{2}-\d{2}$/.test(e.date) ? `${today().getFullYear()}-${e.date}` : e.date, end: '', text: e.text, yearly, kind: 'event' });
           });
           break;
         case 'calendar':
@@ -953,7 +977,7 @@
           const evs = U.eventsOn(state.events, iso);
           const out = U.monthKey(d) !== mk;
           return `<td class="${out ? 'out' : ''} ${iso === tIso ? 'today' : ''}"><a class="dnum" href="#/week/${wkey}">${d.getDate()}</a>
-            ${gcalOn(iso).slice(0, 3).map((g) => `<div class="ev gcal" title="${esc(g.text)}"><span>${g.time ? `${esc(fmtTime(g.time))} ` : ''}📅 ${esc(g.text)}</span></div>`).join('')}
+            ${gcalOn(iso).slice(0, 3).map((g) => `<div class="ev gcal" style="${gcalVar(g.color)}" title="${esc(g.text)}"><span>${g.time ? `${esc(fmtTime(g.time))} ` : ''}📅 ${esc(g.text)}</span></div>`).join('')}
             ${evs.map((e) => `<div class="ev" title="${esc(e.text)}"><span>${evIcon(e)}${esc(e.text)}</span></div>`).join('')}</td>`;
         }).join('')}</tr>`;
       }).join('')}</tbody></table></div>`;
@@ -995,12 +1019,12 @@
     const START = 6 * 60, END = 22 * 60, slots = [];
     for (let m = START; m < END; m += 30) slots.push(m);
     const itemsOn = (iso) => [
-      ...gcalOn(iso).filter((g) => g.time).map((g) => ({ time: g.time, text: g.text, mins: g.mins, cls: 'gcal' })),
+      ...gcalOn(iso).filter((g) => g.time).map((g) => ({ time: g.time, text: g.text, mins: g.mins, cls: 'gcal', c: g.color })),
       ...idealOn(iso).filter((i) => i.time).map((i) => ({ time: i.time, text: i.text, mins: 60, cls: 'ideal' })),
       ...scheduleOn(iso).filter((x) => x.time).map((x) => ({ time: x.time, text: x.text, mins: Number(x.mins) || 30, cls: 'sched' })),
       ...state.workouts.filter((x) => x.date === iso && x.time && !x.ideal).map((x) => ({ time: x.time, text: x.type, mins: Number(x.minutes) || 45, cls: 'wo' })),
     ];
-    const allDayOn = (iso) => [...gcalOn(iso).filter((g) => g.allDay).map((g) => `<div class="ad gcal">📅 ${esc(g.text)}</div>`),
+    const allDayOn = (iso) => [...gcalOn(iso).filter((g) => g.allDay).map((g) => `<div class="ad gcal" style="${gcalVar(g.color)}">📅 ${esc(g.text)}</div>`),
       ...U.eventsOn(state.events, iso).map((e) => `<div class="ad">${evIcon(e)}${esc(e.text)}</div>`)].join('');
     const byDay = days.map(itemsOn);
     const slotOf = (t) => Math.min(END - 30, Math.max(START, Math.floor(toMin(t) / 30) * 30));
@@ -1009,7 +1033,7 @@
       <tr class="allday"><th>all day</th>${days.map((d) => `<td>${allDayOn(d)}</td>`).join('')}</tr>
       ${slots.map((m) => `<tr class="${m % 60 === 0 ? 'hr' : ''}"><th>${m % 60 === 0 ? esc(fmtTime(hhmm(m))) : ''}</th>${byDay.map((list) => {
         const here = list.filter((x) => slotOf(x.time) === m);
-        return `<td>${here.map((x) => `<div class="blk ${x.cls}" style="--span:${Math.max(1, Math.ceil(x.mins / 30))}" title="${esc(fmtTime(x.time))} ${esc(x.text)}"><b>${esc(fmtTime(x.time))}</b> ${esc(x.text)}</div>`).join('')}</td>`;
+        return `<td>${here.map((x) => `<div class="blk ${x.cls}" style="--span:${Math.max(1, Math.ceil(x.mins / 30))}${x.c ? `;${gcalVar(x.c)}` : ''}" title="${esc(fmtTime(x.time))} ${esc(x.text)}"><b>${esc(fmtTime(x.time))}</b> ${esc(x.text)}</div>`).join('')}</td>`;
       }).join('')}</tr>`).join('')}</tbody></table></div>
       ${dayOptsHtml ? `<form class="add wrap" data-add="schedule"><select name="date" aria-label="Day">${dayOptsHtml}</select>
         <input type="time" name="time" step="1800" required aria-label="Start time">
@@ -1040,7 +1064,7 @@
     const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     const items = [], anytime = [];
     const push = (o) => { o.start = Math.max(0, Math.min(1439, o.start)); o.end = Math.min(1440, Math.max(o.start + 15, o.start + o.mins)); items.push(o); };
-    gcalOn(iso).forEach((g) => (g.time ? push({ cls: 'gcal', start: toMin(g.time), mins: g.mins, time: g.time, html: `📅 ${esc(g.text)}`, tip: g.text }) : anytime.push(`<span class="ad gcal">📅 ${esc(g.text)}</span>`)));
+    gcalOn(iso).forEach((g) => (g.time ? push({ cls: 'gcal', c: g.color, start: toMin(g.time), mins: g.mins, time: g.time, html: `📅 ${esc(g.text)}${gcalTag(g)}`, tip: g.text }) : anytime.push(`<span class="ad gcal" style="${gcalVar(g.color)}">📅 ${esc(g.text)}${gcalTag(g)}</span>`)));
     U.eventsOn(state.events, iso).forEach((e) => anytime.push(`<span class="ad">${evIcon(e)}${esc(e.text)}</span>`));
     idealOn(iso).forEach((i) => {
       const done = idealDone(i, iso), cb = `<input type="checkbox" data-act="idealDone" data-id="${i.id}" data-date="${iso}" ${done ? 'checked' : ''} aria-label="Done: ${esc(i.text)}">`;
@@ -1060,7 +1084,7 @@
     const placed = layoutDay(items);
     const hours = Array.from({ length: 24 }, (_, h) => `<div class="tl-hr" style="top:${h * 60}px">${h === 0 ? '' : esc(fmtTime(`${U.pad(h)}:00`))}</div>`).join('');
     const slots = Array.from({ length: 96 }, (_, i) => `<div class="tl-slot${i % 4 === 0 ? ' hr' : ''}" style="top:${i * 15}px" data-time="${hhmm24(i * 15)}" title="${esc(fmtTime(hhmm24(i * 15)))}"></div>`).join('');
-    const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}${o.end - o.start <= 20 ? ' tiny' : ''}" style="top:${o.start}px;height:${o.end - o.start - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)" title="${esc(fmtTime(o.time))} ${esc(o.tip)}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
+    const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}${o.end - o.start <= 20 ? ' tiny' : ''}" style="top:${o.start}px;height:${o.end - o.start - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)${o.c ? `;${gcalVar(o.c)}` : ''}" title="${esc(fmtTime(o.time))} ${esc(o.tip)}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
     const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
     const now = iso === todayISO() ? `<div class="tl-now" style="top:${nowMin}px"><i></i></div>` : '';
     const start = iso === todayISO() ? Math.max(0, nowMin - 90) : 7 * 60;
@@ -1124,17 +1148,18 @@
         ${grid.map((row) => `<tr>${row.map((d) => {
           const iso = U.toISO(d), out = U.monthKey(d) !== mk;
           const items = [
-            ...gcalOn(iso).map((g) => ({ cls: 'gcal', t: g.time, txt: `📅 ${g.text}` })),
+            ...gcalOn(iso).map((g) => ({ cls: 'gcal', c: g.color, t: g.time, txt: `📅 ${g.text}` })),
             ...U.eventsOn(state.events, iso).map((e) => ({ cls: 'key', t: '', txt: `${evIcon(e)}${e.text}` })),
             ...scheduleOn(iso).map((x) => ({ cls: 'sched', t: x.time, txt: x.text })),
           ];
           const shown = items.slice(0, 4);
           return `<td class="${out ? 'out' : ''} ${iso === tIso ? 'today' : ''}"><a class="dnum" href="#/calendar/day:${iso}">${d.getDate()}</a>
-            ${shown.map((x) => `<div class="ev ${x.cls}" title="${esc(x.txt)}"><span>${x.t ? `${esc(fmtTime(x.t))} ` : ''}${esc(x.txt)}</span></div>`).join('')}
+            ${shown.map((x) => `<div class="ev ${x.cls}" ${x.c ? `style="${gcalVar(x.c)}" ` : ''}title="${esc(x.txt)}"><span>${x.t ? `${esc(fmtTime(x.t))} ` : ''}${esc(x.txt)}</span></div>`).join('')}
             ${items.length > 4 ? `<a class="more-ev" href="#/calendar/day:${iso}">+${items.length - 4} more</a>` : ''}</td>`;
         }).join('')}</tr>`).join('')}</tbody></table></div>`;
     }
     const body = `<div class="row cal-bar"><div class="chips">${switcher}</div><span class="grow"></span>${nav}</div>
+      ${gcalChips()}
       ${gcalStatusLine(c.from, c.to)}
       <section class="box">${content}</section>
       ${photoImports()}
@@ -1164,7 +1189,7 @@
       const iso = U.toISO(d);
       return `<div class="${iso === tIso ? 'today' : ''}"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
         ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${evIcon(e)}${esc(e.text)}</div>`).join('')}
-        <ul class="sched">${gcalOn(iso).map((g) => `<li class="gcal"><span class="grow">${g.time ? `<time>${esc(fmtTime(g.time))}</time> ` : ''}📅 ${esc(g.text)}</span></li>`).join('')}
+        <ul class="sched">${gcalOn(iso).map((g) => `<li class="gcal" style="${gcalVar(g.color)}"><span class="grow">${g.time ? `<time>${esc(fmtTime(g.time))}</time> ` : ''}📅 ${esc(g.text)}${gcalTag(g)}</span></li>`).join('')}
           ${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
           ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}${s.cal ? ` <small class="muted">${esc(s.cal)}</small>` : ''}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
           ${wos.filter((x) => x.date === iso).map((x) => `<li class="wo ${x.done ? 'done' : ''}"><span class="grow">${x.done ? '✓' : '◦'} ${esc(x.type)}</span></li>`).join('')}</ul>
@@ -1767,12 +1792,19 @@
     const notifPerm = canNotify ? Notification.permission : null;
     const hasCalendar = !!localStorage.getItem('google_access_token');
     const currentApiBase = localStorage.getItem('api_base') || API_BASE;
+    if (hasCalendar && !state.gcalCalendars.length && !gcal.listTried) setTimeout(loadCalendarList, 0);
+    const calPicker = hasCalendar ? `<div class="gcal-picker"><h3>Calendars to show <small class="muted">· view only, nothing is ever changed in Google</small></h3>
+      ${state.gcalCalendars.length ? `<ul class="checks compact">${state.gcalCalendars.map((c) => `<li><input type="checkbox" data-act="gcalToggle" data-id="${esc(c.id)}" ${gcalIsSelected(c) ? 'checked' : ''} aria-label="Show ${esc(c.name)}">
+        <span class="swatch" style="background:${esc(c.color)}"></span><span class="grow">${esc(c.name)}${c.primary ? ' <small class="muted">primary</small>' : ''}</span></li>`).join('')}</ul>`
+        : gcal.listError ? `<p class="nudge">${esc(gcal.listError)}</p>` : '<p class="muted small">Loading your calendars…</p>'}
+      <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
       <section class="box"><h2>Integrations</h2>
         <div class="row wrap">
           ${hasCalendar ? `<div style="flex:1"><p class="muted small">✓ Google Calendar connected</p><button class="btn small ghost danger" data-act="disconnectCalendar">Disconnect</button></div>` : `<button class="btn" data-act="connectCalendar">Connect Google Calendar</button>`}
           <button class="btn" data-act="uploadPhoto">Upload photo (OCR)</button>
         </div>
+        ${calPicker}
         <label>Backend URL <input type="text" id="apiBaseInput" value="${esc(currentApiBase)}" placeholder="https://..." style="flex:1;"></label>
         <p class="muted small">Connected to backend for Calendar sync and photo OCR. Ask your admin for the URL.</p>
       </section>
@@ -1976,6 +2008,16 @@
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
+    gcalToggle(el) {
+      const prim = gcalPrimary();
+      const cur = new Set(gcalSelectedIds().map((id) => (id === 'primary' && prim ? prim.id : id)));
+      const id = el.dataset.id;
+      if (cur.has(id)) cur.delete(id); else cur.add(id);
+      if (!cur.size) { toast('Keep at least one calendar selected'); return; }
+      if (cur.size > 10) { toast('You can show up to 10 calendars'); return; }
+      state.settings.gcalSelected = [...cur]; gcalReset(); commit();
+    },
+    gcalLoadCalendars() { loadCalendarList(); },
     gcalRefresh(el) { loadGcal(el.dataset.from, el.dataset.to, true); },
     completeSession(el) {
       const rec = (state.sessions[el.dataset.key] = state.sessions[el.dataset.key] || { steps: {} });
@@ -2616,6 +2658,69 @@
 
   let ocrSuggestions = [];
   let calReviewName = '';
+  /* ---------- review step for photo imports ---------- */
+  const T = (k, ph, extra) => ({ k, ph, ...extra });
+  const REVIEW = {
+    goals: { title: 'Review roles & goals', route: 'goals', sections: [
+      { key: 'roles', label: 'Roles', cols: [T('name', 'Role'), T('why', 'WHY', { wide: true })] },
+      { key: 'goals', label: 'Goals', cols: [T('title', 'Goal', { wide: true }), T('role', 'Role'), T('cadence', '', { select: [['once', 'One-off goal'], ['daily', 'Daily habit'], ['weekly', 'Weekly habit'], ['monthly', 'Monthly']] }), T('target', '', { type: 'date' })] }] },
+    workouts: { title: 'Review workouts', route: 'workouts', sections: [{ key: 'workouts', cols: [T('date', '', { type: 'date' }), T('type', 'Type'), T('minutes', 'min', { type: 'number', num: true }), T('details', 'Details', { wide: true })] }] },
+    weights: { title: 'Review weigh-ins', route: 'weights', sections: [{ key: 'weights', cols: [T('date', '', { type: 'date' }), T('value', 'Weight', { type: 'number', num: true })] }] },
+    habits: { title: 'Review habits', route: 'habits', sections: [{ key: 'habits', cols: [T('name', 'Habit', { wide: true }), T('target', 'days/wk', { type: 'number', num: true })] }] },
+    shopping: { title: 'Review shopping list', route: 'shopping', sections: [{ key: 'items', cols: [T('text', 'Item', { wide: true })] }] },
+    bucket: { title: 'Review bucket list', route: 'bucket', sections: [{ key: 'items', cols: [T('text', 'I\'m going to…', { wide: true }), T('budget', 'Budget'), T('target', 'Target')] }] },
+    reading: { title: 'Review reading list', route: 'reading', sections: [{ key: 'items', cols: [T('title', 'Title', { wide: true }), T('by', 'By'), T('genre', 'Genre')] }] },
+    events: { title: 'Review key dates', route: 'events', sections: [{ key: 'events', cols: [T('date', 'YYYY-MM-DD or MM-DD'), T('text', 'What', { wide: true }), T('yearly', 'Every year', { check: true })] }] },
+    projects: { title: 'Review projects', route: 'projects', sections: [{ key: 'projects', cols: [T('name', 'Project'), T('steps', 'Next steps (one per line)', { area: true, wide: true })] }],
+      load: (d) => ({ projects: (d.projects || []).map((p) => ({ ...p, steps: (p.steps || []).map((x) => x.text || x).join('\n') })) }),
+      apply: (c) => ({ projects: c.projects.map((p) => ({ ...p, steps: String(p.steps || '').split('\n').map((t) => t.trim()).filter(Boolean).map((text) => ({ text })) })) }) },
+    journal: { title: 'Review journal entry', route: 'journal', sections: [{ key: 'items', cols: [T('text', 'Text', { area: true, wide: true })] }],
+      load: (d) => ({ items: [{ text: d.text || '' }] }), apply: (c) => ({ text: (c.items[0] || {}).text || '' }) },
+    reflections: { title: 'Review reflections', route: 'journal', sections: [{ key: 'items', cols: [T('progress', 'Progress', { area: true, wide: true }), T('improve', 'To improve', { area: true, wide: true }), T('memories', 'Memories', { area: true, wide: true })] }],
+      load: (d) => ({ items: [{ progress: d.progress || '', improve: d.improve || '', memories: d.memories || '' }] }),
+      apply: (c) => { const r = c.items[0] || {}; return { text: `Progress: ${r.progress}\nTo improve: ${r.improve}\nMemories: ${r.memories}` }; } },
+  };
+  let reviewType = '';
+  function showReview(type, data) {
+    const def = REVIEW[type];
+    reviewType = type;
+    const d = def.load ? def.load(data) : data;
+    const cell = (c, v) => {
+      const val = v == null ? '' : v;
+      if (c.check) return `<input type="checkbox" data-k="${c.k}" ${val ? 'checked' : ''} aria-label="${esc(c.ph)}">`;
+      if (c.select) return `<select data-k="${c.k}">${opts(c.select.map(([x, l]) => ({ v: x, l })), val)}</select>`;
+      if (c.area) return `<textarea data-k="${c.k}" rows="3" placeholder="${esc(c.ph)}">${esc(val)}</textarea>`;
+      return `<input data-k="${c.k}" type="${c.type || 'text'}" ${c.num ? 'step="any" min="0" class="num"' : c.wide ? 'class="rev-text"' : ''} value="${esc(val)}" placeholder="${esc(c.ph || '')}" aria-label="${esc(c.ph || c.k)}">`;
+    };
+    let total = 0;
+    const html = def.sections.map((sec) => {
+      const rows = d[sec.key] || [];
+      total += rows.length;
+      return `${sec.label ? `<h3>${esc(sec.label)}</h3>` : ''}${rows.length ? `<table class="rev-table"><tbody>${rows.map((r) => `<tr class="rev-row" data-sec="${sec.key}"><td><input type="checkbox" class="rev-on" checked aria-label="Include"></td>${sec.cols.map((c) => `<td>${cell(c, r[c.k])}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p class="muted small">None found.</p>'}`;
+    }).join('');
+    document.getElementById('ocrTitle').textContent = def.title;
+    document.getElementById('ocrType').textContent = total ? `${total} item${total === 1 ? '' : 's'} found. Fix anything wrong, untick what you don't want, then add.` : 'Nothing readable was found. Try a clearer, closer photo.';
+    const preview = document.getElementById('ocrPreview');
+    preview.style.maxHeight = '50vh';
+    preview.innerHTML = total ? html : '';
+    document.getElementById('routeButtons').innerHTML = total ? '<button type="button" class="btn primary" data-rev-add>Add selected</button>' : '';
+    ocrSuggestions = [];
+    uploadDlg.close(); ocrResultDlg.showModal();
+  }
+  function addReviewed() {
+    const def = REVIEW[reviewType], out = {};
+    def.sections.forEach((sec) => { out[sec.key] = []; });
+    document.querySelectorAll('#ocrPreview .rev-row').forEach((tr) => {
+      if (!tr.querySelector('.rev-on').checked) return;
+      const row = {};
+      tr.querySelectorAll('[data-k]').forEach((el) => { row[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value.trim(); });
+      out[tr.dataset.sec].push(row);
+    });
+    ocrResultDlg.close();
+    addOCRDataToApp(def.route, def.apply ? def.apply(out) : out);
+  }
+
+
   const uploadType = document.getElementById('uploadType');
   uploadType.addEventListener('change', () => {
     const cal = uploadType.value === 'calendar';
@@ -2684,6 +2789,8 @@
       }
       const result = await uploadPhotoOCR(files[0], type);
       if (result.type === 'calendar') { showCalendarReview(result.data.events || [], calName); return; }
+      if (result.type === 'schedule') { showCalendarReview((result.data.entries || []).map((x) => ({ date: x.date, time: x.time || '', text: x.text, mins: '', allDay: !x.time, approx: !x.time })), calName); return; }
+      if (REVIEW[result.type]) { showReview(result.type, result.data); return; }
       const { type: detected, data, suggestions = [] } = result;
       ocrSuggestions = suggestions;
       document.getElementById('ocrTitle').textContent = 'What is this?';
@@ -2701,6 +2808,7 @@
   document.getElementById('routeButtons').addEventListener('click', (e) => {
     const cb = e.target.closest('[data-cal-act]');
     if (cb) { addReviewedEvents(cb.dataset.calAct); return; }
+    if (e.target.closest('[data-rev-add]')) { addReviewed(); return; }
     const btn = e.target.closest('[data-ocr-route]');
     const s = btn && ocrSuggestions[Number(btn.dataset.ocrRoute)];
     if (!s) return;

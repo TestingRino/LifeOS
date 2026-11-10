@@ -5,9 +5,9 @@ const router = express.Router();
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 
-async function getCalendarEvents(accessToken, timeMin, timeMax) {
+async function getCalendarEvents(accessToken, timeMin, timeMax, calendarId = 'primary') {
   try {
-    const response = await axios.get(`${CALENDAR_API}/calendars/primary/events`, {
+    const response = await axios.get(`${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: {
         timeMin,
@@ -52,12 +52,31 @@ async function updateCalendarEvent(accessToken, eventId, event) {
   }
 }
 
+router.get('/list', async (req, res) => {
+  const { accessToken } = req.query;
+  if (!accessToken) return res.status(400).json({ error: 'Missing access token' });
+  try {
+    const response = await axios.get(`${CALENDAR_API}/users/me/calendarList`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: { minAccessRole: 'reader', maxResults: 250 },
+    });
+    const calendars = (response.data.items || []).map((c) => ({
+      id: c.id, name: c.summaryOverride || c.summary || c.id, color: c.backgroundColor || '#2f6fb0',
+      primary: !!c.primary, accessRole: c.accessRole,
+    }));
+    res.json({ calendars });
+  } catch (err) {
+    console.error('Calendar list error:', err.response?.data || err.message);
+    res.status(err.response?.status === 401 ? 401 : 400).json({ error: err.response?.data?.error?.message || err.message });
+  }
+});
+
 router.get('/events', async (req, res) => {
-  const { accessToken, from, to } = req.query;
+  const { accessToken, from, to, calendarId } = req.query;
   if (!accessToken) return res.status(400).json({ error: 'Missing access token' });
 
   try {
-    const events = await getCalendarEvents(accessToken, from, to);
+    const events = await getCalendarEvents(accessToken, from, to, calendarId || 'primary');
     res.json({ events });
   } catch (err) {
     res.status(err.response?.status === 401 ? 401 : 400).json({ error: err.response?.data?.error?.message || err.message });
