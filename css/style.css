@@ -26,7 +26,7 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
   font: 15px/1.5 var(--sans);
@@ -78,7 +78,7 @@ small, .small { font-size: .82rem; }
 
 /* inputs */
 input, select, textarea, button { font: inherit; color: inherit; }
-textarea, input[type=text], input:not([type]), input[type=date], input[type=number], select {
+textarea, input[type=text], input:not([type]), input[type=date], input[type=time], input[type=number], select {
   background: var(--paper); border: 1px solid var(--line); border-radius: 7px; padding: .4rem .55rem; max-width: 100%;
 }
 textarea {
@@ -238,9 +238,9 @@ select.tier { font-size: .8rem; padding: .2rem .3rem; }
 .tabs { display: flex; gap: .3rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .tabs a { padding: .35rem .8rem; border: 1px solid var(--line); border-radius: 99px; text-decoration: none; font-size: .9rem; }
 .tabs a.sel { background: var(--navy); color: var(--card); border-color: var(--navy); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 1rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 0 1rem; }
 .card label:not(.field) { flex-direction: row; align-items: center; gap: .4rem; width: 100%; margin-top: .3rem; }
-.card label input { flex: 1; }
+.card label input { flex: 1; min-width: 0; width: 100%; }
 .card .title { font: 600 1.05rem var(--serif); }
 .card.done .title { text-decoration: line-through; color: var(--muted); }
 .card .row .x { margin-left: auto; }
@@ -303,7 +303,115 @@ dialog textarea { font: .88rem/1.5 ui-monospace, Menlo, monospace; background-im
 #toast.show { transform: translateX(-50%) translateY(0); }
 .foot { color: var(--muted); font: italic .85rem var(--serif); text-align: center; padding: 2rem 16px; }
 
+/* ---------- mobile ---------- */
+.tabbar, .more-sheet { display: none; }
+.month-events { display: none; margin-top: .6rem; }
+
+@media (max-width: 760px) {
+  /* Navigation: bottom tab bar (thumb reach) instead of a scrolling top bar */
+  .topbar { position: static; padding-top: calc(.55rem + env(safe-area-inset-top)); }
+  .topbar .nav { display: none; }
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .tabbar {
+    display: grid; grid-template-columns: repeat(6, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar a, .tabbar button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 56px;
+    font-size: .7rem; color: var(--muted); text-decoration: none; border: 0; background: none; padding: 0; cursor: pointer;
+  }
+  .tabbar .ico { font-size: 1.25rem; line-height: 1; }
+  .tabbar .sel { color: var(--navy); font-weight: 600; }
+  .tabbar .sel .ico { color: var(--red); }
+  .more-sheet:not([hidden]) {
+    display: grid; position: fixed; right: 8px; left: 8px; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 21;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.18); overflow: hidden;
+  }
+  .more-sheet a { display: flex; flex-direction: column; padding: .8rem 1rem; text-decoration: none; color: var(--ink); font-weight: 600; border-bottom: 1px solid var(--line); min-height: 52px; }
+  .more-sheet a:last-child { border-bottom: 0; }
+  .more-sheet a small { font-weight: 400; color: var(--muted); }
+  .more-sheet a.sel { color: var(--red); }
+  #toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  /* iOS Safari zooms into any field under 16px; keep every field at 16px */
+  input, select, textarea, .role-name { font-size: 16px !important; }
+  select.link { font-size: 14px !important; }
+
+  /* Comfortable spacing */
+  .wrap { padding: 0 12px; }
+  .box { padding: .85rem .9rem; }
+  .page-head { margin: 1rem 0 .75rem; }
+  .head-actions { width: 100%; }
+  .head-actions .btn[data-act^=copy] { margin-left: auto; }
+  .add input[name=text], .add input[name=title], .add input[name=name], .add input[name=topic] { min-width: 8rem; }
+  .add button, .btn, button.primary { min-height: 44px; min-width: 44px; justify-content: center; }
+
+  /* Month calendar fits the screen; events become dots with a list below */
+  .cal { min-width: 0; }
+  .cal th.wk { width: 1.6rem; }
+  .cal th { text-align: center; font-size: .72rem; }
+  .cal td { height: 3.1rem; padding: 0; text-align: center; }
+  .cal .dnum { display: block; float: none; text-align: center; padding: .35rem 0 .1rem; font-size: .95rem; min-height: 2rem; }
+  .cal .ev { display: inline-block; width: 7px; height: 7px; border-radius: 50%; padding: 0; margin: 0 1px; background: var(--red); }
+  .cal .ev span { display: none; }
+  .month-events { display: block; }
+
+  /* Week schedule: one readable row per day */
+  .strip { grid-template-columns: 1fr; gap: .3rem; }
+  .strip > div { display: grid; grid-template-columns: 5.2rem 1fr; gap: 0 .5rem; align-items: baseline; padding: .45rem .6rem; }
+  .strip > div > .ev, .strip > div > ul.sched { grid-column: 2; }
+  .strip > div > strong, .strip > div > span { grid-column: 1; grid-row: 1; }
+  .strip > div > span { margin-left: 2.4rem; }
+  ul.sched { margin: 0; } ul.sched li { font-size: .88rem; }
+  ul.sched li:first-child { border-top: 0; }
+
+  /* Habit tracker: name/goal/count on one line, the 7 days underneath */
+  .habits thead { display: none; }
+  .habits tr { display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; padding: .35rem 0; border-bottom: 1px dotted var(--line); }
+  .habits td { border: 0; padding: 0; }
+  .habits td:first-child { grid-row: 1; grid-column: 1 / 5; min-width: 0; }
+  .habits td.goal { grid-row: 1; grid-column: 5; }
+  .habits td.goal input { width: 100%; }
+  .habits td.count { grid-row: 1; grid-column: 6; }
+  .habits td.del { grid-row: 1; grid-column: 7; }
+  .habits td.day { grid-row: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: .2rem; }
+  .habits td.day::before { content: attr(data-d); font-size: .7rem; color: var(--muted); }
+
+  /* Goal pulse: title on its own line, buttons below */
+  .pulse-list li > .grow { flex-basis: 100%; }
+  .pulse-list .pill { flex: 1; }
+
+  /* Tables that stack: show their column names */
+  .goals-table td[data-label]::before { content: attr(data-label) " "; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; margin-right: .25rem; }
+  .goals-table tr { grid-template-columns: 1fr 1fr 1fr; }
+  .goals-table td[data-label=Role], .goals-table td[data-label=Progress], .goals-table td[data-label=Trend] { grid-column: span 3; }
+  .goals-table td.prog input[type=range] { width: 60%; }
+
+  .cycle-bar label { flex: 1 1 45%; }
+  .cycle-bar input, .cycle-bar select { width: 100%; }
+  .meter { margin-left: 0; }
+  .goal-meta label { flex: 1 1 45%; }
+  .goal-meta input[type=date], .goal-meta select { flex: 1; min-width: 0; }
+  .goal-meta label.prog { flex-basis: 100%; }
+  .goal-meta label.prog input { flex: 1; }
+}
+
+/* Touch screens: larger tap targets regardless of width */
+@media (pointer: coarse) {
+  input[type=checkbox] { width: 1.5rem; height: 1.5rem; }
+  ul.checks li > input[type=checkbox] { margin-top: .4rem; }
+  .x { min-width: 40px; min-height: 40px; font-size: 1.35rem; }
+  .pill { min-height: 36px; padding: .3rem .7rem; font-size: .82rem; }
+  .chip { min-height: 36px; padding: .3rem .7rem; }
+  .more, .tabs a { padding-top: .45rem; padding-bottom: .45rem; }
+  .tabs a { min-height: 40px; display: inline-flex; align-items: center; }
+  .stars button { min-width: 44px; min-height: 44px; }
+  .star-btn { min-width: 40px; min-height: 40px; }
+  select.link, select.tier { min-height: 36px; }
+  .cal th.wk a { display: inline-block; padding: .6rem .2rem; }
+}
+
 @media print {
-  .topbar, .head-actions, .add, .x, .nudge, .chip, .foot, .row button { display: none !important; }
+  .topbar, .tabbar, .more-sheet, .head-actions, .add, .x, .nudge, .chip, .foot, .row button { display: none !important; }
   body { background: #fff; } .box { break-inside: avoid; border-color: #ccc; }
 }

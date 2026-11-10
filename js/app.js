@@ -253,10 +253,10 @@
             const cold = a.month.total === 0 && a.week.total === 0;
             return `<tr class="${cold ? 'cold' : ''}">
               <td>${g.tier === 'purpose' ? '<span class="star" title="Purpose goal">★</span> ' : ''}${esc(g.title)}${cold ? '<small class="warn">no actions planned</small>' : ''}</td>
-              <td>${esc(roleName(g.roleId))}</td>
-              <td>${progressBar(g.progress)} <small>${Number(g.progress) || 0}%</small></td>
-              <td>${a.month.done}/${a.month.total}</td><td>${a.week.done}/${a.week.total}</td>
-              <td>${pulse ? `<span class="pulse ${pulse}">${{ on: 'On track', slip: 'Slipping', off: 'Stalled' }[pulse]}</span>` : '<span class="muted">—</span>'}</td></tr>`;
+              <td data-label="Role">${esc(roleName(g.roleId))}</td>
+              <td data-label="Progress">${progressBar(g.progress)} <small>${Number(g.progress) || 0}%</small></td>
+              <td data-label="Month">${a.month.done}/${a.month.total}</td><td data-label="Week">${a.week.done}/${a.week.total}</td>
+              <td data-label="Pulse">${pulse ? `<span class="pulse ${pulse}">${{ on: 'On track', slip: 'Slipping', off: 'Stalled' }[pulse]}</span>` : '<span class="muted">—</span>'}</td></tr>`;
           }).join('')}</tbody></table>` : `<p class="muted">No active goals. <a href="#/goals">Hold a planning session →</a></p>`}
       </section>`;
     return page('Today', U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body);
@@ -437,6 +437,11 @@
     const base = `months.${mk}`;
     const roleMonthly = cyc ? state.roles.map((r) => ({ r, t: get(`cycles.@${cyc.id}.roleActions.${r.id}.monthly`) })).filter((x) => x.t) : [];
 
+    const monthEvents = [];
+    for (let i = 1; i <= U.daysInMonth(md.getFullYear(), md.getMonth()); i++) {
+      const iso = `${mk}-${U.pad(i)}`;
+      U.eventsOn(state.events, iso).forEach((e) => { if (!monthEvents.some((x) => x.e === e)) monthEvents.push({ e, on: iso }); });
+    }
     const cal = `<div class="cal-wrap"><table class="cal">
       <thead><tr><th class="wk"></th>${dayNames.map((d) => `<th><span class="long">${d}</span><span class="short">${d.slice(0, 3)}</span></th>`).join('')}</tr></thead>
       <tbody>${grid.map((row) => {
@@ -447,12 +452,13 @@
           const evs = U.eventsOn(state.events, iso);
           const out = U.monthKey(d) !== mk;
           return `<td class="${out ? 'out' : ''} ${iso === tIso ? 'today' : ''}"><a class="dnum" href="#/week/${wkey}">${d.getDate()}</a>
-            ${evs.map((e) => `<div class="ev" title="${esc(e.text)}">${esc(e.text)}</div>`).join('')}</td>`;
+            ${evs.map((e) => `<div class="ev" title="${esc(e.text)}"><span>${esc(e.text)}</span></div>`).join('')}</td>`;
         }).join('')}</tr>`;
       }).join('')}</tbody></table></div>`;
 
     const body = `
       <section class="box">${cal}
+        ${monthEvents.length ? `<ul class="events month-events">${monthEvents.map((x) => `<li><time>${U.fmtDate(x.on, { weekday: 'short', month: 'short', day: 'numeric' })}</time> ${esc(x.e.text)}</li>`).join('')}</ul>` : ''}
         <p class="muted small">Add key dates on the <a href="#/year">Annual Overview</a>; they appear here automatically.</p></section>
       <h2 class="section">Goals & Priority Actions for the Month ${cyc ? `<small class="muted">· ${esc(cyc.name)}</small>` : ''}</h2>
       ${roleMonthly.length ? `<div class="nudge role-nudge"><strong>Your monthly role commitments:</strong> ${roleMonthly.map((x) => `<span><em>${esc(x.r.name)}:</em> ${esc(x.t)}</span>`).join(' · ')}</div>` : ''}
@@ -518,10 +524,10 @@
         const p = `${base}.habits.@${h.id}`;
         const n = h.days.filter(Boolean).length;
         return `<tr><td><input class="inline" data-bind="${p}.name" value="${esc(h.name)}" aria-label="Habit"></td>
-          <td><input class="inline num" type="number" min="1" max="7" data-type="number" data-bind="${p}.target" value="${esc(h.target)}" aria-label="Times per week"></td>
-          ${h.days.map((v, i) => `<td>${chk(`${p}.days.${i}`, U.DAYS[days[i].getDay()])}</td>`).join('')}
-          <td class="${n >= (h.target || 7) ? 'ok' : ''}">${n}/${h.target || 7}</td>
-          <td><button class="x" data-act="del" data-path="${base}.habits" data-id="${h.id}" aria-label="Remove">×</button></td></tr>`;
+          <td class="goal"><input class="inline num" type="number" min="1" max="7" data-type="number" data-bind="${p}.target" value="${esc(h.target)}" aria-label="Times per week"></td>
+          ${h.days.map((v, i) => `<td class="day" data-d="${U.DAYS[days[i].getDay()][0]}">${chk(`${p}.days.${i}`, U.DAYS[days[i].getDay()])}</td>`).join('')}
+          <td class="count ${n >= (h.target || 7) ? 'ok' : ''}">${n}/${h.target || 7}</td>
+          <td class="del"><button class="x" data-act="del" data-path="${base}.habits" data-id="${h.id}" aria-label="Remove">×</button></td></tr>`;
       }).join('')}</tbody></table>
       <form class="add" data-add="${base}.habits"><input name="name" placeholder="New habit (e.g. Workout)" required>
         <input name="target" type="number" min="1" max="7" value="5" class="num" aria-label="Times per week"><button aria-label="Add habit">+</button></form>
@@ -772,10 +778,10 @@
           ${goals.map((g) => {
             const a = allActs(g.id);
             return `<tr class="${g.status}"><td>${g.tier === 'purpose' ? '<span class="star">★</span> ' : ''}${esc(g.title)}${g.status !== 'active' ? ` <small class="muted">(${g.status})</small>` : ''}</td>
-              <td>${esc(roleName(g.roleId))}</td>
-              <td class="prog"><input type="range" min="0" max="100" step="5" data-bind="goals.@${g.id}.progress" data-type="number" value="${Number(g.progress) || 0}" aria-label="Progress"><output>${Number(g.progress) || 0}%</output></td>
-              <td>${sparkline(g.history)}</td>
-              <td>${a.done}/${a.total}</td></tr>`;
+              <td data-label="Role">${esc(roleName(g.roleId))}</td>
+              <td class="prog" data-label="Progress"><input type="range" min="0" max="100" step="5" data-bind="goals.@${g.id}.progress" data-type="number" value="${Number(g.progress) || 0}" aria-label="Progress"><output>${Number(g.progress) || 0}%</output></td>
+              <td data-label="Trend">${sparkline(g.history)}</td>
+              <td data-label="Actions">${a.done}/${a.total}</td></tr>`;
           }).join('')}</tbody></table>` : '<p class="muted">No goals yet. <a href="#/goals">Hold a planning session →</a></p>'}
       </section>`;
     }
@@ -1036,11 +1042,16 @@
     if (!el) { tip.hidden = true; return; }
     tip.textContent = el.getAttribute('data-tip');
     tip.hidden = false;
+    placeTip(e.clientX, e.clientY);
   });
+  function placeTip(cx, cy) {
+    const x = Math.max(8, Math.min(cx - tip.offsetWidth / 2, window.innerWidth - tip.offsetWidth - 8));
+    const y = cy - tip.offsetHeight - 14 < 8 ? cy + 18 : cy - tip.offsetHeight - 14;
+    tip.style.transform = `translate(${x}px, ${y}px)`;
+  }
+  window.addEventListener('scroll', () => { tip.hidden = true; }, { passive: true });
   document.addEventListener('mousemove', (e) => {
-    if (tip.hidden) return;
-    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
-    tip.style.transform = `translate(${x}px, ${e.clientY + 14}px)`;
+    if (!tip.hidden) placeTip(e.clientX, e.clientY);
   });
 
   /* ---------- events ---------- */
@@ -1130,11 +1141,25 @@
     const y = window.scrollY;
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
     app.innerHTML = view(arg);
-    document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('sel', a.dataset.route === (ROUTES[name] ? name : 'today')));
+    const active = ROUTES[name] ? name : 'today';
+    document.querySelectorAll('[data-route]').forEach((a) => {
+      a.classList.toggle('sel', a.dataset.route === active);
+      if (a.dataset.route === active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    moreBtn.classList.toggle('sel', moreBtn.dataset.moreRoutes.split(' ').includes(active));
+    setMore(false);
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
     render.last = location.hash;
     if (focused) { const f = app.querySelector(`[data-bind="${CSS.escape(focused)}"]`); if (f) f.focus(); }
   }
+  const moreBtn = document.getElementById('moreBtn');
+  const moreSheet = document.getElementById('moreSheet');
+  function setMore(open) { moreSheet.hidden = !open; moreBtn.setAttribute('aria-expanded', String(open)); }
+  moreBtn.addEventListener('click', (e) => { e.stopPropagation(); setMore(moreSheet.hidden); });
+  document.addEventListener('click', (e) => {
+    if (!moreSheet.hidden && (!moreSheet.contains(e.target) || e.target.closest('a'))) setMore(false);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMore(false); });
   window.addEventListener('hashchange', render);
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
