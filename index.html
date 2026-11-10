@@ -78,6 +78,17 @@
     </form>
   </dialog>
 
+  <dialog id="loginDlg">
+    <form method="dialog">
+      <h2>Welcome to Life.OS</h2>
+      <p class="muted small">Sign in with Google to see your calendar alongside your plans. You can use Life.OS without signing in too.</p>
+      <div class="row" style="flex-direction:column; gap:0.5rem; margin-top:1rem;">
+        <button type="button" class="btn" id="loginGoogleBtn">Continue with Google</button>
+        <button class="btn ghost" id="loginSkipBtn">Skip for now</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 

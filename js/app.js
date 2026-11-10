@@ -1384,6 +1384,22 @@
       render();
     } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
   })();
+  (function promptLogin() {
+    const dlg = document.getElementById('loginDlg');
+    if (!dlg || location.protocol === 'file:') return;
+    let seen = false, hasToken = false;
+    try { seen = !!localStorage.getItem('login_prompt_seen'); hasToken = !!localStorage.getItem('google_access_token'); } catch (e) {}
+    if (seen || hasToken || new URLSearchParams(location.search).get('code')) return;
+    document.getElementById('loginGoogleBtn').addEventListener('click', () => {
+      try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) {}
+      startGoogleOAuth();
+    });
+    document.getElementById('loginSkipBtn').addEventListener('click', () => {
+      try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) {}
+    });
+    dlg.addEventListener('cancel', () => { try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) {} });
+    dlg.showModal();
+  })();
   window.addEventListener('hashchange', render);
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
