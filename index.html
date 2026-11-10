@@ -22,15 +22,25 @@
     <nav class="nav" aria-label="Main">
       <a href="#/today" data-route="today">Today</a>
       <a href="#/week" data-route="week">Week</a>
-      <a href="#/month" data-route="month">Month</a>
-      <a href="#/year" data-route="year">Year</a>
       <a href="#/calendar" data-route="calendar">Calendar</a>
-      <a href="#/session" data-route="session">Planning</a>
-      <a href="#/goals" data-route="goals">Roles & Goals</a>
-      <a href="#/foundation" data-route="foundation">Foundation</a>
-      <a href="#/ideal" data-route="ideal">Ideal week</a>
+      <div class="nav-group">
+        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="session month year ideal">Plan <span aria-hidden="true">▾</span></button>
+        <div class="nav-menu" hidden>
+          <a href="#/session" data-route="session"><strong>Planning sessions</strong><small>yearly to daily checklists</small></a>
+          <a href="#/month" data-route="month"><strong>Month</strong><small>events and monthly priorities</small></a>
+          <a href="#/year" data-route="year"><strong>Year</strong><small>key dates and annual notes</small></a>
+          <a href="#/ideal" data-route="ideal"><strong>Ideal week</strong><small>your weekly rhythm</small></a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="goals foundation wheel">Goals <span aria-hidden="true">▾</span></button>
+        <div class="nav-menu" hidden>
+          <a href="#/goals" data-route="goals"><strong>Roles &amp; goals</strong><small>your roles, WHY and goals</small></a>
+          <a href="#/foundation" data-route="foundation"><strong>Foundation</strong><small>purpose, vision, values</small></a>
+          <a href="#/wheel" data-route="wheel"><strong>Wheel of Life</strong><small>score seven areas of life</small></a>
+        </div>
+      </div>
       <a href="#/track" data-route="track">Track</a>
-      <a href="#/wheel" data-route="wheel">Wheel</a>
       <a href="#/lists" data-route="lists">Lists</a>
       <a href="#/settings" data-route="settings" aria-label="Settings">⚙</a>
     </nav>

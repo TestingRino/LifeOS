@@ -2855,6 +2855,8 @@
     });
     moreBtn.classList.toggle('sel', moreBtn.dataset.moreRoutes.split(' ').includes(active));
     setMore(false);
+    closeNavMenus();
+    document.querySelectorAll('[data-routes]').forEach((el) => el.classList.toggle('sel', el.dataset.routes.split(' ').includes(active)));
     const tlw = app.querySelector('.tl-wrap');
     if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : Number(tlw.dataset.start) || 0;
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
@@ -2863,6 +2865,26 @@
     render.last = location.hash;
     if (focused) { const f = app.querySelector(`[data-bind="${CSS.escape(focused)}"]`); if (f) f.focus(); }
   }
+  function closeNavMenus(except) {
+    document.querySelectorAll('.nav-group').forEach((g) => {
+      if (g === except) return;
+      g.querySelector('.nav-menu').hidden = true; g.querySelector('.nav-btn').setAttribute('aria-expanded', 'false');
+    });
+  }
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.nav-btn');
+    if (btn) {
+      const g = btn.parentElement, menu = g.querySelector('.nav-menu'), opening = menu.hidden;
+      closeNavMenus(g); menu.hidden = !opening; btn.setAttribute('aria-expanded', String(opening));
+      return;
+    }
+    if (!e.target.closest('.nav-menu') || e.target.closest('.nav-menu a')) closeNavMenus();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('.nav-menu:not([hidden])');
+    closeNavMenus(); if (open) open.parentElement.querySelector('.nav-btn').focus();
+  });
   const moreBtn = document.getElementById('moreBtn');
   const moreSheet = document.getElementById('moreSheet');
   function setMore(open) { moreSheet.hidden = !open; moreBtn.setAttribute('aria-expanded', String(open)); }

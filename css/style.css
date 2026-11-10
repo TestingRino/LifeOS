@@ -39,7 +39,7 @@ small, .small { font-size: .82rem; }
 /* top bar */
 .topbar {
   position: sticky; top: 0; z-index: 10; background: var(--navy); color: #f1e3c4;
-  display: flex; align-items: center; gap: 1rem; padding: .55rem 16px; overflow-x: auto;
+  display: flex; align-items: center; gap: 1rem; padding: .55rem 16px; overflow: visible;
 }
 .brand { font: 600 1.35rem var(--serif); color: #f1e3c4; text-decoration: none; white-space: nowrap; }
 .brand span { color: #e3a27a; }
@@ -541,7 +541,6 @@ ol.session-steps li > input[type=checkbox] { margin-top: .3rem; }
 .key { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px; vertical-align: middle; border: 1px solid var(--line); }
 .key.gcal { background: color-mix(in srgb, #6f8296 40%, var(--paper)); } .key.ideal { background: color-mix(in srgb, var(--ok) 40%, var(--paper)); }
 .key.sched { background: color-mix(in srgb, var(--navy) 35%, var(--paper)); } .key.wo { background: color-mix(in srgb, #a85532 40%, var(--paper)); }
-.nav { overflow-x: auto; }
 
 /* calendar photo review */
 .rev-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
@@ -631,3 +630,15 @@ ul.plain-list { list-style: none; padding: 0; margin: .4rem 0; } ul.plain-list l
 .chips + h3 { margin-top: 1rem; }
 .quote-next { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 0 .3rem; }
 .quote-next:hover { color: var(--ink); }
+
+/* top menu: two dropdowns keep the bar short */
+.nav { overflow: visible; align-items: center; }
+.nav-group { position: relative; }
+.nav-btn { background: none; border: 0; color: #d9cfbd; font: inherit; font-size: .92rem; padding: .35rem .6rem; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.nav-btn:hover { background: rgba(255,255,255,.08); }
+.nav-btn.sel, .nav-btn[aria-expanded=true] { background: rgba(255,255,255,.16); color: #fff; }
+.nav-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; min-width: 16rem; padding: .35rem; background: var(--navy); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.28); }
+.nav-menu[hidden] { display: none; }
+.nav-menu a { display: block; padding: .5rem .75rem; border-radius: 6px; white-space: normal; }
+.nav-menu a strong { display: block; font-weight: 600; font-size: .92rem; color: #f1e3c4; }
+.nav-menu a small { color: #b9b0a0; font-size: .78rem; }
