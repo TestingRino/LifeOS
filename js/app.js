@@ -1060,6 +1060,17 @@
   }
   const timeGrid = (wk, dayOptsHtml) => timeGridDays(DAYS_ISO(wk), dayOptsHtml);
 
+  /* ---------- calendar zoom ---------- */
+  const ZOOMS = [[0.75, 'Compact'], [1, 'Normal'], [1.5, 'Large'], [2, 'Extra large']];
+  const zoomLevel = () => { const z = Number(state.settings.calZoom); return ZOOMS.some((x) => x[0] === z) ? z : 1; };
+  function zoomControl() {
+    const i = ZOOMS.findIndex((x) => x[0] === zoomLevel());
+    return `<div class="tl-zoom"><span class="muted small">Zoom</span>
+      <button type="button" class="chip small" data-act="calZoom" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Zoom out">−</button>
+      <strong class="small">${ZOOMS[i][1]}</strong>
+      <button type="button" class="chip small" data-act="calZoom" data-dir="1" ${i === ZOOMS.length - 1 ? 'disabled' : ''} aria-label="Zoom in">+</button></div>`;
+  }
+
   /* ---------- Outlook-style day timeline (24h, 15-minute granularity) ---------- */
   function layoutDay(items) {
     const sorted = items.slice().sort((a, b) => a.start - b.start || b.end - a.end), out = [];
@@ -1078,7 +1089,7 @@
   const hhmm24 = (m) => `${U.pad(Math.floor(m / 60))}:${U.pad(m % 60)}`;
   let tlScroll = null;
   function dayTimeline(iso, opt) {
-    const height = (opt && opt.height) || 560;
+    const height = (opt && opt.height) || 560, Z = zoomLevel();
     const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     const items = [], anytime = [];
     const push = (o) => { o.start = Math.max(0, Math.min(1439, o.start)); o.end = Math.min(1440, Math.max(o.start + 15, o.start + o.mins)); items.push(o); };
@@ -1100,18 +1111,19 @@
       else anytime.push(`<label class="ad wo">${cb} ${esc(x.type)}</label>`);
     });
     const placed = layoutDay(items);
-    const hours = Array.from({ length: 24 }, (_, h) => `<div class="tl-hr" style="top:${h * 60}px">${h === 0 ? '' : esc(fmtTime(`${U.pad(h)}:00`))}</div>`).join('');
-    const slots = Array.from({ length: 96 }, (_, i) => `<div class="tl-slot${i % 4 === 0 ? ' hr' : ''}" style="top:${i * 15}px" data-time="${hhmm24(i * 15)}" title="${esc(fmtTime(hhmm24(i * 15)))}"></div>`).join('');
-    const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}${o.end - o.start <= 20 ? ' tiny' : ''}" style="top:${o.start}px;height:${o.end - o.start - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)${o.c ? `;${gcalVar(o.c)}` : ''}" title="${esc(fmtTime(o.time))} ${esc(o.tip)}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
+    const hours = Array.from({ length: 24 }, (_, h) => `<div class="tl-hr" style="top:${h * 60 * Z}px">${h === 0 ? '' : esc(fmtTime(`${U.pad(h)}:00`))}</div>`).join('');
+    const slots = Array.from({ length: 96 }, (_, i) => `<div class="tl-slot${i % 4 === 0 ? ' hr' : ''}" style="top:${i * 15 * Z}px;height:${15 * Z}px" data-time="${hhmm24(i * 15)}" title="${esc(fmtTime(hhmm24(i * 15)))}"></div>`).join('');
+    const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}${(o.end - o.start) * Z <= 22 ? ' tiny' : ''}" style="top:${o.start * Z}px;height:${(o.end - o.start) * Z - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)${o.c ? `;${gcalVar(o.c)}` : ''}" title="${esc(fmtTime(o.time))} ${esc(o.tip)}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
     const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
-    const now = iso === todayISO() ? `<div class="tl-now" style="top:${nowMin}px"><i></i></div>` : '';
+    const now = iso === todayISO() ? `<div class="tl-now" style="top:${nowMin * Z}px"><i></i></div>` : '';
     const start = iso === todayISO() ? Math.max(0, nowMin - 90) : 7 * 60;
     return `<div class="tl-box" data-date="${iso}">
       <form class="add wrap tl-form" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" step="900" required aria-label="Start time">
         <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60 === Math.floor(n / 60) ? n / 60 : (n / 60).toFixed(1)} hr` : `${n} min` })), 30)}</select>
         <input name="text" placeholder="Click a time slot below, or type an event here…" required><button aria-label="Add event">+</button></form>
+      ${zoomControl()}
       ${anytime.length ? `<div class="tl-anytime"><small class="muted">All day / anytime</small> ${anytime.join(' ')}</div>` : ''}
-      <div class="tl-wrap" data-start="${start}" style="height:${height}px"><div class="tl"><div class="tl-hours">${hours}</div><div class="tl-canvas">${slots}${blocks}${now}</div></div></div>
+      <div class="tl-wrap" data-start="${start}" data-zoom="${Z}" style="height:${height}px"><div class="tl" style="height:${1440 * Z}px"><div class="tl-hours">${hours}</div><div class="tl-canvas">${slots}${blocks}${now}</div></div></div>
     </div>`;
   }
 
@@ -1932,6 +1944,7 @@
           <label>Planner year starts in <select data-bind="settings.plannerStartMonth" data-type="number" data-rerender>${opts(U.MONTHS.map((m, i) => ({ v: i, l: m })), s.plannerStartMonth)}</select></label>
           <label>Week starts on <select data-bind="settings.weekStart" data-type="number" data-rerender>${opts([{ v: 0, l: 'Sunday' }, { v: 1, l: 'Monday' }], s.weekStart)}</select></label>
           <label>Default goal cycle <select data-bind="settings.cycleMonths" data-type="number">${opts([{ v: 6, l: '6 months' }, { v: 3, l: '3 months' }], s.cycleMonths)}</select></label>
+          <label>Calendar zoom <select data-bind="settings.calZoom" data-type="number">${opts(ZOOMS.map(([v, l]) => ({ v, l })), zoomLevel())}</select></label>
         </div>
         <p class="muted small">Changing the week start after you've planned weeks will hide those weeks (they're stored by start date).</p>
       </section>
@@ -2172,6 +2185,12 @@
       ['google_access_token', 'google_refresh_token', 'google_scope'].forEach((k) => localStorage.removeItem(k));
       gcalReset(); gcal.listTried = false; gcal.listError = '';
       startGoogleOAuth();
+    },
+    calZoom(el) {
+      const cur = zoomLevel(), i = ZOOMS.findIndex((x) => x[0] === cur), j = Math.min(ZOOMS.length - 1, Math.max(0, i + Number(el.dataset.dir)));
+      if (j === i) return;
+      const w = document.querySelector('.tl-wrap'), mins = w ? w.scrollTop / cur : null;   // keep the same time of day in view
+      state.settings.calZoom = ZOOMS[j][0]; tlScroll = mins != null ? mins * ZOOMS[j][0] : null; commit();
     },
     gcalMaster(el) {
       state.settings.gcalMaster = el.dataset.id; gcalEnsureSelected(el.dataset.id); gcalReset(); commit();
@@ -2877,7 +2896,7 @@
     closeNavMenus();
     document.querySelectorAll('[data-routes]').forEach((el) => el.classList.toggle('sel', el.dataset.routes.split(' ').includes(active)));
     const tlw = app.querySelector('.tl-wrap');
-    if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : Number(tlw.dataset.start) || 0;
+    if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : (Number(tlw.dataset.start) || 0) * (Number(tlw.dataset.zoom) || 1);
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
     if (render.last !== location.hash) quoteIdx = (quoteIdx + 1) % QUOTES.length;
     showQuote();

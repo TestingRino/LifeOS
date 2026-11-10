@@ -19,7 +19,7 @@
   function defaultState() {
     return {
       version: VERSION,
-      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00' },
+      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00' },
       foundation: { vision: '', eulogy: '', mission: '', values: '' },
       roles: [],          // {id, name, why}
       cycles: [],         // {id, name, start, end, review:{wins,lessons,adjust}, roleActions:{roleId:{monthly,weekly,daily}}}
