@@ -2815,6 +2815,7 @@
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
     app.innerHTML = view(arg);
     gcalKick(name, arg);
+    maybePromptLogin(name);
     app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
     const active = ROUTES[name] ? name : 'today';
     document.querySelectorAll('[data-route]').forEach((a) => {
@@ -2853,22 +2854,21 @@
       render();
     } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
   })();
-  (function promptLogin() {
-    const dlg = document.getElementById('loginDlg');
-    if (!dlg || location.protocol === 'file:') return;
+  const loginDlg = document.getElementById('loginDlg');
+  const markLoginSeen = () => { try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) { /* storage unavailable */ } };
+  if (loginDlg) {
+    document.getElementById('loginGoogleBtn').addEventListener('click', () => { markLoginSeen(); startGoogleOAuth(); });
+    document.getElementById('loginSkipBtn').addEventListener('click', markLoginSeen);
+    loginDlg.addEventListener('cancel', markLoginSeen);
+  }
+  /* Offer Google sign-in once, but never on top of the tour or the setup guide. */
+  function maybePromptLogin(route) {
+    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(welcome|demo|setup)$/.test(route)) return;
     let seen = false, hasToken = false;
-    try { seen = !!localStorage.getItem('login_prompt_seen'); hasToken = !!localStorage.getItem('google_access_token'); } catch (e) {}
+    try { seen = !!localStorage.getItem('login_prompt_seen'); hasToken = !!localStorage.getItem('google_access_token'); } catch (e) { /* storage unavailable */ }
     if (seen || hasToken || new URLSearchParams(location.search).get('code')) return;
-    document.getElementById('loginGoogleBtn').addEventListener('click', () => {
-      try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) {}
-      startGoogleOAuth();
-    });
-    document.getElementById('loginSkipBtn').addEventListener('click', () => {
-      try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) {}
-    });
-    dlg.addEventListener('cancel', () => { try { localStorage.setItem('login_prompt_seen', '1'); } catch (e) {} });
-    dlg.showModal();
-  })();
+    loginDlg.showModal();
+  }
   window.addEventListener('hashchange', render);
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
