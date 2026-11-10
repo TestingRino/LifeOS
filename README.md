@@ -30,6 +30,19 @@ Weeks follow the planner's convention: a week belongs to the month its last day 
 (Sun Sep 27 – Sat Oct 3 is "Week 1 of October"). The planner year starts in October by default
 (change in ⚙ Settings).
 
+## Deploy Your Own Backend (Optional)
+
+Connect Life.OS to Google Calendar, upload photos with AI OCR, and sync bidirectionally. One-click setup:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTestingRino%2FLifeOS&project-name=lifeos-api&repository-name=LifeOS&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20these%20from%20Google%20Cloud%20Console%20and%20Anthropic&envLink=https%3A%2F%2Fdocs.lifeos.app%2Fsetup)
+
+**→ See [DEPLOY.md](DEPLOY.md) for 5-minute setup**
+
+Features when you deploy:
+- 📅 **Google Calendar sync** (pull events, create events)
+- 📸 **Photo OCR** (upload photos of your planner, auto-fill schedule/goals/habits)
+- 🔄 **Bidirectional sync** (changes flow both ways)
+
 ## Running it
 
 No build step and no dependencies. Open `index.html` in a browser, or serve the folder:
@@ -39,6 +52,12 @@ npm start
 ```
 
 Then visit http://localhost:8080. It also works as-is on GitHub Pages.
+
+**With backend (optional):**
+```bash
+npm start                          # Frontend on port 8080
+cd server && npm install && npm run dev  # Backend on port 3001
+```
 
 ## On your phone
 
