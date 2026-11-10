@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Life.OS">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <title>Life.OS</title>
+  <meta name="description" content="Purpose-based life planning that works alongside a physical planner.">
+  <meta name="theme-color" content="#2f3352">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/today">Life<span>.</span>OS</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#/today" data-route="today">Today</a>
+      <a href="#/foundation" data-route="foundation">Foundation</a>
+      <a href="#/goals" data-route="goals">Roles & Goals</a>
+      <a href="#/year" data-route="year">Year</a>
+      <a href="#/month" data-route="month">Month</a>
+      <a href="#/week" data-route="week">Week</a>
+      <a href="#/track" data-route="track">Track</a>
+      <a href="#/lists" data-route="lists">Lists</a>
+      <a href="#/settings" data-route="settings" aria-label="Settings">⚙</a>
+    </nav>
+  </header>
+  <main id="app" class="wrap"></main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="#/today" data-route="today"><span class="ico" aria-hidden="true">☀</span>Today</a>
+    <a href="#/week" data-route="week"><span class="ico" aria-hidden="true">☰</span>Week</a>
+    <a href="#/month" data-route="month"><span class="ico" aria-hidden="true">▦</span>Month</a>
+    <a href="#/goals" data-route="goals"><span class="ico" aria-hidden="true">★</span>Goals</a>
+    <a href="#/track" data-route="track"><span class="ico" aria-hidden="true">↗</span>Track</a>
+    <button type="button" id="moreBtn" aria-expanded="false" aria-controls="moreSheet" data-more-routes="foundation year lists settings"><span class="ico" aria-hidden="true">⋯</span>More</button>
+  </nav>
+  <div id="moreSheet" class="more-sheet" hidden>
+    <a href="#/foundation" data-route="foundation">Foundation <small>vision, eulogy, values</small></a>
+    <a href="#/year" data-route="year">Year <small>key dates & annual notes</small></a>
+    <a href="#/lists" data-route="lists">Lists <small>bucket, hobbies, shopping, reading</small></a>
+    <a href="#/settings" data-route="settings">Settings <small>planner, backup</small></a>
+  </div>
+  <footer class="foot wrap">“The key is not to prioritize what's on your schedule, but to schedule your priorities.” · Stephen Covey</footer>
+
+  <dialog id="dlg">
+    <form method="dialog">
+      <h2></h2>
+      <p class="muted small">Transcribe this into your physical planner.</p>
+      <textarea readonly rows="16"></textarea>
+      <div class="row end"><button type="button" id="copyBtn" class="btn">Copy text</button><button class="btn ghost">Close</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="uploadDlg">
+    <form method="dialog">
+      <h2>Upload photo</h2>
+      <p class="muted small">Take a photo of your planner and we'll extract the data.</p>
+      <input type="file" id="uploadInput" accept="image/*" style="display:none">
+      <div id="uploadPreview" style="margin:1rem 0; text-align:center;"></div>
+      <div class="row"><button type="button" class="btn" onclick="document.getElementById('uploadInput').click()">Choose photo</button><button class="btn ghost">Cancel</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="ocrResultDlg">
+    <form method="dialog">
+      <h2>What is this?</h2>
+      <p class="muted small" id="ocrType"></p>
+      <div id="ocrPreview" style="max-height:200px; overflow-y:auto; margin:1rem 0; border:1px solid var(--ink); border-radius:4px; padding:0.5rem;"></div>
+      <div id="routeButtons" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
+      <div class="row end"><button class="btn ghost">Cancel</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="tip" role="tooltip" hidden></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
