@@ -28,7 +28,7 @@ Everything stays in your browser. Totally private.
 
 Click this button:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTestingRino%2FLifeOS&project-name=lifeos-api&repository-name=LifeOS&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/TestingRino/LifeOS&project-name=lifeos-api&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20credentials%20from%20Google%20Cloud%20and%20Anthropic)
 
 Paste your keys when asked. Click Deploy. Wait 1 minute.
 

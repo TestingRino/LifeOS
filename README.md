@@ -34,7 +34,7 @@ Weeks follow the planner's convention: a week belongs to the month its last day 
 
 Connect Life.OS to Google Calendar, upload photos with AI OCR, and sync bidirectionally. One-click setup:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTestingRino%2FLifeOS&project-name=lifeos-api&repository-name=LifeOS&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20these%20from%20Google%20Cloud%20Console%20and%20Anthropic&envLink=https%3A%2F%2Fdocs.lifeos.app%2Fsetup)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/TestingRino/LifeOS&project-name=lifeos-api&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20credentials%20from%20Google%20Cloud%20and%20Anthropic)
 
 **→ See [DEPLOY.md](DEPLOY.md) for 5-minute setup**
 

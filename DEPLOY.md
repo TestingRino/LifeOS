@@ -6,7 +6,7 @@ Get your own backend running in 5 minutes with Vercel.
 
 ### Step 1: Click Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTestingRino%2FLifeOS&project-name=lifeos-api&repository-name=LifeOS&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20these%20from%20Google%20Cloud%20Console%20and%20Anthropic&envLink=https%3A%2F%2Fdocs.lifeos.app%2Fsetup)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/TestingRino/LifeOS&project-name=lifeos-api&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ANTHROPIC_API_KEY&envDescription=Get%20credentials%20from%20Google%20Cloud%20and%20Anthropic)
 
 ### Step 2: Enter Your Secrets
 
