@@ -176,6 +176,52 @@
     return out;
   }
 
+  /* ---------- notifications ---------- */
+  function isInQuietHours() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const t = h + ':' + m;
+    const start = state.settings.quietStart || '20:00';
+    const end = state.settings.quietEnd || '08:00';
+    if (start < end) return t >= start && t < end;
+    return t >= start || t < end;
+  }
+
+  function sendNotification(title, options = {}) {
+    if (!state.settings.notificationsEnabled || typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'granted') return;
+    if (isInQuietHours()) return;
+    const key = title + (options.tag || '');
+    const now = Date.now();
+    const lastTime = state.lastNotifications[key] || 0;
+    if (now - lastTime < 3600000) return;
+    state.lastNotifications[key] = now;
+    try { new Notification(title, Object.assign({ tag: key, icon: 'icons/icon-192.png' }, options)); }
+    catch (e) { console.warn('Notification failed', e); }
+  }
+
+  function checkNotifications() {
+    if (!state.settings.notificationsEnabled || typeof Notification === 'undefined') return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') {
+          toast('Notifications enabled! Check Settings to configure.');
+          state.settings.notificationsEnabled = true;
+          S.save(state);
+        }
+      });
+      return;
+    }
+    if (Notification.permission !== 'granted') return;
+    const due = rituals();
+    if (due.length > 0) {
+      const hot = due.find((r) => r.hot);
+      if (hot) sendNotification('🔥 ' + hot.t, { body: hot.d });
+      else sendNotification('📋 ' + due[0].t, { body: due[0].d });
+    }
+  }
+
   /* ---------- views ---------- */
   function viewToday() {
     const t = today(), iso = U.toISO(t), wk = U.weekKey(t, ws()), mk = U.monthKey(t);
@@ -861,6 +907,8 @@
 
   function viewSettings() {
     const s = state.settings;
+    const canNotify = typeof Notification !== 'undefined';
+    const notifPerm = canNotify ? Notification.permission : null;
     const body = `
       <section class="box"><h2>Planner</h2>
         <div class="row wrap">
@@ -870,6 +918,13 @@
         </div>
         <p class="muted small">Changing the week start after you've planned weeks will hide those weeks (they're stored by start date).</p>
       </section>
+      ${canNotify ? `<section class="box"><h2>Reminders</h2>
+        <label class="row"><input type="checkbox" data-bind="settings.notificationsEnabled" data-rerender> Browser notifications for rituals and goals</label>
+        ${notifPerm === 'granted' ? `<div class="row wrap">
+          <label>Notify me at <input type="time" data-bind="settings.notificationTime" data-rerender value="${esc(s.notificationTime)}"></label>
+          <label>Quiet hours <input type="time" data-bind="settings.quietStart" value="${esc(s.quietStart)}"> to <input type="time" data-bind="settings.quietEnd" value="${esc(s.quietEnd)}"></label>
+        </div>` : notifPerm === 'denied' ? '<p class="muted small">⚠️ Notifications are blocked. Check your browser settings.</p>' : s.notificationsEnabled ? '<p class="muted small">Enable notifications for rituals due, habit milestones, and goal check-ins.</p>' : ''}
+      </section>` : ''}
       <section class="box"><h2>Your data</h2>
         <p>Everything is stored only in this browser. Export a backup regularly, and use it to move between devices.</p>
         <div class="row wrap">
@@ -1164,4 +1219,5 @@
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
   render();
+  checkNotifications();
 })();
