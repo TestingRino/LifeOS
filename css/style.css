@@ -415,3 +415,28 @@ dialog textarea { font: .88rem/1.5 ui-monospace, Menlo, monospace; background-im
   .topbar, .tabbar, .more-sheet, .head-actions, .add, .x, .nudge, .chip, .foot, .row button { display: none !important; }
   body { background: #fff; } .box { break-inside: avoid; border-color: #ccc; }
 }
+
+/* habit & routine trackers */
+.trackers { list-style: none; padding: 0; margin: 0; }
+.tracker { display: flex; align-items: center; gap: .8rem; padding: .45rem 0; border-bottom: 1px dotted var(--line); }
+.tracker label.inline-check { flex: 1; min-width: 0; font-size: 1rem; }
+.tracker .count { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2.2rem; text-align: right; }
+.tracker .count.ok { color: var(--ok); }
+.streak { color: var(--muted); white-space: nowrap; }
+.dots { display: inline-flex; gap: 4px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+.dot.on { background: var(--ok); }
+.dot.today { outline: 2px solid var(--navy); outline-offset: 1px; }
+.dots.wide { flex-wrap: wrap; max-width: 520px; }
+.strip { display: flex; align-items: center; gap: .8rem; padding: .35rem 0; border-bottom: 1px dotted var(--line); }
+.strip-name { flex: 0 0 11rem; font-weight: 500; }
+details.plan { margin-top: .5rem; border-top: 1px dashed var(--line); padding-top: .4rem; }
+details.plan summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+details.plan h4 { margin: .7rem 0 .2rem; }
+@media (max-width: 760px) {
+  .tracker { flex-wrap: wrap; }
+  .tracker label.inline-check { flex-basis: 100%; }
+  .strip { flex-wrap: wrap; }
+  .strip-name { flex-basis: 100%; }
+  .dot { width: 14px; height: 14px; }
+}

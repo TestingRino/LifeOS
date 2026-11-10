@@ -79,6 +79,38 @@
     };
   }
 
+  /* ---------- habit & routine trackers ---------- */
+  const DAYS_ISO = (wk) => [0, 1, 2, 3, 4, 5, 6].map((i) => U.toISO(U.addDays(U.parseISO(wk), i)));
+  const weekCount = (log, wk) => DAYS_ISO(wk).filter((d) => log && log[d]).length;
+  function weekStreak(log, perWeek, wk) {
+    let s = weekCount(log, wk) >= perWeek ? 1 : 0;
+    for (let k = U.toISO(U.addDays(U.parseISO(wk), -7)), i = 0; i < 104; i++, k = U.toISO(U.addDays(U.parseISO(k), -7))) {
+      if (weekCount(log, k) >= perWeek) s++; else break;
+    }
+    return s;
+  }
+  function trackers() {
+    const cyc = currentCycle();
+    const goals = cyc ? cycleGoals(cyc.id) : state.goals.filter((g) => g.status === 'active');
+    const out = [];
+    goals.forEach((g) => {
+      if (g.kind === 'habit') out.push({ title: g.title, goal: g, base: `goals.@${g.id}`, perWeek: Number(g.perWeek) || 5, log: g.log || {} });
+      (g.routines || []).forEach((r) => out.push({ title: r.text, goal: g, base: `goals.@${g.id}.routines.@${r.id}`, perWeek: Number(r.perWeek) || 1, log: r.log || {}, routine: true }));
+    });
+    return out.filter((t) => t.title);
+  }
+  function trackerRow(tk, wk, iso) {
+    const n = weekCount(tk.log, wk);
+    const dots = DAYS_ISO(wk).map((d) => `<span class="dot${tk.log[d] ? ' on' : ''}${d === iso ? ' today' : ''}" title="${U.fmtDate(d, { weekday: 'long', month: 'short', day: 'numeric' })}${tk.log[d] ? ' ✓' : ''}"></span>`).join('');
+    const streak = weekStreak(tk.log, tk.perWeek, wk);
+    return `<li class="tracker">
+      <label class="inline-check">${chk(`${tk.base}.log.${iso}`, `${tk.title} today`)} <span>${esc(tk.title)}${tk.routine ? ` <small class="muted">${esc(tk.goal.title)}</small>` : ''}</span></label>
+      <span class="dots" aria-hidden="true">${dots}</span>
+      <span class="count ${n >= tk.perWeek ? 'ok' : ''}">${n}/${tk.perWeek}</span>
+      ${streak > 1 ? `<small class="streak" title="Weeks in a row hitting the goal">🔥 ${streak} wk</small>` : ''}
+    </li>`;
+  }
+
   /* ---------- small HTML helpers ---------- */
   const ta = (path, ph, rows = 3) =>
     `<textarea data-bind="${esc(path)}" rows="${rows}" placeholder="${esc(ph || '')}">${esc(get(path))}</textarea>`;
@@ -349,6 +381,12 @@
     const week = state.weeks[wk];
     const due = rituals();
     const vision = state.foundation.vision.trim();
+    const tks = trackers();
+    const pending = (key) => goals.flatMap((g) => (g[key] || []).filter((i) => !i.done && i.text)
+      .map((i) => ({ text: i.text, due: i.due, goal: g.title, base: `goals.@${g.id}.${key}.@${i.id}` })))
+      .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
+    const openObjs = pending('objectives').slice(0, 6);
+    const nextMs = pending('milestones').slice(0, 4);
 
     const upcoming = state.events
       .map((e) => ({ e, on: U.nextOccurrence(e, iso) }))
@@ -369,6 +407,15 @@
 
     const body = `
       ${vision ? `<blockquote class="vision"><span>Who I'm becoming</span>${esc(vision.split('\n')[0])}</blockquote>` : ''}
+      ${tks.length ? `<section class="box">
+        <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
+        <ul class="trackers">${tks.map((k) => trackerRow(k, wk, iso)).join('')}</ul>
+      </section>` : ''}
+      ${openObjs.length || nextMs.length ? `<section class="box">
+        <h2>Milestones &amp; objectives <a class="more" href="#/goals">Plan →</a></h2>
+        <ul class="checks compact">${nextMs.map((x) => `<li>${chk(`${x.base}.done`, 'Done')}<span class="grow"><strong>Milestone:</strong> ${esc(x.text)} <small class="muted">${esc(x.goal)}${x.due ? ` · due ${U.fmtDate(x.due, { month: 'short', day: 'numeric' })}` : ''}</small></span></li>`).join('')}
+          ${openObjs.map((x) => `<li>${chk(`${x.base}.done`, 'Done')}<span class="grow">${esc(x.text)} <small class="muted">${esc(x.goal)}${x.due ? ` · due ${U.fmtDate(x.due, { month: 'short', day: 'numeric' })}` : ''}</small></span></li>`).join('')}</ul>
+      </section>` : ''}
       <div class="grid2">
         <section class="box">
           <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
@@ -485,6 +532,7 @@
       return `<div class="goal ${g.status}">
         <div class="goal-main">
           <select data-bind="${p}.tier" data-rerender class="tier" aria-label="Tier">${tierOpts(g.tier)}</select>
+          <select data-bind="${p}.kind" data-rerender class="tier" aria-label="Goal type">${opts([{ v: 'achievement', l: 'Achievement' }, { v: 'habit', l: 'Habit' }], g.kind || 'achievement')}</select>
           <input class="inline title" data-bind="${p}.title" value="${esc(g.title)}" aria-label="Goal">
           <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete goal">×</button>
         </div>
@@ -495,12 +543,38 @@
           <label>Status <select data-bind="${p}.status" data-rerender>${opts([{ v: 'active', l: 'Active' }, { v: 'done', l: 'Done ✓' }, { v: 'dropped', l: 'Dropped' }], g.status)}</select></label>
           <label class="prog">Progress <input type="range" min="0" max="100" step="5" data-bind="${p}.progress" data-type="number" value="${Number(g.progress) || 0}"><output>${Number(g.progress) || 0}%</output></label>
         </div>
-        <input class="inline measure" data-bind="${p}.measure" value="${esc(g.measure)}" placeholder="What does done look like? (be specific)">
+        <input class="inline measure" data-bind="${p}.measure" value="${esc(g.measure)}" placeholder="${g.kind === 'habit' ? 'What counts? (e.g. 20+ minutes, no phone)' : 'What does done look like? (be specific)'}">
+        ${goalPlan(g, p)}
       </div>`;
+    };
+    const habitPerWeek = (p, cur) => `<label>Days per week <select data-bind="${p}.perWeek" data-type="number" data-rerender>${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? '7 (every day)' : String(n) })), cur)}</select></label>`;
+    const goalPlan = (g, p) => {
+      const isHabit = g.kind === 'habit';
+      const list = (key, ph, extra) => `<ul class="checks compact">${(g[key] || []).map((i) => `<li class="${i.done ? 'done' : ''}">${chk(`${p}.${key}.@${i.id}.done`, 'Done')}
+          <input class="inline grow" data-bind="${p}.${key}.@${i.id}.text" value="${esc(i.text)}" aria-label="${ph}">
+          <input type="date" data-bind="${p}.${key}.@${i.id}.due" value="${esc(i.due)}" aria-label="Due date">
+          <button class="x" data-act="del" data-path="${p}.${key}" data-id="${i.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+        <form class="add" data-add="${p}.${key}"><input name="text" placeholder="${ph}" required><input type="date" name="due" aria-label="Due date"><button aria-label="Add">+</button></form>`;
+      const routines = `<ul class="checks compact">${(g.routines || []).map((r) => `<li>
+          <input class="inline grow" data-bind="${p}.routines.@${r.id}.text" value="${esc(r.text)}" aria-label="Routine">
+          <select data-bind="${p}.routines.@${r.id}.perWeek" data-type="number" data-rerender aria-label="Days per week">${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? 'Every day' : n === 1 ? 'Once a week' : `${n}× a week` })), r.perWeek)}</select>
+          <button class="x" data-act="del" data-path="${p}.routines" data-id="${r.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+        <form class="add" data-add="${p}.routines"><input name="text" placeholder="e.g. Practice 20 minutes" required>
+          <select name="perWeek" aria-label="How often">${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? 'Every day' : n === 1 ? 'Once a week' : `${n}× a week` })), 1)}</select><button aria-label="Add">+</button></form>`;
+      const why = `<label class="field">My WHY for this goal ${ta(`${p}.why`, 'Why does this matter to me?', 2)}</label>`;
+      if (isHabit) return `<details class="plan" open><summary>Plan &amp; tracking</summary>${why}
+        <div class="goal-meta">${habitPerWeek(p, g.perWeek || 5)}</div>
+        <p class="muted small">Tick it off each day on <a href="#/today">Today</a>. Progress appears on <a href="#/track/habits">Track → Habits</a>.</p></details>`;
+      return `<details class="plan" open><summary>Plan: why → milestones → objectives → routines</summary>${why}
+        <h4>1. Key milestones</h4>${list('milestones', 'Add a milestone…')}
+        <h4>2. Quarterly objectives <small class="muted">what must be true by the end of this cycle</small></h4>${list('objectives', 'Add an objective…')}
+        <h4>3. Weekly &amp; daily routines <small class="muted">tracked on Today</small></h4>${routines}</details>`;
     };
     const addGoal = (roleId) => `<form class="add" data-add="goals">
         <input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="roleId" value="${roleId}">
         <input name="title" placeholder="New goal…" required>
+        <select name="kind" aria-label="Goal type"><option value="achievement">Achievement goal</option><option value="habit">Habit goal</option></select>
+        <select name="perWeek" aria-label="Days per week (habit goals)">${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? 'Habit: every day' : `Habit: ${n}×/week` })), 5)}</select>
         <select name="area" aria-label="Area">${areaOpts('work')}</select>
         <select name="tier" aria-label="Tier">${tierOpts('pursuit')}</select>
         <button aria-label="Add goal">+</button></form>`;
@@ -913,7 +987,28 @@
         const r = Math.min(1, n / t);
         return { html: `<td class="heat ${n >= t ? 'ok' : ''}" style="--heat:${Math.round(8 + r * 52)}%" title="${n} of ${t}">${n}/${t}</td>`, hit: n >= t };
       };
-      body += `<section class="box"><h2>Habit history <small class="muted">last 8 weeks · cells show days done / weekly goal</small></h2>
+      const tks = trackers();
+      const hkeys = recentWeekKeys(12);
+      const curWk = U.weekKey(today(), ws());
+      body += tks.length ? `<section class="box"><h2>Goal habits <small class="muted">last 12 weeks · cells show days done / weekly goal</small></h2>
+        <div class="cal-wrap"><table class="heatmap"><thead><tr><th>Habit</th>${hkeys.map((k) => `<th><a href="#/week/${k}">${U.fmtDate(k)}</a></th>`).join('')}<th>Streak</th><th>Hit rate</th></tr></thead><tbody>
+        ${tks.map((tk) => {
+          const cells = hkeys.map((k) => {
+            const n = weekCount(tk.log, k);
+            return `<td class="heat ${n >= tk.perWeek ? 'ok' : ''}" style="--heat:${Math.round(6 + Math.min(1, n / tk.perWeek) * 54)}%" title="${U.fmtDate(k)}: ${n} of ${tk.perWeek}">${n}</td>`;
+          }).join('');
+          const finished = hkeys.filter((k) => k < curWk);
+          const hits = finished.filter((k) => weekCount(tk.log, k) >= tk.perWeek).length;
+          const rate = finished.length ? Math.round((hits / finished.length) * 100) : 0;
+          return `<tr><th>${esc(tk.title)}<small class="muted"> ${tk.perWeek}×/wk</small></th>${cells}<td>${weekStreak(tk.log, tk.perWeek, curWk)} wk</td><td>${rate}%</td></tr>`;
+        }).join('')}</tbody></table></div></section>
+        <section class="box"><h2>Last 28 days</h2>
+          ${tks.map((tk) => {
+            const days = Array.from({ length: 28 }, (_, i) => U.toISO(U.addDays(today(), i - 27)));
+            return `<div class="strip"><span class="strip-name">${esc(tk.title)}</span><span class="dots wide">${days.map((d) => `<span class="dot${tk.log[d] ? ' on' : ''}" title="${U.fmtDate(d, { weekday: 'short', month: 'short', day: 'numeric' })}${tk.log[d] ? ' ✓' : ''}"></span>`).join('')}</span><span class="muted small">${days.filter((d) => tk.log[d]).length}/28</span></div>`;
+          }).join('')}
+        </section>` : '<section class="box"><h2>Goal habits</h2><p class="muted">Create a <strong>Habit goal</strong> (or add a routine to an achievement goal) in <a href="#/goals">Roles &amp; Goals</a>, then tick it off on Today to see your progress here.</p></section>';
+      if (names.length) body += `<section class="box"><h2>Weekly-tracker habits <small class="muted">last 8 weeks · cells show days done / weekly goal</small></h2>
         ${names.length ? `<div class="cal-wrap"><table class="heatmap"><thead><tr><th>Habit</th>${keys.map((k) => `<th><a href="#/week/${k}">${U.fmtDate(k)}</a></th>`).join('')}<th>Streak</th><th>Hit rate</th></tr></thead><tbody>
           ${names.map((nm) => {
             const cells = keys.map((k) => cell(k, nm));
@@ -1118,7 +1213,10 @@
 
   /* ---------- actions ---------- */
   const DEFAULTS = {
-    goals: () => ({ area: 'work', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '' }),
+    goals: () => ({ area: 'work', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [] }),
+    milestones: () => ({ done: false, due: '' }),
+    objectives: () => ({ done: false, due: '' }),
+    routines: () => ({ perWeek: 1, log: {} }),
     actions: () => ({ done: false, goalId: '' }),
     habits: () => ({ target: 5, days: [false, false, false, false, false, false, false] }),
     shopping: () => ({ done: false }),
@@ -1142,7 +1240,7 @@
     state.cycles.push(nc);
     const open = state.goals.filter((g) => g.cycleId === id && g.status === 'active');
     if (open.length && confirm(`Carry ${open.length} unfinished goal${open.length > 1 ? 's' : ''} into ${nc.name}?`)) {
-      open.forEach((g) => state.goals.push({ ...g, id: S.uid(), cycleId: nc.id, carriedFrom: g.id }));
+      open.forEach((g) => state.goals.push({ ...JSON.parse(JSON.stringify(g)), id: S.uid(), cycleId: nc.id, carriedFrom: g.id }));
     }
     commit();
     location.hash = `#/goals/${nc.id}`;
