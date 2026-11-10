@@ -442,6 +442,7 @@
 
     const body = `
       ${vision ? `<blockquote class="vision"><span>Who I'm becoming</span>${esc(vision.split('\n')[0])}</blockquote>` : ''}
+      ${!tks.length && cyc ? `<section class="box"><h2>Habits &amp; routines</h2><p class="muted">Nothing to check off yet. <a href="#/goals">Add a habit goal</a> (like "Read a book, 7 days a week") and it will appear here each day.</p></section>` : ''}
       ${tks.length ? `<section class="box">
         <h2>Habits &amp; routines <span class="muted">· ${tks.filter((k) => k.log[iso]).length}/${tks.length} done today</span><a class="more" href="#/track/habits">Progress →</a></h2>
         <ul class="trackers">${tks.map((k) => trackerRow(k, wk, iso)).join('')}</ul>
@@ -606,13 +607,17 @@
         <h4>3. Weekly &amp; daily routines <small class="muted">tracked on Today</small></h4>${routines}</details>`;
     };
     const addGoal = (roleId) => `<form class="add" data-add="goals">
-        <input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="roleId" value="${roleId}">
-        <input name="title" placeholder="New goal…" required>
-        <select name="kind" aria-label="Goal type"><option value="achievement">Achievement goal</option><option value="habit">Habit goal</option></select>
-        <select name="perWeek" aria-label="Days per week (habit goals)">${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? 'Habit: every day' : `Habit: ${n}×/week` })), 5)}</select>
+        <input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="roleId" value="${roleId}"><input type="hidden" name="kind" value="achievement">
+        <input name="title" placeholder="New achievement goal (e.g. Run a half marathon)…" required>
         <select name="area" aria-label="Area">${areaOpts('work')}</select>
         <select name="tier" aria-label="Tier">${tierOpts('pursuit')}</select>
-        <button aria-label="Add goal">+</button></form>`;
+        <button aria-label="Add goal">+</button></form>
+      <form class="add habit-add" data-add="goals">
+        <input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="roleId" value="${roleId}"><input type="hidden" name="kind" value="habit">
+        <input type="hidden" name="area" value="health"><input type="hidden" name="tier" value="pursuit">
+        <input name="title" placeholder="New habit goal (e.g. Read a book)…" required>
+        <select name="perWeek" aria-label="Days per week">${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? 'Every day' : `${n}× a week` })), 5)}</select>
+        <button aria-label="Add habit goal">+ Habit</button></form>`;
 
     const roleCard = ({ role, goals }) => {
       const rp = `roles.@${role.id}`;
@@ -1543,6 +1548,7 @@
     }
     list.push(item);
     commit();
+    if (item.kind === 'habit' && path === 'goals') toast('Habit added. Tick it off each day on Today.');
     const again = document.querySelector(`form[data-add="${CSS.escape(path)}"]${form.dataset.area ? `[data-area="${form.dataset.area}"]` : ''} input:not([type=hidden])`);
     if (again) again.focus();
   });

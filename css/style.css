@@ -457,3 +457,4 @@ details.plan h4 { margin: .7rem 0 .2rem; }
 .wheel-row output { font-weight: 700; text-align: right; }
 @media (max-width: 760px) { .wheel-row { grid-template-columns: 1fr 2ch; } .wheel-row input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
 .radar .hit { fill: transparent; stroke: none; }
+.habit-add { margin-top: -.2rem; } .habit-add input[name=title] { border-color: var(--ok); }
