@@ -500,3 +500,32 @@ ul.checks.ideal-edit li input.inline { width: 100%; min-width: 0; }
 details.more-today > summary { cursor: pointer; font-size: 1.05rem; }
 details.more-today[open] > summary { margin-bottom: .6rem; }
 @media (max-width: 760px) { .setup-steps li a span { display: none; } .setup-steps li.cur a span { display: inline; } }
+
+/* half-hour time grid */
+.tgrid { border-collapse: collapse; width: 100%; font-size: .78rem; table-layout: fixed; }
+.tgrid th { font-weight: 500; color: var(--muted); padding: .2rem; text-align: center; }
+.tgrid thead th:first-child, .tgrid tbody th { width: 3.6rem; text-align: right; padding-right: .4rem; vertical-align: top; }
+.tgrid td { height: 26px; border-top: 1px dotted var(--line); border-left: 1px solid var(--line); position: relative; padding: 0; }
+.tgrid tr.hr td { border-top: 1px solid var(--line); }
+.tgrid .blk { position: absolute; left: 2px; right: 2px; top: 1px; height: calc(var(--span) * 26px - 3px); z-index: 1; overflow: hidden; border-radius: 4px; padding: 1px 4px; background: color-mix(in srgb, var(--navy) 18%, var(--paper)); border-left: 3px solid var(--navy); line-height: 1.2; }
+.tgrid .blk.ideal { background: color-mix(in srgb, var(--ok) 16%, var(--paper)); border-left-color: var(--ok); }
+.tgrid .blk.wo { background: color-mix(in srgb, #b8671f 18%, var(--paper)); border-left-color: #b8671f; }
+details.box > summary { cursor: pointer; }
+
+/* capture, inbox, memories */
+.capture { margin: 0 0 .8rem; }
+.capture input[name=text] { flex: 1; }
+.chip-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: .05rem .45rem; white-space: nowrap; margin-top: .3rem; }
+ul.memories { list-style: none; padding: 0; margin: 1rem 0 0; }
+ul.memories li { display: flex; gap: .8rem; align-items: flex-start; padding: .55rem 0; border-bottom: 1px dotted var(--line); }
+ul.memories time { flex: 0 0 6.5rem; color: var(--muted); font-size: .85rem; }
+ul.memories li.quote .grow { font-style: italic; }
+.qmark { color: var(--muted); }
+
+/* planning sessions */
+ol.session-steps { list-style: none; padding: 0; margin: 0 0 .8rem; }
+ol.session-steps li { display: flex; align-items: flex-start; gap: .6rem; padding: .6rem 0; border-bottom: 1px dotted var(--line); }
+ol.session-steps li.done strong { text-decoration: line-through; color: var(--muted); }
+ol.session-steps li > input[type=checkbox] { margin-top: .3rem; }
+.session-card.done { opacity: .85; }
+.due-strip { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; border-left: 4px solid var(--warn, #b8671f); }

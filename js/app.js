@@ -178,6 +178,9 @@
   }
   const reviewDone = (iso) => { const r = state.reviews[iso]; return !!(r && r.purpose && r.goals && r.ideal); };
 
+  const EV_KINDS = { event: '', vacation: '✈ ', relax: '☀ ', birthday: '🎂 ' };
+  const evIcon = (e) => EV_KINDS[e.kind] || '';
+
   /* ---------- small HTML helpers ---------- */
   const ta = (path, ph, rows = 3) =>
     `<textarea data-bind="${esc(path)}" rows="${rows}" placeholder="${esc(ph || '')}">${esc(get(path))}</textarea>`;
@@ -555,10 +558,17 @@
     const goalW = num(state.settings.weightGoal);
     const shopOpen = state.shopping.filter((x) => !x.done).length;
 
+    const sc = sessionCtx();
+    const dueSessions = ['yearly', 'quarterly', 'monthly', 'weekly'].map((cad) => sessionStatus(cad, sc)).filter((x) => x.due && !x.complete);
+    const dueStrip = dueSessions.length ? `<section class="box due-strip"><strong>Planning due</strong> ${dueSessions.map((x) => `<a class="chip" href="#/session/${x.cad}">${esc(x.def.title)} · ${x.doneN}/${x.steps.length} →</a>`).join(' ')}</section>` : '';
+    const capture = `<form class="add capture" data-act-form="capture"><input name="text" placeholder="Capture a to-do, goal idea, memory or quote…" required aria-label="Quick capture">
+      <select name="kind" aria-label="Type"><option value="todo">To-do</option><option value="goal">Goal idea</option><option value="memory">Memory</option><option value="quote">Quote</option></select><button aria-label="Capture">+</button></form>`;
     const body = `
       ${setupBanner}
+      ${dueStrip}
+      ${capture}
       <section class="box review${rvCount === 3 ? ' done' : ''}">
-        <details><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
+        <details data-keep="review"><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
           <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.purpose`, 'Reviewed my purpose')} <strong>My purpose</strong></label>
             ${purposeText ? `<blockquote class="vision small">${esc(purposeText.split('\n').slice(0, 3).join(' '))}</blockquote>` : '<p class="muted small">Write your purpose statement on <a href="#/foundation">Foundation</a> so you can read it here each day.</p>'}</div>
           <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.goals`, 'Reviewed my goals')} <strong>My goals</strong></label>
@@ -582,7 +592,7 @@
       </section>
       <section class="box">
           <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
-          ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${esc(e.text)}</li>`).join('')}</ul>` : ''}
+          ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${evIcon(e)}${esc(e.text)}</li>`).join('')}</ul>` : ''}
           ${idealToday.length ? `<ul class="checks compact">${idealToday.map((i) => idealRow(i, iso, true)).join('')}</ul>` : ''}
           ${todaySched.length ? `<ul class="events">${todaySched.map((s) => `<li><time>${esc(fmtTime(s.time)) || '—'}</time> ${esc(s.text)}</li>`).join('')}</ul>` : ''}
           ${todayWos.length ? `<ul class="checks compact">${todayWos.map((x) => `<li>${chk(`workouts.@${x.id}.done`, 'Workout done')}<span class="grow">${x.time ? `<time>${esc(fmtTime(x.time))}</time> ` : ''}Workout: ${esc(x.type)}${x.details ? ` <small class="muted">${esc(x.details)}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
@@ -602,7 +612,7 @@
           <button class="btn ghost" data-act="focusToBig3" data-goal="${g.id}">+ Big 3</button></li>`; }).join('')}</ul>`
           : '<p class="muted">Of your annual goals, pick the 3–4 that deserve your best energy this quarter. <a href="#/goals">Choose your focus →</a></p>'}
       </section>
-      <details class="box more-today"><summary><strong>More for today</strong> <span class="muted">rituals, milestones, this week, goals, journal</span></summary>
+      <details class="box more-today" data-keep="more"><summary><strong>More for today</strong> <span class="muted">rituals, milestones, this week, goals, journal</span></summary>
         <section class="box">
           <h2>Rituals due</h2>
           ${due.length ? `<ul class="rituals">${due.map((r) => `<li class="${r.hot ? 'hot' : ''}"><a href="${r.h}"><strong>${r.t}</strong><span>${r.d}</span></a></li>`).join('')}</ul>`
@@ -632,7 +642,7 @@
         </section>
         <section class="box">
           <h2>Coming up <a class="more" href="#/year">Year →</a></h2>
-          ${upcoming.length ? `<ul class="events">${upcoming.map((x) => `<li><time>${U.fmtDate(x.on, { weekday: 'short', month: 'short', day: 'numeric' })}</time> ${esc(x.e.text)}${x.e.yearly ? ' <span title="Yearly">↻</span>' : ''}</li>`).join('')}</ul>`
+          ${upcoming.length ? `<ul class="events">${upcoming.map((x) => `<li><time>${U.fmtDate(x.on, { weekday: 'short', month: 'short', day: 'numeric' })}</time> ${evIcon(x.e)}${esc(x.e.text)}${x.e.yearly ? ' <span title="Yearly">↻</span>' : ''}</li>`).join('')}</ul>`
             : '<p class="muted">Nothing in the next 45 days. Add key dates on the Year page.</p>'}
         </section>
       </div>
@@ -835,6 +845,7 @@
         <p class="prompt">Birthdays, holidays, trips, conferences, reunions. Pencil it in so you're always prepared.</p>
         <form class="add wrap" data-add="events">
           <input name="text" placeholder="What" required>
+          <select name="kind" aria-label="Type"><option value="event">Event</option><option value="vacation">Family vacation</option><option value="relax">Relaxation day</option><option value="birthday">Birthday</option></select>
           <label>From <input type="date" name="start" required></label>
           <label>To <input type="date" name="end"></label>
           <label class="inline-check"><input type="checkbox" name="yearly"> Every year</label>
@@ -850,7 +861,7 @@
         const mo = state.months[m.key];
         return `<section class="box month-card">
           <h3><span class="mnum">M${m.index}</span> <a href="#/month/${m.key}">${m.name} ${m.year}</a></h3>
-          <ul class="events">${evs.map((e) => `<li><time>${U.fmtDate(e.start)}${e.end && e.end !== e.start ? `–${U.fmtDate(e.end)}` : ''}</time> ${esc(e.text)}${e.yearly ? ' <span title="Yearly">↻</span>' : ''}
+          <ul class="events">${evs.map((e) => `<li><time>${U.fmtDate(e.start)}${e.end && e.end !== e.start ? `–${U.fmtDate(e.end)}` : ''}</time> ${evIcon(e)}${esc(e.text)}${e.yearly ? ' <span title="Yearly">↻</span>' : ''}
             <button class="x" data-act="del" data-path="events" data-id="${e.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
           ${mo || true ? `<label class="field small">Planning notes<textarea data-bind="months.${m.key}.notes" rows="2">${esc(mo && mo.notes)}</textarea></label>` : ''}
         </section>`;
@@ -922,6 +933,30 @@
     return page(`${U.MONTHS[md.getMonth()]} ${md.getFullYear()}`, 'Monthly calendar & goals', body, nav);
   }
 
+  /* Half-hour time-block grid for a week: ideal-week blocks, schedule entries and timed workouts. */
+  function timeGrid(wk, dayOptsHtml) {
+    const days = DAYS_ISO(wk), toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const START = 6 * 60, END = 22 * 60, slots = [];
+    for (let m = START; m < END; m += 30) slots.push(m);
+    const itemsOn = (iso) => [
+      ...idealOn(iso).filter((i) => i.time).map((i) => ({ time: i.time, text: i.text, mins: 60, cls: 'ideal' })),
+      ...scheduleOn(iso).filter((x) => x.time).map((x) => ({ time: x.time, text: x.text, mins: Number(x.mins) || 30, cls: 'sched', id: x.id })),
+      ...state.workouts.filter((x) => x.date === iso && x.time && !x.ideal).map((x) => ({ time: x.time, text: x.type, mins: Number(x.minutes) || 45, cls: 'wo' })),
+    ];
+    const byDay = days.map((d) => itemsOn(d));
+    const slotOf = (t) => Math.min(END - 30, Math.max(START, Math.floor(toMin(t) / 30) * 30));
+    const hhmm = (m) => `${U.pad(Math.floor(m / 60))}:${U.pad(m % 60)}`;
+    return `<div class="cal-wrap"><table class="tgrid"><thead><tr><th></th>${days.map((d) => `<th>${U.DAYS[U.parseISO(d).getDay()].slice(0, 3)} <small>${U.fmtDate(d, { day: 'numeric' })}</small></th>`).join('')}</tr></thead><tbody>
+      ${slots.map((m) => `<tr class="${m % 60 === 0 ? 'hr' : ''}"><th>${m % 60 === 0 ? esc(fmtTime(hhmm(m))) : ''}</th>${byDay.map((list) => {
+        const here = list.filter((x) => slotOf(x.time) === m);
+        return `<td>${here.map((x) => `<div class="blk ${x.cls}" style="--span:${Math.max(1, Math.ceil(x.mins / 30))}" title="${esc(fmtTime(x.time))} ${esc(x.text)}"><b>${esc(fmtTime(x.time))}</b> ${esc(x.text)}</div>`).join('')}</td>`;
+      }).join('')}</tr>`).join('')}</tbody></table></div>
+      <form class="add wrap" data-add="schedule"><select name="date" aria-label="Day">${dayOptsHtml}</select>
+        <input type="time" name="time" step="1800" required aria-label="Start time">
+        <select name="mins" aria-label="Length">${opts([30, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : '30 min' })), 60)}</select>
+        <input name="text" placeholder="Call, meeting, appointment, family time…" required><button aria-label="Add block">+</button></form>`;
+  }
+
   function viewWeek(wk) {
     wk = wk || U.weekKey(today(), ws());
     const startD = U.parseISO(wk);
@@ -943,7 +978,7 @@
     const strip = `<div class="strip">${days.map((d) => {
       const iso = U.toISO(d);
       return `<div class="${iso === tIso ? 'today' : ''}"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
-        ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${esc(e.text)}</div>`).join('')}
+        ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${evIcon(e)}${esc(e.text)}</div>`).join('')}
         <ul class="sched">${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
           ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
           ${wos.filter((x) => x.date === iso).map((x) => `<li class="wo ${x.done ? 'done' : ''}"><span class="grow">${x.done ? '✓' : '◦'} ${esc(x.type)}</span></li>`).join('')}</ul>
@@ -996,9 +1031,24 @@
     const stars = `<div class="stars" role="radiogroup" aria-label="Rate your week">${[1, 2, 3, 4, 5].map((n) =>
       `<button class="${n <= w.rating ? 'on' : ''}" data-act="rate" data-key="${wk}" data-v="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div>`;
 
+    const top3 = `<section class="box"><h3>Top 3 for the week <small class="muted">${(w.top3 || []).filter((x) => x.done).length}/${(w.top3 || []).length} done</small></h3>
+      <ul class="checks">${(w.top3 || []).map((x) => `<li class="${x.done ? 'done' : ''}">${chk(`${base}.top3.@${x.id}.done`, 'Done')}
+        <div class="grow"><input class="inline" data-bind="${base}.top3.@${x.id}.text" value="${esc(x.text)}" aria-label="Top 3 item"></div>
+        <select class="link" data-bind="${base}.top3.@${x.id}.goalId" data-rerender aria-label="Linked goal">${goalOpts(goals, x.goalId)}</select>
+        <button class="x" data-act="del" data-path="${base}.top3" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+      ${(w.top3 || []).length < 3 ? `<form class="add" data-add="${base}.top3"><input name="text" placeholder="One of the three most important things this week…" required><select name="goalId" aria-label="Linked goal">${goalOpts(goals, '')}</select><button aria-label="Add">+</button></form>` : '<p class="muted small">Top 3 set. Everything else is secondary.</p>'}</section>`;
+    const pullBox = (() => {
+      const inb = state.inbox.filter((x) => x.kind === 'todo' && !x.done).slice(0, 8), bl = state.bucket.filter((b) => !b.done && b.text).slice(0, 8);
+      const row = (src, id, text) => `<li><span class="grow">${esc(text)}</span><button class="btn ghost small" data-act="pullIn" data-src="${src}" data-id="${id}" data-key="${wk}">+ This week</button></li>`;
+      return `<section class="box"><h3>Pull in from your lists</h3>
+        ${inb.length || bl.length ? `<ul class="checks compact">${inb.map((x) => row('inbox', x.id, x.text)).join('')}${bl.map((b) => row('bucket', b.id, `Bucket list: ${b.text}`)).join('')}</ul>` : '<p class="muted">Nothing waiting. Capture to-dos on Today and add bucket-list items under <a href="#/lists/bucket">Lists</a>.</p>'}
+        <p class="muted small"><a href="#/lists/inbox">Open your inbox & to-dos →</a></p></section>`;
+    })();
     const body = `
+      ${top3}
       <h2 class="section">Schedule</h2>
       ${strip}
+      <details class="box" data-keep="grid"><summary><strong>Plan the week by the half hour</strong></summary>${timeGrid(wk, dayOpts(defDay))}</details>
       <h2 class="section">Priority Actions for the Week</h2>
       ${roleWeekly.length ? `<div class="nudge role-nudge"><strong>Your weekly role commitments:</strong> ${roleWeekly.map((x) => `<span><em>${esc(x.r.name)}:</em> ${esc(x.t)}</span>`).join(' · ')}</div>` : ''}
       <div class="row">
@@ -1006,6 +1056,7 @@
         <button class="btn ghost" data-act="pullMonth" data-key="${wk}">Pull open actions from ${U.MONTHS[wom.month]}</button>
       </div>
       ${areaBoxes(base + '.actions', w.actions, goals)}
+      ${pullBox}
       <div class="grid2">
         <section class="box"><h3>Habit Tracker</h3>${habits}</section>
         <section class="box"><h3>Workouts <small class="muted">${woDone}${woTarget ? `/${woTarget}` : ''} done · ${wos.reduce((s, x) => s + (x.done ? Number(x.minutes) || 0 : 0), 0)} min</small></h3>${workouts}</section>
@@ -1419,7 +1470,7 @@
 
   function viewLists(tab) {
     tab = tab || 'bucket';
-    const tabs = [['bucket', 'Bucket List'], ['hobbies', 'Hobbies & Projects'], ['shopping', 'Shopping'], ['reading', 'Reading & Entertainment'], ['journal', 'Journal'], ['index', 'Notes Index']];
+    const tabs = [['bucket', 'Bucket List'], ['hobbies', 'Hobbies & Projects'], ['shopping', 'Shopping'], ['reading', 'Reading & Entertainment'], ['journal', 'Journal'], ['inbox', 'Inbox & To-dos'], ['memories', 'Memories & Quotes'], ['index', 'Notes Index']];
     let body = `<nav class="tabs">${tabs.map(([k, l]) => `<a href="#/lists/${k}" class="${k === tab ? 'sel' : ''}">${l}</a>`).join('')}</nav>`;
     if (tab === 'bucket') {
       body += `<p class="prompt">Start simple and let it evolve. Target different areas of life, and balance ambition with some easier wins. Have fun.</p>
@@ -1457,6 +1508,28 @@
           </section>`;
         }).join('')}</div>
         <form class="add" data-add="projects"><input name="name" placeholder="New hobby or project (e.g. SHOT novice division prep)" required><button aria-label="Add project">+</button></form>`;
+    } else if (tab === 'inbox') {
+      const open = state.inbox.filter((x) => !x.done).sort((a, b) => (a.date < b.date ? 1 : -1));
+      const doneN = state.inbox.length - open.length, wkNow = U.weekKey(today(), ws());
+      body += `<p class="prompt">Everything you capture lands here as you think of it. Process it: add it to your week, turn a goal idea into a goal, or let it go.</p>
+        <form class="add" data-add="inbox"><input type="hidden" name="date" value="${todayISO()}"><input name="text" placeholder="Add a to-do or idea…" required>
+          <select name="kind" aria-label="Type"><option value="todo">To-do</option><option value="goal">Goal idea</option><option value="note">Note</option></select><button aria-label="Add">+</button></form>
+        ${open.length ? `<ul class="checks">${open.map((x) => `<li>${chk(`inbox.@${x.id}.done`, 'Done')}
+          <small class="chip-label">${{ todo: 'To-do', goal: 'Goal idea', note: 'Note' }[x.kind] || 'To-do'}</small>
+          <div class="grow"><input class="inline" data-bind="inbox.@${x.id}.text" value="${esc(x.text)}" aria-label="Item"></div>
+          ${x.kind === 'todo' ? `<button class="btn ghost small" data-act="pullIn" data-src="inbox" data-id="${x.id}" data-key="${wkNow}">+ This week</button>` : ''}
+          ${x.kind === 'goal' ? `<button class="btn ghost small" data-act="inboxToGoal" data-id="${x.id}">→ Goal</button>` : ''}
+          <button class="x" data-act="del" data-path="inbox" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">Inbox zero. Capture anything from Today and it shows up here.</p>'}
+        ${doneN ? `<p class="muted small">${doneN} processed item${doneN > 1 ? 's' : ''}. <button class="btn ghost small" data-act="clearInbox">Clear processed</button></p>` : ''}`;
+    } else if (tab === 'memories') {
+      const ms = state.memories.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      body += `<p class="prompt">Key memories, events and the things your family says. Capture them before they fade.</p>
+        <form class="add wrap" data-add="memories"><input type="date" name="date" value="${todayISO()}" required aria-label="Date">
+          <select name="kind" aria-label="Type"><option value="memory">Memory</option><option value="quote">Quote</option><option value="event">Event</option></select>
+          <input name="who" placeholder="Who (e.g. Emma, age 6)" aria-label="Who"><input class="grow" name="text" placeholder="What happened or what they said…" required><button aria-label="Add">+</button></form>
+        ${ms.length ? `<ul class="memories">${ms.map((m) => `<li class="${m.kind}"><time>${U.fmtDate(m.date, { month: 'short', day: 'numeric', year: 'numeric' })}</time>
+          <div class="grow">${m.kind === 'quote' ? '<span class="qmark">“</span>' : ''}${esc(m.text)}${m.kind === 'quote' ? '<span class="qmark">”</span>' : ''}${m.who ? ` <small class="muted">— ${esc(m.who)}</small>` : ''}</div>
+          <button class="x" data-act="del" data-path="memories" data-id="${m.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">Nothing yet. Use the capture bar on Today, or add one above.</p>'}`;
     } else if (tab === 'shopping') {
       body += `<section class="box"><h2>Shopping list</h2>
         <p class="prompt">One running list. It also shows on each Week page.</p>
@@ -1584,6 +1657,9 @@
   const DEFAULTS = {
     goals: () => ({ area: 'work', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [] }),
     big3: () => ({ done: false, goalId: '' }),
+    top3: () => ({ done: false, goalId: '' }),
+    inbox: () => ({ kind: 'todo', done: false }),
+    memories: () => ({ kind: 'memory', who: '' }),
     idealWeek: () => ({ time: '', goalId: '', workout: false }),
     milestones: () => ({ done: false, due: '' }),
     objectives: () => ({ done: false, due: '' }),
@@ -1592,12 +1668,12 @@
     habits: () => ({ target: 5, days: [false, false, false, false, false, false, false] }),
     shopping: () => ({ done: false }),
     steps: () => ({ done: false }),
-    schedule: () => ({ time: '' }),
+    schedule: () => ({ time: '', mins: '' }),
     workouts: () => ({ done: false, details: '', minutes: '', time: '' }),
     projects: () => ({ status: 'active', goalId: '', notes: '', steps: [] }),
     bucket: () => ({ star: false, done: false, budget: '', target: '', details: '' }),
     reading: () => ({ done: false, by: '', genre: '', nutshell: '' }),
-    events: () => ({ end: '', yearly: false }),
+    events: () => ({ end: '', yearly: false, kind: 'event' }),
     roles: () => ({ why: '' }),
     journals: () => ({ text: '' }),
   };
@@ -1698,6 +1774,25 @@
       commit();
     },
     uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
+    pullIn(el) {
+      const { src, id, key } = el.dataset;
+      const item = src === 'inbox' ? state.inbox.find((x) => x.id === id) : state.bucket.find((x) => x.id === id);
+      if (!item) return;
+      getWeek(key).actions.push({ id: S.uid(), area: src === 'bucket' ? 'fun' : 'home', text: item.text, goalId: '', done: false });
+      if (src === 'inbox') item.done = true;
+      toast('Added to this week'); commit();
+    },
+    inboxToGoal(el) {
+      const it = state.inbox.find((x) => x.id === el.dataset.id);
+      if (!it) return;
+      addSuggestedGoal({ title: it.text, area: 'work' }, 'achievement');
+      it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
+    },
+    clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
+    completeSession(el) {
+      const rec = (state.sessions[el.dataset.key] = state.sessions[el.dataset.key] || { steps: {} });
+      rec.done = todayISO(); toast('Session complete'); commit();
+    },
     idealDone(el) {
       const { id, date } = el.dataset, it = state.idealWeek.find((x) => x.id === id);
       const log = (state.idealLog[date] = state.idealLog[date] || {});
@@ -1871,6 +1966,16 @@
       const c = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
       state.cycles.push(c); state.settings.cycleMonths = months;
       commit(); location.hash = `#/goals/${c.id}`;
+      return;
+    }
+    if (form.dataset.actForm === 'capture') {
+      e.preventDefault();
+      const fd = new FormData(form), text = String(fd.get('text') || '').trim(), kind = fd.get('kind');
+      if (!text) return;
+      if (kind === 'memory' || kind === 'quote') state.memories.push({ id: S.uid(), date: todayISO(), kind, who: '', text });
+      else state.inbox.push({ id: S.uid(), kind, text, date: todayISO(), done: false });
+      commit(); toast(kind === 'memory' || kind === 'quote' ? 'Saved to Memories & Quotes' : 'Captured to your inbox');
+      const again = document.querySelector('form.capture input[name=text]'); if (again) again.focus();
       return;
     }
     if (form.dataset.actForm === 'workoutPlan' || form.dataset.actForm === 'workoutImport') {
@@ -2106,10 +2211,127 @@
     return page('Set up Life.OS', `Step ${n} of 6 · about 5 minutes. Skip anything and come back later.`, body + nav);
   }
 
+  /* ---------- guided planning sessions (yearly, quarterly, monthly, weekly, daily) ---------- */
+  function sessionCtx() {
+    const t = today(), iso = U.toISO(t);
+    const py = U.plannerYearStart(t, Number(state.settings.plannerStartMonth));
+    return { t, iso, wk: U.weekKey(t, ws()), mk: U.monthKey(t), qk: quarterKey(iso), py };
+  }
+  const SESSIONS = {
+    yearly: {
+      title: 'Yearly planning', when: 'Once a year, at the start of your planner year',
+      period: (c) => ({ key: `yearly:${c.py.year}`, label: c.py.month === 0 ? `${c.py.year}` : `${U.MONTHS[c.py.month].slice(0, 3)} ${c.py.year} – ${U.MONTHS[c.py.month - 1].slice(0, 3)} ${c.py.year + 1}` }),
+      due: (c) => U.daysBetween(new Date(c.py.year, c.py.month, 1), c.t) <= 21,
+      steps: (c) => [
+        { id: 'plan', label: 'Revisit your life plan', hint: 'Re-read your purpose, vision and roles. Does it still ring true?', href: '#/foundation' },
+        { id: 'wheel', label: 'Evaluate your full Wheel of Life', hint: 'Score all seven areas and note the lowest.', href: '#/wheel', auto: state.wheel.some((w) => U.daysBetween(U.parseISO(w.date), c.t) <= 45) },
+        { id: 'goals', label: 'Set your goals for the year', hint: 'About ten across your roles. Habits are tracked separately.', href: '#/goals' },
+        { id: 'focus', label: 'Set your quarterly goals', hint: 'Choose the 3–4 goals that get your best energy this quarter.', href: '#/goals', auto: focusGoals(c.iso).length > 0 },
+        { id: 'next', label: 'Define key next steps', hint: 'Give each focus goal milestones and objectives.', href: '#/goals', auto: focusGoals(c.iso).length > 0 && focusGoals(c.iso).every((g) => (g.milestones || []).length || (g.objectives || []).length) },
+        { id: 'events', label: 'Document key events and plans for the year', hint: 'Trips, birthdays, conferences, milestones.', href: '#/year' },
+      ],
+    },
+    quarterly: {
+      title: 'Quarterly planning', when: 'At the start of each quarter',
+      period: (c) => ({ key: `quarterly:${c.qk}`, label: qLabel(c.qk) }),
+      due: (c) => U.daysBetween(U.parseISO(qStart(c.qk)), c.t) <= 14,
+      steps: (c) => [
+        { id: 'review', label: 'Review your yearly goals and update timelines', hint: 'Celebrate wins. Adjust target dates and progress.', href: '#/goals' },
+        { id: 'focus', label: 'Set this quarter\'s focus', hint: 'Pick 3–4 goals to move forward.', href: '#/goals', auto: focusGoals(c.iso).length > 0 },
+        { id: 'actions', label: 'Set monthly and weekly goals for each role', hint: 'Write the actions under each role on Roles & Goals.', href: '#/goals' },
+        { id: 'vacation', label: 'Plan family vacations', hint: 'Add each trip as a "Family vacation" key date.', href: '#/year', auto: state.events.some((e) => e.kind === 'vacation' && (e.end || e.start) >= c.iso) },
+        { id: 'relax', label: 'Schedule relaxation days', hint: 'Block rest days on purpose. Add them as "Relaxation day".', href: '#/year', auto: state.events.some((e) => e.kind === 'relax' && (e.end || e.start) >= c.iso) },
+        { id: 'ideal', label: 'Set your ideal week for the quarter', hint: 'Give each weekday a purpose.', href: '#/ideal', auto: idealFor(c.qk).length > 0 && !state.idealCarried[c.qk] },
+        { id: 'calendar', label: 'Fill in the next three months with key events', hint: 'Open each month and pencil in known events.', links: [0, 1, 2].map((i) => { const m = U.monthKey(new Date(c.t.getFullYear(), c.t.getMonth() + i, 1)); return { label: U.MONTHS[Number(m.slice(5)) - 1], href: `#/month/${m}` }; }) },
+      ],
+    },
+    monthly: {
+      title: 'Monthly planning', when: 'At the start of each month',
+      period: (c) => ({ key: `monthly:${c.mk}`, label: `${U.MONTHS[c.t.getMonth()]} ${c.t.getFullYear()}` }),
+      due: (c) => c.t.getDate() <= 7,
+      steps: (c) => { const m = state.months[c.mk] || {}; return [
+        { id: 'events', label: 'Plan known events', hint: 'Appointments, trips, birthdays, commitments.', href: `#/month/${c.mk}` },
+        { id: 'goals', label: 'Review your goals', hint: 'Are the focus goals moving?', href: '#/goals' },
+        { id: 'actions', label: 'Set monthly and weekly goals and actions', hint: 'Priority actions in each area, linked to goals.', href: `#/month/${c.mk}`, auto: (m.actions || []).length > 0 },
+        { id: 'days', label: 'Document days for events and activities', hint: 'Note which days the key things happen.', href: `#/month/${c.mk}` },
+        { id: 'reflect', label: 'Write lessons learned, gratitude and memories', hint: 'Capture last month\'s lessons and what you are grateful for.', href: `#/month/${c.mk}`, auto: !!(m.grateful || (m.reflection && (m.reflection.improve || m.reflection.memories))) },
+      ]; },
+    },
+    weekly: {
+      title: 'Weekly planning', when: 'Plan on the first day of the week; review in the last days',
+      period: (c) => ({ key: `weekly:${c.wk}`, label: `Week of ${U.fmtDate(c.wk, { month: 'short', day: 'numeric' })}` }),
+      due: (c) => { const d = U.daysBetween(U.parseISO(c.wk), c.t); return d === 0 || d >= 5; },
+      steps: (c) => { const w = state.weeks[c.wk] || {}; const end = U.toISO(U.addDays(U.parseISO(c.wk), 6)); return [
+        { id: 'grid', label: 'Plan the full week by the half hour', hint: 'Calls, meetings, appointments, workouts, family time.', href: `#/week/${c.wk}`, auto: state.schedule.filter((x) => x.time && x.date >= c.wk && x.date <= end).length >= 3 },
+        { id: 'top3', label: 'Pick your top 3 for the week', hint: 'The three things that would make the week a win.', href: `#/week/${c.wk}`, auto: (w.top3 || []).length > 0 },
+        { id: 'actions', label: 'Set weekly actions toward your goals', hint: 'Link each to a goal.', href: `#/week/${c.wk}`, auto: (w.actions || []).length > 0 },
+        { id: 'pull', label: 'Pull in items from your bucket list and to-dos', hint: 'Use the "Pull in" box on the Week page.', href: `#/week/${c.wk}` },
+        { id: 'buy', label: 'Document items to buy', hint: 'Add to your shopping list.', href: '#/lists/shopping' },
+        { id: 'progress', label: 'Track progress toward your goals', hint: 'Check the goal pulse and tick milestones.', href: `#/week/${c.wk}`, auto: Object.keys(w.pulse || {}).length > 0 },
+      ]; },
+    },
+    daily: {
+      title: 'Daily planning', when: 'Every day',
+      period: (c) => ({ key: `daily:${c.iso}`, label: U.fmtDate(c.iso, { weekday: 'long', month: 'short', day: 'numeric' }) }),
+      due: () => false,
+      steps: (c) => [
+        { id: 'review', label: 'Review your purpose, goals and ideal week', hint: 'The three checks in your daily review.', href: '#/today', auto: reviewDone(c.iso) },
+        { id: 'big3', label: 'Pick your top 3 for the day', hint: 'Pre-filled from your focus goals. Adjust as needed.', href: '#/today', auto: state.big3.some((b) => b.date === c.iso) },
+        { id: 'habits', label: 'Work on your habits', hint: 'Tick them off as you go.', href: '#/today', auto: trackers().some((k) => k.log[c.iso]) },
+        { id: 'todos', label: 'Track your to-dos and notes', hint: 'Process your inbox.', href: '#/lists/inbox' },
+        { id: 'capture', label: 'Save future tasks and goals as you think of them', hint: 'Use the capture bar on Today.', href: '#/today', auto: state.inbox.some((x) => x.date === c.iso) },
+        { id: 'memories', label: 'Document key memories, events and family quotes', hint: 'Capture them before they fade.', href: '#/lists/memories', auto: state.memories.some((m) => m.date === c.iso) },
+      ],
+    },
+  };
+  function sessionStatus(cad, c) {
+    const def = SESSIONS[cad], per = def.period(c), steps = def.steps(c), rec = state.sessions[per.key] || {};
+    steps.forEach((st) => { st.done = st.auto === true || !!(rec.steps && rec.steps[st.id]); });
+    const doneN = steps.filter((x) => x.done).length;
+    return { cad, def, per, steps, doneN, complete: !!rec.done || doneN === steps.length, due: def.due(c) };
+  }
+  const SESSION_ORDER = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+
+  function viewSession(arg) {
+    const c = sessionCtx();
+    if (!SESSIONS[arg]) {
+      const cards = SESSION_ORDER.slice().reverse().map((cad) => {
+        const st = sessionStatus(cad, c);
+        const last = Object.entries(state.sessions).filter(([k, v]) => k.startsWith(cad + ':') && v.done).map(([, v]) => v.done).sort().pop();
+        return `<section class="box session-card${st.complete ? ' done' : ''}">
+          <h2>${st.def.title} ${st.due && !st.complete ? '<span class="pulse slip">due</span>' : ''}</h2>
+          <p class="muted">${esc(st.def.when)} · <strong>${esc(st.per.label)}</strong></p>
+          <p>${progressBar((st.doneN / st.steps.length) * 100)} <small>${st.doneN}/${st.steps.length}${st.complete ? ' · complete ✓' : ''}</small></p>
+          ${last ? `<p class="muted small">Last completed ${U.fmtDate(last, { month: 'short', day: 'numeric', year: 'numeric' })}</p>` : ''}
+          <a class="btn ${st.complete ? 'ghost' : 'primary'}" href="#/session/${cad}">${st.complete ? 'Review' : st.doneN ? 'Continue' : 'Start'} →</a></section>`;
+      }).join('');
+      return page('Planning sessions', 'A rhythm of review and planning: yearly, quarterly, monthly, weekly and daily', `<div class="grid2">${cards}</div>`);
+    }
+    const st = sessionStatus(arg, c), recKey = st.per.key;
+    if (st.doneN === st.steps.length && !(state.sessions[recKey] && state.sessions[recKey].done)) {
+      state.sessions[recKey] = Object.assign(state.sessions[recKey] || { steps: {} }, { done: c.iso }); S.save(state);
+    }
+    const body = `
+      <p class="lead">${esc(st.def.when)}. Work through each step. Steps tick themselves when Life.OS can see you did them; tick the rest yourself.</p>
+      <section class="box"><h2>${esc(st.per.label)} <span class="muted">· ${st.doneN}/${st.steps.length}</span></h2>
+        <p>${progressBar((st.doneN / st.steps.length) * 100)}</p>
+        <ol class="session-steps">${st.steps.map((x) => `<li class="${x.done ? 'done' : ''}">
+          ${x.auto === true ? '<input type="checkbox" checked disabled aria-label="Done automatically">' : chk(`sessions.${recKey}.steps.${x.id}`, x.label)}
+          <div class="grow"><strong>${esc(x.label)}</strong>${x.auto === true ? ' <small class="muted">done</small>' : ''}<br><small class="muted">${esc(x.hint || '')}</small>
+            ${x.links ? `<div class="chips">${x.links.map((l) => `<a class="chip" href="${l.href}">${esc(l.label)} →</a>`).join('')}</div>` : ''}</div>
+          ${x.href ? `<a class="btn ghost small" href="${x.href}">Open →</a>` : ''}</li>`).join('')}</ol>
+        <div class="row end"><a class="btn ghost" href="#/session">All sessions</a>
+          ${st.complete ? `<span class="muted">Session complete ✓</span>` : `<button class="btn primary" data-act="completeSession" data-key="${recKey}">Mark session complete</button>`}</div>
+      </section>`;
+    return page(st.def.title, st.per.label, body);
+  }
+
   /* ---------- router ---------- */
+  const keepOpen = {};
+  document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
     today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, session: viewSession, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
     const [, name = 'today', arg] = (location.hash || '#/today').split('/');
@@ -2117,6 +2339,7 @@
     const y = window.scrollY;
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
     app.innerHTML = view(arg);
+    app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
     const active = ROUTES[name] ? name : 'today';
     document.querySelectorAll('[data-route]').forEach((a) => {
       a.classList.toggle('sel', a.dataset.route === active);

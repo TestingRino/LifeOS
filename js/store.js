@@ -39,6 +39,9 @@
       focus: {},          // 'YYYY-Qn' -> [goalId] — the 3–4 goals chosen as this quarter's focus
       bigAuto: {},        // 'YYYY-MM-DD' -> true once that day's Big 3 was auto-filled
       big3: [],           // {id, date, text, goalId, done, migrated} — Daily Big 3 (Full Focus / Bullet Journal style)
+      inbox: [],          // {id, kind 'todo'|'goal'|'note', text, date, done} — quick capture
+      memories: [],       // {id, date, kind 'memory'|'quote'|'event', who, text}
+      sessions: {},       // 'cadence:period' -> {steps:{id:true}, done:'YYYY-MM-DD'} — guided planning sessions
       idealWeek: [],      // {id, quarter 'YYYY-Qn', dow 0-6, time, text, goalId, workout} — the ideal week, set per quarter
       idealCarried: {},   // 'YYYY-Qn' -> previous quarter it was copied from (until reviewed)
       idealLog: {},       // 'YYYY-MM-DD' -> {itemId: true|'skip'} — per-day done / skipped
@@ -77,7 +80,7 @@
       reflection: { progress: '', improve: '', memories: '' } };
   }
   function emptyWeek() {
-    return { actions: [], habits: [], notToDo: [], notes: '', gratitude: '', dreams: '', rating: 0, pulse: {} };
+    return { actions: [], top3: [], habits: [], notToDo: [], notes: '', gratitude: '', dreams: '', rating: 0, pulse: {} };
   }
 
   /* Path syntax: dot-separated; a segment "@id" selects the array item with that id. */
