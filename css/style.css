@@ -1,5 +1,5 @@
 /* Life.OS: paper-and-ink styling inspired by a purpose planner */
-/* Palette: warm paper, espresso ink, one sage accent. Clay is reserved for things that need attention. */
+/* Palette: warm paper, ink-blue structure, one sage accent. Clay is reserved for things that need attention. */
 :root {
   --paper: #f6f0e4;
   --card: #fffaf0;
@@ -7,7 +7,7 @@
   --muted: #6b6155;
   --line: #e2d7c3;
   --dot: #d6c9b1;
-  --navy: #4a3f35;   /* structure: top bar, headings, selected states (espresso) */
+  --navy: #2f3352;   /* structure: top bar, headings, selected states (ink blue) */
   --red: #a85532;    /* attention and danger (clay) */
   --gold: #b08d3c;   /* purpose goals and stars */
   --ok: #547354;     /* primary actions, done, on track (sage) */
@@ -612,11 +612,12 @@ li > .swatch { margin-top: .35rem; }
 .strip > div.picked { outline: 2px solid var(--navy); outline-offset: -2px; }
 
 /* welcome demo */
-.demo-hero { background: linear-gradient(135deg, var(--paper), color-mix(in srgb, var(--navy) 8%, var(--paper))); }
+.demo-hero { background: var(--card); }
 .demo-flow { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; font-weight: 600; }
 .demo-flow span { padding: .25rem .7rem; border-radius: 99px; background: var(--navy); color: #fff; font-size: .85rem; }
-.gtag { display: inline-flex; align-items: center; gap: .3rem; padding: .05rem .5rem; border-radius: 99px; font-size: .78rem; background: color-mix(in srgb, var(--c) 18%, var(--paper)); border: 1px solid var(--c); white-space: nowrap; }
-.gtag i { width: .55rem; height: .55rem; border-radius: 50%; background: var(--c); display: inline-block; }
+.gtag { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.gtag i { width: .6rem; height: .6rem; border-radius: 50%; background: var(--c); display: inline-block; }
+.plain-list .gtag { margin-right: .6rem; color: var(--ink); font-size: .9rem; }
 ul.plain-list { list-style: none; padding: 0; margin: .4rem 0; } ul.plain-list li { padding: .3rem 0; border-bottom: 1px dotted var(--line); }
 .demo-task { display: flex; align-items: center; gap: .6rem; padding: .4rem 0; border-bottom: 1px dotted var(--line); flex-wrap: wrap; }
 .daychips { display: flex; gap: .25rem; }
