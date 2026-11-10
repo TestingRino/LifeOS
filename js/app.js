@@ -197,6 +197,9 @@
         }
       }
     }
+    const lastWheel = state.wheel.map((x) => x.date).sort().pop();
+    if (state.cycles.length && (!lastWheel || U.daysBetween(U.parseISO(lastWheel), t) >= 90))
+      out.push({ t: 'Wheel of Life check-in', d: 'Score the seven areas of your life and see how balanced you are.', h: '#/wheel' });
     const m = state.months[mk];
     if (!m || !(m.actions || []).length)
       out.push({ t: `Plan ${U.MONTHS[t.getMonth()]}`, d: 'Choose priority actions for each area, linked to your goals.', h: `#/month/${mk}` });
@@ -849,7 +852,7 @@
   const round1 = (v) => Math.round(v * 10) / 10;
 
   /* Single-series line chart (weight). Thin 2px line, 8px markers, dashed target, hover tips. */
-  function lineChart(pts, target, unit) {
+  function lineChart(pts, target, unit, label = 'Weight trend') {
     if (pts.length < 2) return '<p class="muted">Log at least two entries to see your trend.</p>';
     const W = 640, H = 230, L = 46, R = 18, T = 14, B = 28;
     const xs = pts.map((p) => U.parseISO(p.date).getTime());
@@ -865,7 +868,7 @@
     const ticks = [];
     for (let v = y0; v <= y1 + step / 2; v += step) ticks.push(round1(v));
     const d = pts.map((p, i) => `${i ? 'L' : 'M'}${sx(xs[i]).toFixed(1)},${sy(p.value).toFixed(1)}`).join('');
-    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight trend, ${pts.length} entries">
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}, ${pts.length} entries">
       ${ticks.map((v) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}"/><text class="axis" x="${L - 6}" y="${sy(v) + 4}" text-anchor="end">${v}</text>`).join('')}
       ${target != null ? `<line class="target" x1="${L}" x2="${W - R}" y1="${sy(target)}" y2="${sy(target)}"/><text class="axis" x="${W - R}" y="${sy(target) - 5}" text-anchor="end">Target ${target} ${esc(unit)}</text>` : ''}
       <path class="line" d="${d}"/>
@@ -1048,6 +1051,87 @@
       </section>`;
     }
     return page('Track', 'Weight, workouts, habits and goal momentum', body);
+  }
+
+
+  /* ---------- Wheel of Life (Zig Ziglar) ---------- */
+  const WHEEL = [
+    { id: 'physical', name: 'Physical', hint: 'Health, energy, fitness, sleep, nutrition' },
+    { id: 'mental', name: 'Mental', hint: 'Learning, growth, focus, attitude' },
+    { id: 'spiritual', name: 'Spiritual', hint: 'Faith, purpose, inner peace, values' },
+    { id: 'family', name: 'Family', hint: 'Spouse, children, parents, home life' },
+    { id: 'career', name: 'Career', hint: 'Work, calling, contribution, progress' },
+    { id: 'financial', name: 'Financial', hint: 'Income, savings, debt, security' },
+    { id: 'social', name: 'Social', hint: 'Friendships, community, service' },
+  ];
+
+  function radar(cur, prev) {
+    const SZ = 380, c = SZ / 2, R = 128, n = WHEEL.length;
+    const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    const pt = (i, v) => [c + Math.cos(ang(i)) * R * (v / 10), c + Math.sin(ang(i)) * R * (v / 10)];
+    const poly = (sc) => WHEEL.map((a, i) => pt(i, Number(sc[a.id]) || 0).map((x) => x.toFixed(1)).join(',')).join(' ');
+    return `<svg class="radar" viewBox="0 0 ${SZ} ${SZ}" role="img" aria-label="Wheel of Life radar chart">
+      ${[2, 4, 6, 8, 10].map((v) => `<polygon class="radar-ring" points="${WHEEL.map((a, i) => pt(i, v).map((x) => x.toFixed(1)).join(',')).join(' ')}"/>`).join('')}
+      ${WHEEL.map((a, i) => { const [x, y] = pt(i, 10); return `<line class="radar-axis" x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }).join('')}
+      ${prev ? `<polygon class="radar-prev" points="${poly(prev)}"/>` : ''}
+      <polygon class="radar-now" points="${poly(cur)}"/>
+      ${WHEEL.map((a, i) => { const [x, y] = pt(i, Number(cur[a.id]) || 0); return `<circle class="radar-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4"/><circle class="hit" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" data-tip="${a.name}: ${cur[a.id]}/10"/>`; }).join('')}
+      ${WHEEL.map((a, i) => {
+        const cs = Math.cos(ang(i)), [x, y] = [c + cs * (R + 16), c + Math.sin(ang(i)) * (R + 16) + 4];
+        return `<text class="radar-label" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${Math.abs(cs) < 0.2 ? 'middle' : cs > 0 ? 'start' : 'end'}">${a.name}</text>`;
+      }).join('')}
+    </svg>`;
+  }
+
+  function viewWheel() {
+    const list = state.wheel.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const last = list[list.length - 1], prev = list[list.length - 2];
+    const avg = (sc) => round1(WHEEL.reduce((s, a) => s + (Number(sc[a.id]) || 0), 0) / WHEEL.length);
+    const start = last ? last.scores : {};
+    const sorted = last ? WHEEL.slice().sort((a, b) => last.scores[a.id] - last.scores[b.id]) : [];
+    const delta = (id) => (last && prev ? last.scores[id] - prev.scores[id] : null);
+    const fmtD = (d) => (d == null ? '' : d > 0 ? `+${d}` : d < 0 ? `${d}` : '=');
+    const tile = (l, v, sub) => `<div class="tile"><span>${l}</span><strong>${v}</strong><small>${sub}</small></div>`;
+
+    const form = `<form data-act-form="wheel" class="wheel-form">
+      <label class="field">Date <input type="date" name="date" value="${todayISO()}" required></label>
+      ${WHEEL.map((a) => `<div class="wheel-row"><div><strong>${a.name}</strong><small class="muted">${a.hint}</small></div>
+        <input type="range" min="1" max="10" step="1" name="s_${a.id}" value="${start[a.id] || 5}" data-wheel aria-label="${a.name} score"><output>${start[a.id] || 5}</output></div>`).join('')}
+      <label class="field">Notes <textarea name="note" rows="2" placeholder="What's driving these scores? What do you want to change?"></textarea></label>
+      <div class="row end"><button class="primary">Save assessment</button></div>
+    </form>`;
+
+    const body = `
+      <p class="lead">Zig Ziglar's Wheel of Life: seven areas that make up a balanced life. Score each from 1 (needs a lot of attention) to 10 (thriving). Repeat every quarter to watch your balance change.</p>
+      <div class="grid2">
+        <section class="box"><h2>Score yourself</h2>${form}</section>
+        <section class="box"><h2>${last ? `Your wheel <small class="muted">${U.fmtDate(last.date, { month: 'short', day: 'numeric', year: 'numeric' })}</small>` : 'Your wheel'}</h2>
+          ${last ? `${radar(last.scores, prev && prev.scores)}${prev ? `<p class="legend"><span class="sw now"></span> ${U.fmtDate(last.date)} <span class="sw prev"></span> ${U.fmtDate(prev.date)}</p>` : ''}`
+            : '<p class="muted">Save your first assessment and your wheel appears here.</p>'}
+        </section>
+      </div>
+      ${last ? `
+      <div class="tiles">
+        ${tile('Balance score', avg(last.scores), prev ? `${avg(last.scores) - avg(prev.scores) >= 0 ? '+' : ''}${round1(avg(last.scores) - avg(prev.scores))} since ${U.fmtDate(prev.date)}` : 'average of 7 areas')}
+        ${tile('Strongest', esc(sorted[sorted.length - 1].name), `${last.scores[sorted[sorted.length - 1].id]}/10`)}
+        ${tile('Needs attention', esc(sorted[0].name), `${last.scores[sorted[0].id]}/10`)}
+        ${tile('Assessments', list.length, 'saved so far')}
+      </div>
+      <section class="box"><h2>By area</h2>
+        <table class="index wheel-table"><thead><tr><th>Area</th><th>Now</th><th>Change</th><th></th><th>Trend</th></tr></thead><tbody>
+        ${WHEEL.map((a) => `<tr><td><strong>${a.name}</strong></td><td>${last.scores[a.id]}/10</td><td class="muted">${fmtD(delta(a.id))}</td>
+          <td>${progressBar(last.scores[a.id] * 10)}</td>
+          <td>${sparkline(list.map((x) => ({ date: x.date, v: x.scores[a.id] * 10 })))}</td></tr>`).join('')}</tbody></table>
+        <p class="muted small">Lowest scores are your best places to start. <a href="#/goals">Turn ${esc(sorted[0].name)} into a goal →</a></p>
+      </section>
+      ${list.length > 1 ? `<section class="box"><h2>Balance over time</h2>${lineChart(list.map((x) => ({ date: x.date, value: avg(x.scores) })), null, '/10', 'Wheel of Life balance score')}</section>` : ''}
+      <section class="box"><h2>History</h2>
+        <div class="cal-wrap"><table class="index"><thead><tr><th>Date</th>${WHEEL.map((a) => `<th>${a.name.slice(0, 4)}</th>`).join('')}<th>Avg</th><th></th></tr></thead><tbody>
+        ${list.slice().reverse().map((x) => `<tr><td>${U.fmtDate(x.date, { month: 'short', day: 'numeric', year: 'numeric' })}${x.note ? `<br><small class="muted">${esc(x.note)}</small>` : ''}</td>
+          ${WHEEL.map((a) => `<td>${x.scores[a.id]}</td>`).join('')}<td><strong>${avg(x.scores)}</strong></td>
+          <td><button class="x" data-act="del" data-path="wheel" data-id="${x.id}" aria-label="Delete assessment">×</button></td></tr>`).join('')}</tbody></table></div>
+      </section>` : ''}`;
+    return page('Wheel of Life', 'Seven areas, scored over time', body);
   }
 
   function viewLists(tab) {
@@ -1374,6 +1458,10 @@
     if (el.type === 'range' && el.nextElementSibling && el.nextElementSibling.tagName === 'OUTPUT') el.nextElementSibling.textContent = `${el.value}%`;
     persist();
   });
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.dataset && 'wheel' in el.dataset && el.nextElementSibling) el.nextElementSibling.textContent = el.value;
+  });
   document.addEventListener('change', (e) => {
     const el = e.target;
     if (el.matches('[data-nav]')) { location.hash = el.value; return; }
@@ -1394,6 +1482,17 @@
       const c = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
       state.cycles.push(c); state.settings.cycleMonths = months;
       commit(); location.hash = `#/goals/${c.id}`;
+      return;
+    }
+    if (form.dataset.actForm === 'wheel') {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const date = fd.get('date') || todayISO();
+      const scores = {};
+      WHEEL.forEach((a) => { scores[a.id] = Number(fd.get(`s_${a.id}`)) || 5; });
+      state.wheel = state.wheel.filter((x) => x.date !== date);
+      state.wheel.push({ id: S.uid(), date, scores, note: String(fd.get('note') || '').trim() });
+      commit(); toast('Assessment saved');
       return;
     }
     if (!form.dataset.add) return;
@@ -1439,7 +1538,7 @@
   /* ---------- router ---------- */
   const ROUTES = {
     today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, track: viewTrack, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
     const [, name = 'today', arg] = (location.hash || '#/today').split('/');

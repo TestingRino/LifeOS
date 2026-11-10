@@ -440,3 +440,20 @@ details.plan h4 { margin: .7rem 0 .2rem; }
   .strip-name { flex-basis: 100%; }
   .dot { width: 14px; height: 14px; }
 }
+
+/* wheel of life */
+.radar { width: 100%; max-width: 420px; display: block; margin: 0 auto; }
+.radar-ring { fill: none; stroke: var(--line); }
+.radar-axis { stroke: var(--line); }
+.radar-now { fill: color-mix(in srgb, var(--navy) 22%, transparent); stroke: var(--navy); stroke-width: 2; }
+.radar-prev { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.radar-dot { fill: var(--navy); }
+.radar-label { font-size: 12px; fill: var(--ink); }
+.legend { text-align: center; font-size: .85rem; color: var(--muted); }
+.legend .sw { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--navy); vertical-align: middle; margin: 0 .2rem 0 .6rem; }
+.legend .sw.prev { border-top: 2px dashed var(--muted); }
+.wheel-row { display: grid; grid-template-columns: 1fr minmax(120px, 1.2fr) 2ch; gap: .6rem; align-items: center; padding: .35rem 0; border-bottom: 1px dotted var(--line); }
+.wheel-row small { display: block; }
+.wheel-row output { font-weight: 700; text-align: right; }
+@media (max-width: 760px) { .wheel-row { grid-template-columns: 1fr 2ch; } .wheel-row input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
+.radar .hit { fill: transparent; stroke: none; }

@@ -36,6 +36,7 @@
       projects: [],       // {id, name, status, goalId, notes, steps:[{id,text,done}]} — hobby & project plans
       weights: [],        // {id, date, value}
       journals: [],       // {id, date, text, tags}
+      wheel: [],          // {id, date, scores:{physical..social: 1-10}, note} — Wheel of Life assessments
       lastNotifications: {},  // {key: timestamp} — prevent notification spam
     };
   }
