@@ -472,3 +472,19 @@ details.plan h4 { margin: .7rem 0 .2rem; }
 .focus-list { list-style: none; padding: 0; margin: 0; }
 .focus-list li { display: flex; align-items: center; gap: .8rem; padding: .5rem 0; border-bottom: 1px dotted var(--line); }
 .focus { border-left: 4px solid var(--navy); }
+
+/* ideal week & daily review */
+.ideal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: .8rem; margin-top: .8rem; }
+.ideal-day h3 { margin-top: 0; }
+.ideal-day li { flex-wrap: wrap; }
+li.ideal.done .grow { text-decoration: line-through; color: var(--muted); }
+.sched li.ideal { color: var(--muted); }
+.review { border-left: 4px solid var(--ok); }
+.review.done { opacity: .85; }
+.review summary { cursor: pointer; font-size: 1.05rem; }
+.review-step { padding: .5rem 0; border-top: 1px dotted var(--line); }
+.review-step blockquote { margin: .3rem 0 0; }
+ul.plain { margin: .2rem 0 0 1.6rem; padding: 0; list-style: disc; }
+ul.checks.ideal-edit li { display: grid; grid-template-columns: 7.6rem 1fr auto; gap: .3rem .5rem; align-items: center; padding: .4rem 0; }
+ul.checks.ideal-edit li .link { grid-column: 1 / 3; }
+ul.checks.ideal-edit li input.inline { width: 100%; min-width: 0; }

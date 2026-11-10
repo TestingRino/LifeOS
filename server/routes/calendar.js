@@ -72,8 +72,9 @@ router.post('/events', async (req, res) => {
     const created = await createCalendarEvent(accessToken, {
       summary: event.summary || event.text || 'Untitled',
       description: event.description || event.notes || '',
-      start: event.start ? { dateTime: event.start } : { date: event.date },
-      end: event.end ? { dateTime: event.end } : event.date ? { date: addDays(event.date, 1) } : undefined,
+      start: event.start ? { dateTime: event.start, ...(event.timeZone && { timeZone: event.timeZone }) } : { date: event.date },
+      end: event.end ? { dateTime: event.end, ...(event.timeZone && { timeZone: event.timeZone }) } : event.date ? { date: addDays(event.date, 1) } : undefined,
+      ...(Array.isArray(event.recurrence) && { recurrence: event.recurrence }),
       location: event.location || '',
       reminders: { useDefault: true },
     });

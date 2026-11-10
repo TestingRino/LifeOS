@@ -38,6 +38,9 @@
       journals: [],       // {id, date, text, tags}
       focus: {},          // 'YYYY-Qn' -> [goalId] — the 3–4 goals chosen as this quarter's focus
       big3: [],           // {id, date, text, goalId, done, migrated} — Daily Big 3 (Full Focus / Bullet Journal style)
+      idealWeek: [],      // {id, dow 0-6, time, text, goalId, workout} — recurring weekly blocks
+      idealLog: {},       // 'YYYY-MM-DD' -> {itemId: true|'skip'} — per-day done / skipped
+      reviews: {},        // 'YYYY-MM-DD' -> {purpose, goals, ideal} — daily review check-offs
       wheel: [],          // {id, date, scores:{physical..social: 1-10}, note} — Wheel of Life assessments
       lastNotifications: {},  // {key: timestamp} — prevent notification spam
     };

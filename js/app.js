@@ -124,6 +124,21 @@
       .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1))[0];
   }
 
+  /* ---------- ideal week ---------- */
+  const idealOn = (iso) => {
+    const dow = U.parseISO(iso).getDay(), log = state.idealLog[iso] || {};
+    return state.idealWeek.filter((i) => Number(i.dow) === dow && log[i.id] !== 'skip')
+      .sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
+  };
+  const idealDone = (it, iso) => (state.idealLog[iso] || {})[it.id] === true;
+  function idealRow(it, iso, canSkip) {
+    const done = idealDone(it, iso), g = it.goalId && state.goals.find((x) => x.id === it.goalId);
+    return `<li class="ideal${done ? ' done' : ''}"><input type="checkbox" data-act="idealDone" data-id="${it.id}" data-date="${iso}" ${done ? 'checked' : ''} aria-label="Done: ${esc(it.text)}">
+      <span class="grow">${it.time ? `<time>${esc(fmtTime(it.time))}</time> ` : ''}${esc(it.text)}${it.workout ? ' <small class="muted">workout</small>' : ''}${g ? ` <small class="muted">${esc(g.title)}</small>` : ''}</span>
+      ${canSkip ? `<button class="x" data-act="idealSkip" data-id="${it.id}" data-date="${iso}" aria-label="Skip today">×</button>` : ''}</li>`;
+  }
+  const reviewDone = (iso) => { const r = state.reviews[iso]; return !!(r && r.purpose && r.goals && r.ideal); };
+
   /* ---------- small HTML helpers ---------- */
   const ta = (path, ph, rows = 3) =>
     `<textarea data-bind="${esc(path)}" rows="${rows}" placeholder="${esc(ph || '')}">${esc(get(path))}</textarea>`;
@@ -327,9 +342,9 @@
     if (!token) { toast('Connect Google Calendar in Settings first'); return; }
     let ok = 0;
     for (const e of items) {
-      if (!e.date || !e.text) continue;
-      const event = { text: e.text, date: e.date };
-      if (e.time) {
+      if (!e.raw && (!e.date || !e.text)) continue;
+      const event = e.raw || { text: e.text, date: e.date };
+      if (!e.raw && e.time) {
         const start = new Date(`${e.date}T${e.time}`);
         if (!isNaN(start)) { event.start = start.toISOString(); event.end = new Date(start.getTime() + 3600000).toISOString(); }
       }
@@ -436,6 +451,12 @@
       .map((i) => ({ text: i.text, due: i.due, goal: g.title, base: `goals.@${g.id}.${key}.@${i.id}` })))
       .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
     const fgoals = focusGoals(iso);
+    const idealToday = idealOn(iso);
+    const rv = state.reviews[iso] || {};
+    const rvCount = ['purpose', 'goals', 'ideal'].filter((k) => rv[k]).length;
+    let rvStreak = 0;
+    for (let i = rvCount === 3 ? 0 : 1; i < 400 && reviewDone(U.toISO(U.addDays(t, -i))); i++) rvStreak++;
+    const purposeText = (state.foundation.mission || '').trim() || (state.foundation.vision || '').trim();
     const bigToday = state.big3.filter((b) => b.date === iso);
     const carry = state.big3.filter((b) => b.date < iso && !b.done && !b.migrated).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-6);
     const openObjs = pending('objectives').slice(0, 6);
@@ -460,6 +481,17 @@
 
     const body = `
       ${vision ? `<blockquote class="vision"><span>Who I'm becoming</span>${esc(vision.split('\n')[0])}</blockquote>` : ''}
+      <section class="box review${rvCount === 3 ? ' done' : ''}">
+        <details ${rvCount === 3 ? '' : 'open'}><summary><strong>Daily review</strong> <span class="muted">· ${rvCount}/3${rvCount === 3 ? ' ✓' : ''}${rvStreak > 1 ? ` · 🔥 ${rvStreak} days` : ''}</span></summary>
+          <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.purpose`, 'Reviewed my purpose')} <strong>My purpose</strong></label>
+            ${purposeText ? `<blockquote class="vision small">${esc(purposeText.split('\n').slice(0, 3).join(' '))}</blockquote>` : '<p class="muted small">Write your purpose statement on <a href="#/foundation">Foundation</a> so you can read it here each day.</p>'}</div>
+          <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.goals`, 'Reviewed my goals')} <strong>My goals</strong></label>
+            ${fgoals.length ? `<ul class="plain">${fgoals.map((g) => `<li>${g.tier === 'purpose' ? '<span class="star">★</span> ' : ''}${esc(g.title)} <small class="muted">${Number(g.progress) || 0}%</small></li>`).join('')}</ul>` : '<p class="muted small"><a href="#/goals">Choose your quarterly focus</a>.</p>'}
+            ${tks.length ? `<p class="muted small">Plus ${tks.length} daily habit${tks.length > 1 ? 's' : ''} below.</p>` : ''}</div>
+          <div class="review-step"><label class="inline-check">${chk(`reviews.${iso}.ideal`, 'Reviewed my ideal week')} <strong>My ideal week</strong> <small class="muted">${U.DAYS[t.getDay()]}</small></label>
+            ${idealToday.length ? `<ul class="plain">${idealToday.map((i) => `<li>${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</li>`).join('')}</ul>` : '<p class="muted small">Nothing in your ideal week for today. <a href="#/ideal">Set up your ideal week →</a></p>'}</div>
+        </details>
+      </section>
       <section class="box focus">
         <h2>Quarterly focus <span class="muted">· ${quarterLabel(iso)}</span><a class="more" href="#/goals">Choose →</a></h2>
         ${fgoals.length ? `<ul class="focus-list">${fgoals.map((g) => { const ns = nextStep(g); return `<li>
@@ -494,9 +526,10 @@
         <section class="box">
           <h2>Today's plan <a class="more" href="#/week/${wk}">Schedule →</a></h2>
           ${todayEvents.length ? `<ul class="events">${todayEvents.map((e) => `<li><time>All day</time> ${esc(e.text)}</li>`).join('')}</ul>` : ''}
+          ${idealToday.length ? `<ul class="checks compact">${idealToday.map((i) => idealRow(i, iso, true)).join('')}</ul>` : ''}
           ${todaySched.length ? `<ul class="events">${todaySched.map((s) => `<li><time>${esc(fmtTime(s.time)) || '—'}</time> ${esc(s.text)}</li>`).join('')}</ul>` : ''}
           ${todayWos.length ? `<ul class="checks compact">${todayWos.map((x) => `<li>${chk(`workouts.@${x.id}.done`, 'Workout done')}<span class="grow">${x.time ? `<time>${esc(fmtTime(x.time))}</time> ` : ''}Workout: ${esc(x.type)}${x.details ? ` <small class="muted">${esc(x.details)}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
-          ${!todayEvents.length && !todaySched.length && !todayWos.length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
+          ${!todayEvents.length && !todaySched.length && !todayWos.length && !idealToday.length ? '<p class="muted">Nothing scheduled. Add appointments and workouts on the Week page.</p>' : ''}
           <form class="add" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" aria-label="Time"><input name="text" placeholder="Add to today…" required><button aria-label="Add">+</button></form>
         </section>
         <section class="box">
@@ -835,7 +868,8 @@
       const iso = U.toISO(d);
       return `<div class="${iso === tIso ? 'today' : ''}"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
         ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${esc(e.text)}</div>`).join('')}
-        <ul class="sched">${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
+        <ul class="sched">${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
+          ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
           ${wos.filter((x) => x.date === iso).map((x) => `<li class="wo ${x.done ? 'done' : ''}"><span class="grow">${x.done ? '✓' : '◦'} ${esc(x.type)}</span></li>`).join('')}</ul>
       </div>`;
     }).join('')}</div>
@@ -1274,6 +1308,29 @@
     return page('Wheel of Life', 'Seven areas, scored over time', body);
   }
 
+  function viewIdeal() {
+    const order = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + ws()) % 7);
+    const goals = (currentCycle() ? cycleGoals(currentCycle().id) : []).filter((g) => g.kind !== 'habit');
+    const day = (d) => {
+      const items = state.idealWeek.filter((i) => Number(i.dow) === d).sort((a, b) => ((a.time || '99') < (b.time || '99') ? -1 : 1));
+      return `<section class="box ideal-day"><h3>${U.DAYS[d]}</h3>
+        <ul class="checks compact ideal-edit">${items.map((i) => { const p = `idealWeek.@${i.id}`; return `<li>
+          <input class="inline" type="time" data-bind="${p}.time" value="${esc(i.time || '')}" aria-label="Time">
+          <input class="inline" data-bind="${p}.text" value="${esc(i.text)}" aria-label="Block">
+          <button class="x" data-act="del" data-path="idealWeek" data-id="${i.id}" aria-label="Remove">×</button>
+          <select class="link" data-bind="${p}.goalId" data-rerender aria-label="Linked goal">${goalOpts(goals, i.goalId)}</select>
+          <label class="inline-check small"><input type="checkbox" data-bind="${p}.workout" data-rerender ${i.workout ? 'checked' : ''}> workout</label></li>`; }).join('')}</ul>
+        <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input type="time" name="time" aria-label="Time">
+          <input name="text" placeholder="Add a block (e.g. Family night)…" required><button aria-label="Add">+</button></form></section>`;
+    };
+    const body = `
+      <p class="lead">Your ideal week is the template for how you want your time to flow. Give each day a purpose. Every block appears on that day in Today and Week, ready to check off. Tick "workout" to log a workout when you complete it.</p>
+      <div class="row"><button class="btn ghost" data-act="pushIdeal">Add to Google Calendar (repeats weekly)</button>
+        <a class="btn ghost" href="#/week">See this week →</a></div>
+      <div class="ideal-grid">${order.map(day).join('')}</div>`;
+    return page('Ideal Week', 'A purposeful rhythm for every day', body);
+  }
+
   function viewLists(tab) {
     tab = tab || 'bucket';
     const tabs = [['bucket', 'Bucket List'], ['hobbies', 'Hobbies & Projects'], ['shopping', 'Shopping'], ['reading', 'Reading & Entertainment'], ['journal', 'Journal'], ['index', 'Notes Index']];
@@ -1441,6 +1498,7 @@
   const DEFAULTS = {
     goals: () => ({ area: 'work', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [] }),
     big3: () => ({ done: false, goalId: '' }),
+    idealWeek: () => ({ time: '', goalId: '', workout: false }),
     milestones: () => ({ done: false, due: '' }),
     objectives: () => ({ done: false, due: '' }),
     routines: () => ({ perWeek: 1, log: {} }),
@@ -1554,6 +1612,32 @@
       commit();
     },
     uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
+    idealDone(el) {
+      const { id, date } = el.dataset, it = state.idealWeek.find((x) => x.id === id);
+      const log = (state.idealLog[date] = state.idealLog[date] || {});
+      const now = log[id] !== true;
+      log[id] = now ? true : undefined;
+      if (it && it.workout) {
+        state.workouts = state.workouts.filter((w) => !(w.ideal === id && w.date === date));
+        if (now) state.workouts.push({ id: S.uid(), date, type: it.text, done: true, minutes: '', details: '', time: it.time || '', ideal: id });
+      }
+      commit();
+    },
+    idealSkip(el) { const log = (state.idealLog[el.dataset.date] = state.idealLog[el.dataset.date] || {}); log[el.dataset.id] = 'skip'; commit(); },
+    pushIdeal() {
+      if (!localStorage.getItem('google_access_token')) { toast('Connect Google Calendar in Settings first'); return; }
+      if (!state.idealWeek.length) { toast('Add some blocks to your ideal week first'); return; }
+      if (!confirm(`Add ${state.idealWeek.length} weekly repeating events to your Google Calendar? Do this once; running it again creates duplicates.`)) return;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const t0 = today();
+      const localIso = (d) => `${U.toISO(d)}T${U.pad(d.getHours())}:${U.pad(d.getMinutes())}:00`;
+      pushToGoogleCalendar(state.idealWeek.filter((i) => i.text).map((i) => {
+        const first = U.addDays(t0, (Number(i.dow) - t0.getDay() + 7) % 7), date = U.toISO(first);
+        const raw = { text: i.text, date, recurrence: ['RRULE:FREQ=WEEKLY'] };
+        if (i.time) { const st = new Date(`${date}T${i.time}`); raw.start = localIso(st); raw.end = localIso(new Date(st.getTime() + 3600000)); raw.timeZone = tz; }
+        return { raw };
+      }));
+    },
     toggleFocus(el) {
       const qk = quarterKey(todayISO());
       const list = (state.focus[qk] = (state.focus[qk] || []).filter((id) => state.goals.some((g) => g.id === id)));
@@ -1807,16 +1891,26 @@
     goal(parent, { title: 'Host friends or family once a month', area: 'friends', why: 'Community is built on showing up.', measure: '6 gatherings hosted' });
     goal(pro, { title: 'Finish a hobby project I keep putting off', area: 'projects', why: 'Finishing it frees mental space.', measure: 'Project complete' });
     state.focus[quarterKey(todayISO())] = focusIds;
+    if (!state.idealWeek.length) {
+      const block = (dow, text, extra) => state.idealWeek.push({ id: S.uid(), dow, time: '', text, goalId: '', workout: false, seed: true, ...extra });
+      [1, 2, 3, 4, 5].forEach((d) => block(d, 'Workout', { time: '06:30', workout: true }));
+      block(1, 'Home & car maintenance', { time: '17:30' });
+      block(2, 'Family night', { time: '18:00' });
+      block(3, 'Activities', { time: '16:00' });
+      block(4, 'Community impact', { time: '17:30' });
+      block(5, 'Plan next week', { time: '15:00' });
+    }
   }
   function removeSamples() {
     state.goals = state.goals.filter((g) => !g.seed);
     state.roles = state.roles.filter((r) => !r.seed);
+    state.idealWeek = state.idealWeek.filter((i) => !i.seed);
   }
 
   /* ---------- router ---------- */
   const ROUTES = {
     today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, ideal: viewIdeal, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
     const [, name = 'today', arg] = (location.hash || '#/today').split('/');
