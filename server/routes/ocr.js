@@ -9,7 +9,7 @@ const client = new Anthropic();
 
 const OCR_PROMPTS = {
   schedule: `Extract schedule entries from this image. For each entry, extract: date (YYYY-MM-DD if visible), time (HH:MM), and activity text. Return JSON: {entries: [{date, time, text}]}`,
-  goals: `Extract goals from this image. For each goal, extract: title, why/reason, target date (YYYY-MM-DD), and area (work|home|friends|projects|fun|health). Return JSON: {goals: [{title, why, target, area}]}`,
+  goals: `This may be a roles-and-goals planner page. Extract any roles (e.g. Parent, Husband, Professional) with their WHY, and every goal, noting which role it belongs to. For each goal extract: title, why/reason, target date (YYYY-MM-DD), area (work|home|friends|projects|fun|health) and role. Return JSON: {roles: [{name, why}], goals: [{title, why, target, area, role}]}`,
   workouts: `Extract workout log from this image. For each entry, extract: date (YYYY-MM-DD), type (e.g., running, lifting), duration in minutes, details. Return JSON: {workouts: [{date, type, minutes, details}]}`,
   weights: `Extract weight entries from this image. For each entry, extract: date (YYYY-MM-DD) and weight value. Return JSON: {weights: [{date, value}]}`,
   habits: `Extract habit tracker from this image. Extract: habit names and target days per week. Return JSON: {habits: [{name, target}]}`,
@@ -26,7 +26,7 @@ const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 async function analyzeImage(base64Image, mediaType, type = 'auto') {
   const prompt = type === 'auto'
-    ? `Analyze this image and detect what type of life planning data it contains (schedule, goals, workouts, weights, habits, shopping, journal, bucket, reading, projects, events, or reflections). Then extract the data. Return ONLY JSON: {type: "...", data: {...}} where data uses the shape for that type.`
+    ? `Analyze this image and detect what type of life planning data it contains (schedule, goals, workouts, weights, habits, shopping, journal, bucket, reading, projects, events, or reflections). If it lists roles with goals, use type \"goals\" and include roles. Then extract the data. Return ONLY JSON: {type: "...", data: {...}} where data uses the shape for that type.`
     : (OCR_PROMPTS[type] || OCR_PROMPTS.journal);
 
   try {

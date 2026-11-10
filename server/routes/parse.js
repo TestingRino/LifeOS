@@ -25,12 +25,16 @@ function normalizeByType(type, data) {
         text: e.text,
       })) };
     case 'goals':
-      return { goals: (data.goals || []).map(g => ({
-        title: g.title,
-        why: g.why || '',
-        target: g.target || '',
-        area: g.area || 'work',
-      })) };
+      return {
+        roles: (data.roles || []).map(r => ({ name: r.name, why: r.why || '' })),
+        goals: (data.goals || []).map(g => ({
+          title: g.title,
+          why: g.why || '',
+          target: g.target || '',
+          area: g.area || 'work',
+          role: g.role || '',
+        })),
+      };
     case 'workouts':
       return { workouts: (data.workouts || []).map(w => ({
         date: w.date,

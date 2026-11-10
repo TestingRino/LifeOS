@@ -356,7 +356,13 @@
     toast(ok ? `Created ${ok} calendar event${ok === 1 ? '' : 's'}` : 'Could not create calendar events');
   }
 
+  const OCR_DEST = { schedule: '#/week', goals: '#/goals', workouts: '#/track/workouts', weights: '#/track/weight', habits: '#/week', shopping: '#/lists/shopping',
+    journal: '#/lists/journal', bucket: '#/lists/bucket', reading: '#/lists/reading', projects: '#/lists/hobbies', events: '#/year' };
+  const countAll = () => ['goals', 'roles', 'schedule', 'workouts', 'weights', 'shopping', 'journals', 'bucket', 'reading', 'projects', 'events']
+    .reduce((n, k) => n + state[k].length, 0) + Object.values(state.weeks).reduce((n, w) => n + (w.habits || []).length, 0);
+
   function addOCRDataToApp(route, data) {
+    const before = countAll();
     try {
       switch (route) {
         case 'schedule':
@@ -364,16 +370,34 @@
             if (e.date && e.text) state.schedule.push({ id: S.uid(), date: e.date, time: e.time || '', text: e.text });
           });
           break;
-        case 'goals':
-          data.goals.forEach(g => {
-            const cyc = currentCycle() || state.cycles[state.cycles.length - 1];
-            if (cyc && g.title) state.goals.push({
-              id: S.uid(), cycleId: cyc.id, roleId: state.roles[0]?.id || '',
-              title: g.title, why: g.why || '', area: g.area || 'work', tier: 'pursuit',
-              progress: 0, status: 'active', target: g.target || '', doneBy: g.target || ''
+        case 'goals': {
+          let cyc = currentCycle() || state.cycles[state.cycles.length - 1];
+          if (!cyc) {
+            const t = today(), dates = U.makeCycleDates(U.toISO(new Date(t.getFullYear(), t.getMonth(), 1)), Number(state.settings.cycleMonths) || 6);
+            cyc = { id: S.uid(), name: U.cycleName(dates.start, dates.end), ...dates, review: {}, roleActions: {} };
+            state.cycles.push(cyc);
+          }
+          const roleId = (name) => {
+            const n = String(name || '').trim();
+            if (!n) return state.roles[0] ? state.roles[0].id : '';
+            let r = state.roles.find((x) => x.name.toLowerCase() === n.toLowerCase());
+            if (!r) { r = { id: S.uid(), name: n, why: '' }; state.roles.push(r); }
+            return r.id;
+          };
+          (data.roles || []).forEach((r) => {
+            if (!r.name) return;
+            const id = roleId(r.name), role = state.roles.find((x) => x.id === id);
+            if (r.why && !role.why) role.why = r.why;
+          });
+          (data.goals || []).forEach((g) => {
+            if (!g.title) return;
+            state.goals.push({
+              id: S.uid(), cycleId: cyc.id, roleId: roleId(g.role), title: g.title, why: g.why || '', area: g.area || 'work', tier: 'pursuit',
+              progress: 0, status: 'active', target: g.target || '', doneBy: g.target || '', measure: '', kind: 'achievement', perWeek: 5, log: {}, milestones: [], objectives: [], routines: []
             });
           });
           break;
+        }
         case 'workouts':
           data.workouts.forEach(w => {
             if (w.date && w.type) state.workouts.push({
@@ -431,8 +455,11 @@
           pushToGoogleCalendar(data.entries || data.events || []);
           return;
       }
+      const added = countAll() - before;
       commit();
-      toast(`Added to ${route}`);
+      if (!added) { toast('Nothing could be added from that photo. Try a closer, clearer shot.'); return; }
+      toast(`Added ${added} item${added === 1 ? '' : 's'}`);
+      if (OCR_DEST[route]) location.hash = OCR_DEST[route];
     } catch (e) { console.error('Data add error:', e); toast('Failed to add data'); }
   }
 
