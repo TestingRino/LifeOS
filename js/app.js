@@ -9,6 +9,7 @@
   const app = document.getElementById('app');
 
   /* ---------- basics ---------- */
+  const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : process.env.REACT_APP_API_BASE || '';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const qsToday = new URLSearchParams(location.search).get('today');
@@ -220,6 +221,121 @@
       if (hot) sendNotification('🔥 ' + hot.t, { body: hot.d });
       else sendNotification('📋 ' + due[0].t, { body: due[0].d });
     }
+  }
+
+  /* ---------- backend integration ---------- */
+  async function syncGoogleCalendar() {
+    const token = localStorage.getItem('google_access_token');
+    if (!token) return [];
+    try {
+      const iso = U.toISO(today());
+      const monthStart = U.toISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+      const monthEnd = U.toISO(U.addDays(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 1));
+      const res = await fetch(`${API_BASE}/api/calendar/events?accessToken=${token}&from=${monthStart}&to=${monthEnd}`);
+      const { events } = await res.json();
+      return events || [];
+    } catch (e) { console.warn('Calendar sync error:', e); return []; }
+  }
+
+  async function uploadPhotoOCR(file) {
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('type', 'auto');
+    try {
+      const res = await fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    } catch (e) { console.error('OCR error:', e); throw e; }
+  }
+
+  async function startGoogleOAuth() {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/google/url`);
+      const { url } = await res.json();
+      window.location = url;
+    } catch (e) { console.error('OAuth error:', e); toast('Failed to start login'); }
+  }
+
+  function addOCRDataToApp(route, data) {
+    try {
+      switch (route) {
+        case 'schedule':
+          data.entries.forEach(e => {
+            if (e.date && e.text) state.schedule.push({ id: S.uid(), date: e.date, time: e.time || '', text: e.text });
+          });
+          break;
+        case 'goals':
+          data.goals.forEach(g => {
+            const cyc = currentCycle() || state.cycles[state.cycles.length - 1];
+            if (cyc && g.title) state.goals.push({
+              id: S.uid(), cycleId: cyc.id, roleId: state.roles[0]?.id || '',
+              title: g.title, why: g.why || '', area: g.area || 'work', tier: 'pursuit',
+              progress: 0, status: 'active', target: g.target || '', doneBy: g.target || ''
+            });
+          });
+          break;
+        case 'workouts':
+          data.workouts.forEach(w => {
+            if (w.date && w.type) state.workouts.push({
+              id: S.uid(), date: w.date, type: w.type, done: false, details: w.details || '',
+              minutes: w.minutes || ''
+            });
+          });
+          break;
+        case 'weights':
+          data.weights.forEach(w => {
+            if (w.date && w.value) state.weights.push({ id: S.uid(), date: w.date, value: w.value });
+          });
+          break;
+        case 'habits':
+          const wk = U.weekKey(today(), ws());
+          const week = getWeek(wk);
+          data.habits.forEach(h => {
+            if (h.name && !week.habits.find(x => x.name === h.name)) {
+              week.habits.push({ id: S.uid(), name: h.name, target: h.target || 5, days: [false, false, false, false, false, false, false] });
+            }
+          });
+          break;
+        case 'shopping':
+          data.items.forEach(i => { if (i.text) state.shopping.push({ id: S.uid(), text: i.text, done: false }); });
+          break;
+        case 'journal':
+          if (data.text) state.journals.push({ id: S.uid(), date: todayISO(), text: data.text });
+          break;
+        case 'bucket':
+          data.items.forEach(i => {
+            if (i.text) state.bucket.push({ id: S.uid(), text: i.text, star: false, done: false, budget: i.budget || '', target: i.target || '', details: '' });
+          });
+          break;
+        case 'reading':
+          data.items.forEach(i => {
+            if (i.title) state.reading.push({ id: S.uid(), title: i.title, by: i.by || '', genre: i.genre || '', nutshell: '', done: false });
+          });
+          break;
+        case 'projects':
+          data.projects.forEach(p => {
+            if (p.name) state.projects.push({
+              id: S.uid(), name: p.name, status: 'active', goalId: '', notes: '',
+              steps: (p.steps || []).map(s => ({ id: S.uid(), text: s.text || s, done: false }))
+            });
+          });
+          break;
+        case 'events':
+          data.events.forEach(e => {
+            if (e.date && e.text) state.events.push({
+              id: S.uid(), start: e.date, end: e.date, text: e.text, yearly: e.yearly || false
+            });
+          });
+          break;
+        case 'calendar':
+          data.entries?.forEach(e => {
+            if (e.date && e.text) state.schedule.push({ id: S.uid(), date: e.date, time: e.time || '', text: e.text });
+          });
+          break;
+      }
+      commit();
+      toast(`Added to ${route}`);
+    } catch (e) { console.error('Data add error:', e); toast('Failed to add data'); }
   }
 
   /* ---------- views ---------- */
@@ -926,7 +1042,15 @@
     const s = state.settings;
     const canNotify = typeof Notification !== 'undefined';
     const notifPerm = canNotify ? Notification.permission : null;
+    const hasCalendar = !!localStorage.getItem('google_access_token');
     const body = `
+      <section class="box"><h2>Integrations</h2>
+        <div class="row wrap">
+          ${hasCalendar ? `<div style="flex:1"><p class="muted small">✓ Google Calendar connected</p><button class="btn small ghost danger" data-act="disconnectCalendar">Disconnect</button></div>` : `<button class="btn" data-act="connectCalendar">Connect Google Calendar</button>`}
+          <button class="btn" data-act="uploadPhoto">Upload photo (OCR)</button>
+        </div>
+        <p class="muted small">Sync your calendar, upload photos of your planner, and auto-fill your app.</p>
+      </section>
       <section class="box"><h2>Planner</h2>
         <div class="row wrap">
           <label>Planner year starts in <select data-bind="settings.plannerStartMonth" data-type="number" data-rerender>${opts(U.MONTHS.map((m, i) => ({ v: i, l: m })), s.plannerStartMonth)}</select></label>
@@ -1094,6 +1218,14 @@
       (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject())
         .then(() => toast('Copied'), () => { document.execCommand('copy'); toast('Copied'); });
     },
+    connectCalendar() { startGoogleOAuth(); },
+    disconnectCalendar() {
+      if (!confirm('Disconnect Google Calendar?')) return;
+      localStorage.removeItem('google_access_token');
+      localStorage.removeItem('google_refresh_token');
+      commit();
+    },
+    uploadPhoto() { document.getElementById('uploadDlg').showModal(); },
   };
 
   /* Keep one progress value per goal per day so trends can be charted. */
@@ -1236,6 +1368,31 @@
   window.addEventListener('hashchange', render);
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
+
+  const uploadInput = document.getElementById('uploadInput');
+  const uploadDlg = document.getElementById('uploadDlg');
+  const ocrResultDlg = document.getElementById('ocrResultDlg');
+
+  uploadInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    toast('Processing image...');
+    try {
+      const result = await uploadPhotoOCR(file);
+      const { type, data, suggestions } = result;
+      document.getElementById('ocrType').textContent = `Detected: ${type} (${suggestions.length} option${suggestions.length > 1 ? 's' : ''})`;
+      const preview = document.getElementById('ocrPreview');
+      preview.innerHTML = `<pre>${esc(JSON.stringify(data, null, 2).slice(0, 500))}</pre>`;
+      const routeButtons = document.getElementById('routeButtons');
+      routeButtons.innerHTML = suggestions.map(s => `<button type="button" class="btn" onclick="addOCRDataToApp('${s.route}', ${JSON.stringify(s.data).replace(/"/g, '&quot;')})">→ ${s.label}</button>`).join('');
+      uploadDlg.close();
+      ocrResultDlg.showModal();
+    } catch (err) {
+      toast('OCR failed. Check that the server is running.');
+      console.error(err);
+    }
+  });
+
   render();
   checkNotifications();
 })();

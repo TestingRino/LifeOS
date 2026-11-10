@@ -56,6 +56,27 @@
       <div class="row end"><button type="button" id="copyBtn" class="btn">Copy text</button><button class="btn ghost">Close</button></div>
     </form>
   </dialog>
+
+  <dialog id="uploadDlg">
+    <form method="dialog">
+      <h2>Upload photo</h2>
+      <p class="muted small">Take a photo of your planner and we'll extract the data.</p>
+      <input type="file" id="uploadInput" accept="image/*" style="display:none">
+      <div id="uploadPreview" style="margin:1rem 0; text-align:center;"></div>
+      <div class="row"><button type="button" class="btn" onclick="document.getElementById('uploadInput').click()">Choose photo</button><button class="btn ghost">Cancel</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="ocrResultDlg">
+    <form method="dialog">
+      <h2>What is this?</h2>
+      <p class="muted small" id="ocrType"></p>
+      <div id="ocrPreview" style="max-height:200px; overflow-y:auto; margin:1rem 0; border:1px solid var(--ink); border-radius:4px; padding:0.5rem;"></div>
+      <div id="routeButtons" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
+      <div class="row end"><button class="btn ghost">Cancel</button></div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
