@@ -1,26 +1,7 @@
 {
-  "buildCommand": "cd server && npm install",
-  "startCommand": "cd server && npm start",
-  "env": {
-    "GOOGLE_CLIENT_ID": {
-      "description": "Google OAuth Client ID from Google Cloud Console",
-      "required": true
-    },
-    "GOOGLE_CLIENT_SECRET": {
-      "description": "Google OAuth Client Secret from Google Cloud Console",
-      "required": true
-    },
-    "GOOGLE_REDIRECT_URI": {
-      "description": "Will be set automatically after deployment",
-      "required": false
-    },
-    "ANTHROPIC_API_KEY": {
-      "description": "Claude API key from https://console.anthropic.com",
-      "required": true
-    }
-  },
+  "buildCommand": "npm install -w server",
   "functions": {
-    "server/**/*.js": {
+    "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 60
     }
