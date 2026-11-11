@@ -2311,6 +2311,7 @@
       quick = quickFresh(); commit(); toast('Your plan is ready'); location.hash = '#/today';
     },
     signIn() { startGoogleOAuth('signin'); },
+    landingSkip() { setAccountMode('local'); location.hash = '#/start'; },
     account() { if (signedIn()) location.hash = '#/settings'; else startGoogleOAuth('signin'); },
     signOut(el) {
       const wipe = el.dataset.wipe === '1';
@@ -3132,6 +3133,84 @@
     return page(st.def.title, st.per.label, body);
   }
 
+
+  /* ---------- landing page for people who have not signed up ---------- */
+  function viewLanding() {
+    const cta = (primaryLabel) => `<div class="land-cta">
+      <button type="button" class="btn primary big" data-act="signIn">${primaryLabel || 'Continue with Google'}</button>
+      <a class="btn big" href="#/welcome/1">See how it works</a>
+      <button type="button" class="linklike muted" data-act="landingSkip">or start without an account</button></div>`;
+    const areas = P.LIFE.map((a) => `<span class="land-chip">${esc(a.short)}</span>`).join('');
+    const feat = (ico, h, t) => `<div class="land-feat"><span class="ico" aria-hidden="true">${ico}</span><h3>${h}</h3><p>${t}</p></div>`;
+    return `<div class="landing">
+      <section class="land-hero">
+        <div class="land-copy">
+          <p class="land-kicker">Life.OS · purpose-based planning</p>
+          <h1>Build a life that matters, <em>not just a longer to-do list.</em></h1>
+          <p class="land-sub">Most planners help you do more. Life.OS starts with what you want your life to stand for, then turns it into goals, habits and a calendar you can actually follow, so the things you do add up to the life you want.</p>
+          ${cta()}
+          <p class="land-note">No account needed. Your plan stays on your device, or in your own Google Drive if you sign in.</p>
+        </div>
+        <div class="land-preview" aria-hidden="true">
+          <div class="lp-card">
+            <div class="lp-purpose"><small>MY PURPOSE</small>To love my family well, stay healthy and serve my community.</div>
+            <div class="lp-row"><b>Today's Big 3</b></div>
+            <div class="lp-item"><i class="on"></i>Call Dad <span class="lp-tag t1">Family</span></div>
+            <div class="lp-item"><i></i>Finish quarterly report <span class="lp-tag t2">Career</span></div>
+            <div class="lp-item"><i></i>5K run <span class="lp-tag t3">Fitness</span></div>
+            <div class="lp-row"><b>Tasks</b></div>
+            <div class="lp-item"><i></i>Pay rent <span class="lp-tag">↻ monthly</span></div>
+            <div class="lp-item"><i></i>Book dentist <span class="lp-tag">Fri</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="land-contrast">
+        <h2>Doing more is not the same as living well</h2>
+        <div class="land-two">
+          <div class="land-col muted-col"><h3>A busy life</h3><ul><li>A task list that never ends</li><li>Urgent things crowd out important things</li><li>Another year of "someday"</li><li>Productive, but not sure it mattered</li></ul></div>
+          <div class="land-col good-col"><h3>A life that matters</h3><ul><li>Your purpose and values come first</li><li>Goals that grow from your roles and relationships</li><li>A few focus goals, not fifty</li><li>Time on the calendar for what counts</li></ul></div>
+        </div>
+      </section>
+
+      <section class="land-steps">
+        <h2>From purpose to Tuesday afternoon</h2>
+        <ol class="land-flow">
+          <li><b>1</b><h3>Know your why</h3><p>Write your purpose, vision and legacy. They return in your daily review so you never drift.</p></li>
+          <li><b>2</b><h3>Set goals that matter</h3><p>Choose goals for each of your roles, across the areas of life that deserve attention.</p></li>
+          <li><b>3</b><h3>Plan your week</h3><p>Pick 3 or 4 focus goals, a Big 3 for each day and tasks for the days they belong.</p></li>
+          <li><b>4</b><h3>Live it daily</h3><p>See your day by the 15 minutes, check off habits, and look back on what you finished.</p></li>
+        </ol>
+      </section>
+
+      <section class="land-balance">
+        <h2>A balanced life, in plain sight</h2>
+        <p>Goals, habits and the Wheel of Life share the same ten areas, so you can see what is getting your time and what is being neglected.</p>
+        <div class="land-chips">${areas}</div>
+      </section>
+
+      <section class="land-tools">
+        <h2>And the planning tools to do it well</h2>
+        <p class="land-lead">Purpose gives the direction. Life.OS also gives you the everyday machinery to get there.</p>
+        <div class="land-feats">
+          ${feat('✓', 'Tasks that fit your life', 'Due dates, priorities, projects, tags, subtasks, Waiting and Someday lists. Add them in plain words, like “pay rent monthly on the 1st”.')}
+          ${feat('↻', 'Repeating tasks and habits', 'Chores, bills and routines repeat on their own. Habits show streaks instead of piling up as overdue.')}
+          ${feat('▦', 'A real daily calendar', 'An hour-by-hour day down to 15 minutes. Drag tasks onto it, and see your Google Calendars beside them.')}
+          ${feat('☰', 'Weekly and daily planning', 'Guided sessions for the year, quarter, month, week and day, plus a Big 3 and a one-tap “move undone to tomorrow”.')}
+          ${feat('★', 'Review and reflect', '“What I finished” summaries by week, month, quarter or year you can copy, download or print.')}
+          ${feat('⌘', 'Fast and forgiving', 'Search everything with one key, undo and restore deleted items, work offline, and print a clean page for your paper planner.')}
+        </div>
+      </section>
+
+      <section class="land-final">
+        <h2>Start with what matters. Plan the rest around it.</h2>
+        <p>Your first sign-in creates your account. There is nothing else to fill in. Or take the two-minute demo first.</p>
+        ${cta('Get started with Google')}
+        <p class="land-quote">“The key is not to prioritize what's on your schedule, but to schedule your priorities.” <span>Stephen Covey</span></p>
+      </section>
+    </div>`;
+  }
+
   /* ---------- welcome: an interactive demo with sample data (never touches your real data) ---------- */
   const DEMO_GOALS = [
     { id: 'dad', title: 'Build a closer relationship with Dad', color: '#b5603c', why: 'He will not always be a phone call away.', steps: ['Pick a regular call day and time'], actions: ['Pick a call day and time with Dad'], routine: { text: 'Call Dad', per: 'once a week' } },
@@ -3346,7 +3425,7 @@
     if (wipe) state = S.defaultState();
     rawSave(state); renderAccountChip();
     toast(wipe ? 'Signed out. This device is cleared; your plan is safe in Google Drive.' : 'Signed out. Your plan stays on this device.');
-    location.hash = wipe ? '#/welcome/1' : '#/settings'; render();
+    location.hash = wipe ? '#/landing' : '#/settings'; render();
   }
   function accountCard() {
     if (signedIn()) return `<section class="box account-card"><h2>Account</h2>
@@ -3482,7 +3561,7 @@
   const keepOpen = {};
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
-    today: viewToday, foundation: viewFoundation, goals: viewGoals, year: viewYear,
+    today: viewToday, landing: viewLanding, foundation: viewFoundation, goals: viewGoals, year: viewYear,
     month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewStart, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
@@ -3492,6 +3571,7 @@
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
     app.innerHTML = view(arg, arg2);
     document.body.classList.toggle('printing-view', name === 'print');
+    document.body.classList.toggle('landing-view', name === 'landing');
     gcalKick(name, arg);
     maybePromptLogin(name);
     app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
@@ -3584,7 +3664,7 @@
   }
   /* Ask people to sign in (or choose no account) once, but never on top of the tour or the setup guide. */
   function maybePromptLogin(route) {
-    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(welcome|demo|setup|quick|start)$/.test(route)) return;
+    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(landing|welcome|demo|setup|quick|start)$/.test(route)) return;
     let mode = '';
     try { mode = localStorage.getItem('account_mode') || localStorage.getItem('login_prompt_seen') || ''; } catch (e) { /* storage unavailable */ }
     if (mode || signedIn() || new URLSearchParams(location.search).get('code')) return;
@@ -3832,7 +3912,8 @@
   });
 
   if (state.idealWeek.some((i) => !i.quarter)) { state.idealWeek.forEach((i) => { if (!i.quarter) i.quarter = quarterKey(todayISO()); }); if (!firstRun) S.save(state); }
-  if (firstRun && !new URLSearchParams(location.search).get('code') && !/^#\/(welcome|demo|setup|quick|start)/.test(location.hash)) location.hash = '#/welcome/1';
+  const noAccountYet = (() => { try { return isBlank() && !signedIn() && !localStorage.getItem('account_mode') && !localStorage.getItem('login_prompt_seen'); } catch (e) { return firstRun; } })();
+  if (noAccountYet && !new URLSearchParams(location.search).get('code') && !/^#\/(landing|welcome|demo|setup|quick|start)/.test(location.hash)) location.hash = '#/landing';
   if (navigator.storage && navigator.storage.persist && !isBlank()) navigator.storage.persist().catch(() => {});
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   setInterval(syncNow, 5 * 60 * 1000);
