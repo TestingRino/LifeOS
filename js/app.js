@@ -3224,7 +3224,7 @@
     const cta = (primaryLabel) => `<div class="land-cta">
       <button type="button" class="btn primary big" data-act="signIn">${primaryLabel || 'Continue with Google'}</button>
       <a class="btn big" href="#/welcome/1">See how it works</a>
-      <button type="button" class="linklike muted" data-act="landingSkip">or start without an account</button></div>`;
+      ${isBlank() ? '<button type="button" class="linklike muted" data-act="landingSkip">or start without an account</button>' : '<a class="linklike muted" href="#/today">or go back to my plan</a>'}</div>`;
     const chipsOf = (ids) => ids.map((id) => `<span class="land-chip">${esc(P.LIFE.find((a) => a.id === id).short)}</span>`).join('');
     const feat = (ico, h, t) => `<div class="land-feat"><span class="ico" aria-hidden="true">${ico}</span><h3>${h}</h3><p>${t}</p></div>`;
     return `<div class="landing">
@@ -3460,7 +3460,7 @@
   const gScope = () => localStorage.getItem('google_scope') || '';
   const syncHasScope = () => !!localStorage.getItem('google_access_token') && /auth\/drive\.appdata/.test(gScope());
   const syncEnabled = () => !!state.settings.syncOn && syncHasScope();
-  const sync = { busy: false, status: 'off', msg: '', pending: null, timer: null, backups: null };
+  const sync = { busy: false, status: 'off', msg: '', pending: null, timer: null, backups: null, epoch: 0 };
   const fmtClock = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const syncVersion = (f) => (f ? f.md5Checksum || f.modifiedTime : '');
   const deviceId = () => { let d = localStorage.getItem('lifeos.device'); if (!d) { d = S.uid(); localStorage.setItem('lifeos.device', d); } return d; };
@@ -3540,12 +3540,15 @@
       await syncNow();
       if (sync.status !== 'ok') { toast('Could not confirm your plan is saved to Drive, so nothing was cleared.'); return; }
     }
+    clearTimeout(sync.timer); sync.epoch++; sync.busy = false; sync.pending = null;      // stop anything still syncing
+    const sdlg = document.getElementById('syncDlg'); if (sdlg && sdlg.open) sdlg.close();
     ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email', 'google_intent', 'google_cal_off', 'account_mode', 'login_prompt_seen'].forEach((k) => localStorage.removeItem(k));
     state.settings.syncOn = false; state.syncMeta = {}; gcalReset(); gcal.listTried = false; sync.status = 'off'; sync.backups = null;
     if (wipe) state = S.defaultState();
-    rawSave(state); renderAccountChip();
-    toast(wipe ? 'Signed out. This device is cleared; your plan is safe in Google Drive.' : 'Signed out. Your plan stays on this device.');
-    location.hash = wipe ? '#/landing' : '#/settings'; render();
+    rawSave(state);
+    try { sessionStorage.setItem('lifeos.toast', wipe ? 'Signed out. This device is cleared; your plan is safe in Google Drive.' : 'Signed out. Your plan stays on this device.'); } catch (e) { /* storage unavailable */ }
+    // reload so nothing from the signed-in session lingers in memory
+    location.hash = wipe ? '#/landing' : '#/settings'; location.reload();
   }
   function accountCard() {
     if (signedIn()) return `<section class="box account-card"><h2>Account</h2>
@@ -3590,7 +3593,8 @@
     for (const f of files.slice(SYNC_KEEP)) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
   }
   async function pushLocal(fileId) {
-    const cur = syncPayload(), f = await driveWrite(fileId, SYNC_FILE, wrapData(cur));
+    const ep = sync.epoch, cur = syncPayload(), f = await driveWrite(fileId, SYNC_FILE, wrapData(cur));
+    if (ep !== sync.epoch) return;   // signed out while this was in flight
     state.syncMeta = { ...(state.syncMeta || {}), fileId: f.id, remoteVersion: syncVersion(f), hash: hashStr(JSON.stringify(cur)), at: new Date().toISOString() };
     rawSave(state);
     snapshotToday(cur).catch((e) => console.warn('Backup copy failed', e));
@@ -3623,21 +3627,25 @@
   async function syncNow() {
     if (!syncEnabled() || sync.busy || sync.pending) return;
     sync.busy = true; setSync('syncing');
+    const ep = sync.epoch, stale = () => ep !== sync.epoch || !syncEnabled();   // signing out cancels anything still in flight
     try {
       const meta = state.syncMeta || {}, curHash = hashStr(JSON.stringify(syncPayload())), dirty = curHash !== meta.hash;
       const remote = await driveFind();
+      if (stale()) return;
       if (!remote) { if (!isBlank()) await pushLocal(null); setSync('ok'); }
       else if (meta.fileId !== remote.id) {                    // first time this device meets this Drive file
         const w = await driveRead(remote.id);
+        if (stale()) return;
         if (isBlank()) { applyRemote(w.data, remote); setSync('ok'); toast('Your plan was restored from Google Drive'); }
         else askSync(remote, w.data);
       } else if (syncVersion(remote) === meta.remoteVersion) { if (dirty) await pushLocal(remote.id); setSync('ok'); }
       else {
         const w = await driveRead(remote.id);
+        if (stale()) return;
         if (!dirty) { applyRemote(w.data, remote); setSync('ok'); } else askSync(remote, w.data);
       }
-    } catch (e) { console.error('Sync failed:', e); setSync('error', e.message); }
-    finally { sync.busy = false; showSyncStatus(); }
+    } catch (e) { if (!stale()) { console.error('Sync failed:', e); setSync('error', e.message); } }
+    finally { if (ep === sync.epoch) sync.busy = false; showSyncStatus(); }
   }
   function scheduleSync() {
     if (!syncEnabled()) return;
@@ -3793,6 +3801,12 @@
   window.addEventListener('hashchange', render);
   window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
+  /* The logo goes to the landing page until you are signed in, and to Today after. */
+  document.querySelector('.brand').addEventListener('click', (e) => {
+    e.preventDefault();
+    const dest = signedIn() ? '#/today' : '#/landing';
+    if (location.hash === dest) { render(); window.scrollTo(0, 0); } else location.hash = dest;
+  });
 
   const uploadInput = document.getElementById('uploadInput');
   const uploadDlg = document.getElementById('uploadDlg');
@@ -4039,6 +4053,7 @@
   setInterval(syncNow, 5 * 60 * 1000);
   document.getElementById('syncDlg').addEventListener('click', (e) => { const b = e.target.closest('[data-sync-pick]'); if (!b) return; document.getElementById('syncDlg').close(); resolveSync(b.dataset.syncPick); });
   try { const sc = [...document.scripts].find((x) => /js\/app\.js/.test(x.src)), m = sc && /v=(\d{8})(\d{4})/.exec(sc.src), el = document.getElementById('appVer'); if (el && m) el.textContent = `Version ${m[1].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')} ${m[2].replace(/(\d{2})(\d{2})/, '$1:$2')}`; } catch (e) { /* cosmetic */ }
+  try { const m = sessionStorage.getItem('lifeos.toast'); if (m) { sessionStorage.removeItem('lifeos.toast'); setTimeout(() => toast(m), 300); } } catch (e) { /* storage unavailable */ }
   const ctx = {
     get state() { return state; }, S, U, P, F, ROUTES, ACTS, DEFAULTS, esc, today, todayISO, ws, get, commit, render, toast, opts, chk, ta, inp, page, goalOpts, lifeOpts, schedBtn, dragAttr,
     fmtTime, hhmm24, openScheduleDialog, addScheduleItem, suggestSlot, nextStep, focusGoals, cycleGoals, currentCycle, areaName, roleName, showText, getWeek, quarterKey, weekSel,
