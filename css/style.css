@@ -812,3 +812,6 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .land-groups { display: grid; grid-template-columns: 1fr 2fr; gap: 1.2rem; text-align: left; margin-top: .6rem; } .land-groups h3 { margin: 0 0 .5rem; font-size: .95rem; color: var(--navy); text-align: center; } .land-groups .land-chips { justify-content: center; }
 .land-groups > div:first-child .land-chip { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, var(--card)); }
 @media (max-width: 860px) { .land-three { grid-template-columns: 1fr; } .land-groups { grid-template-columns: 1fr; } }
+
+.week-nav { margin: 0 0 .7rem; } .week-nav .chip { text-decoration: none; padding: .25rem .8rem; } .week-nav .chip.is-today:not(.on) { border-style: solid; border-color: var(--ok); } .week-nav .chip b { font-weight: 600; opacity: .75; margin-left: .15rem; }
+.day-banner { margin: 0 0 .6rem; }

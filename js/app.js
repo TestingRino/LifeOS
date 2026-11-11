@@ -647,8 +647,9 @@
   }
 
   /* ---------- views ---------- */
-  function viewToday() {
-    const t = today(), iso = U.toISO(t), wk = U.weekKey(t, ws()), mk = U.monthKey(t);
+  function viewToday(arg) {
+    const realToday = todayISO(), isToday = !/^\d{4}-\d{2}-\d{2}$/.test(arg || '') || arg === realToday;
+    const t = isToday ? today() : U.parseISO(arg), iso = U.toISO(t), wk = U.weekKey(t, ws()), mk = U.monthKey(t);
     const wom = U.weekOfMonth(U.parseISO(wk));
     const wkEnd = U.toISO(U.addDays(U.parseISO(wk), 6));
     const cyc = cycleAt(iso);
@@ -661,7 +662,7 @@
     const pending = (key) => (focusGoals(iso).length ? focusGoals(iso) : goals).flatMap((g) => (g[key] || []).filter((i) => !i.done && i.text)
       .map((i) => ({ text: i.text, due: i.due, goal: g.title, base: `goals.@${g.id}.${key}.@${i.id}` })))
       .sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
-    autoFillBig3(iso);
+    if (iso >= realToday && iso <= U.toISO(U.addDays(U.parseISO(realToday), 7))) autoFillBig3(iso);
     const fgoals = focusGoals(iso);
     const idealToday = idealOn(iso);
     const st = setupStatus(), stDone = st.filter((x) => x.done).length, stNext = st.find((x) => !x.done);
@@ -701,14 +702,20 @@
     const dueStrip = dueSessions.length ? `<section class="box due-strip"><strong>Planning due</strong> ${dueSessions.map((x) => `<a class="chip" href="#/session/${x.cad}">${esc(x.def.title)} · ${x.doneN}/${x.steps.length} →</a>`).join(' ')}</section>` : '';
     const capture = `<form class="add capture" data-act-form="capture"><input name="text" placeholder="Capture a to-do (try: call dentist friday !high), goal idea, memory or quote…" required aria-label="Quick capture">
       <select name="kind" aria-label="Type"><option value="todo">To-do</option><option value="goal">Goal idea</option><option value="memory">Memory</option><option value="quote">Quote</option></select><button aria-label="Capture">+</button></form>`;
+    const dayHref = (d) => (d === realToday ? '#/today' : `#/today/${d}`);
+    const weekDays = Array.from({ length: 7 }, (_, i) => U.addDays(U.parseISO(wk), i));
+    const weekNav = `<div class="chips day-tabs week-nav" role="tablist" aria-label="Days of this week">${weekDays.map((d) => { const di = U.toISO(d), open = F.dayTasksCount ? F.dayTasksCount(di) : 0;
+      return `<a class="chip${di === iso ? ' on' : ''}${di === realToday ? ' is-today' : ''}" role="tab" aria-selected="${di === iso}" href="${dayHref(di)}">${U.DAYS[d.getDay()].slice(0, 3)} ${d.getDate()}${open ? ` <b>${open}</b>` : ''}</a>`; }).join('')}</div>`;
+    const viewing = isToday ? '' : `<p class="muted small day-banner">Viewing ${esc(U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric' }))}${iso < realToday ? ' (a past day)' : ''}. <a href="#/today">Back to today</a></p>`;
     const body = `
       ${setupBanner}
       ${syncNudge}
       ${dueStrip}
+      ${weekNav}${viewing}
       ${capture}
       <div class="today-cols"><div class="today-left">
       <section class="box">
-        <h2>Today's schedule <a class="more" href="#/calendar/day:${iso}">Full calendar →</a></h2>
+        <h2>${isToday ? "Today's" : `${U.DAYS[t.getDay()]}'s`} schedule <a class="more" href="#/calendar/day:${iso}">Full calendar →</a></h2>
         ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
         ${dayTimeline(iso, { height: 560 })}
       </section>
@@ -725,7 +732,7 @@
         </details>
       </section>
       <section class="box">
-        <h2>Today's Big 3 <span class="muted">· ${bigToday.filter((b) => b.done).length}/${bigToday.length} done</span></h2>
+        <h2>${isToday ? "Today's" : `${U.DAYS[t.getDay()]}'s`} Big 3 <span class="muted">· ${bigToday.filter((b) => b.done).length}/${bigToday.length} done</span></h2>
         ${bigToday.length ? `<ul class="checks">${bigToday.map((b) => `<li class="${b.done ? 'done' : ''}" ${dragAttr(b.text)}>${chk(`big3.@${b.id}.done`, 'Done')}
           <div class="grow"><input class="inline" data-bind="big3.@${b.id}.text" value="${esc(b.text)}" aria-label="Big 3 task">
           ${b.goalId && state.goals.some((g) => g.id === b.goalId) ? `<small class="muted">${esc(state.goals.find((g) => g.id === b.goalId).title)}</small>` : ''}</div>
@@ -805,8 +812,8 @@
         ${state.journals.find((j) => j.date === iso) ? `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Add to today's thoughts…"></textarea><button aria-label="Save">+</button></form>` : `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Today's thoughts and reflections…"></textarea><button aria-label="Save">+</button></form>`}
       </section>
       </details>`;
-    return page('Today', U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body,
-      `<a class="btn ghost" href="#/print/day/${iso}">Print</a>`);
+    return page(isToday ? 'Today' : U.DAYS[t.getDay()], U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body,
+      `<a class="btn ghost" href="${dayHref(U.toISO(U.addDays(t, -1)))}" aria-label="Previous day" title="Previous day">←</a>${isToday ? '' : '<a class="btn ghost" href="#/today">Today</a>'}<a class="btn ghost" href="${dayHref(U.toISO(U.addDays(t, 1)))}" aria-label="Next day" title="Next day">→</a><a class="btn ghost" href="#/print/day/${iso}">Print</a>`);
   }
 
   function viewFoundation() {
@@ -1213,7 +1220,7 @@
         <button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">› Today</button></div>`).join('')}` : ''}
       ${F.dayTasks ? F.dayTasks(iso) : ''}
       ${mine.length ? mine.map((t) => taskRow(t, iso)).join('') : (F.dayTasks && F.dayTasksCount(iso) ? '' : '<p class="muted small">Nothing assigned to today yet. Add a task, or assign from your lists below.</p>')}
-      ${F.quickAdd ? F.quickAdd(iso, 'Add a task for today… (try "Pay rent monthly on the 1st !high")') : ''}
+      ${F.quickAdd ? F.quickAdd(iso, `Add a task for ${iso === todayISO() ? 'today' : U.DAYS[U.parseISO(iso).getDay()]}… (try "Pay rent monthly on the 1st !high")`) : ''}
       ${F.rolloverBar ? F.rolloverBar(iso) : ''}
       ${pool.length ? `<details data-keep="pool"><summary class="muted small">Assign from your lists (${pool.length})</summary>${pool.map((t) => poolRow(t, iso)).join('')}</details>` : ''}
     </section>`;
