@@ -2221,6 +2221,15 @@
     demoDay(el) { demo.day = Number(el.dataset.day); render(); },
     demoHabit(el) { demo.habit[el.dataset.id] = !demo.habit[el.dataset.id]; render(); },
     demoReset() { demo = demoFresh(); location.hash = '#/welcome/1'; },
+    demoPersona(el) {
+      const id = el.dataset.id, i = demo.personas.indexOf(id);
+      if (i >= 0) demo.personas.splice(i, 1); else demo.personas.push(id);
+      rebuildDemo(); render();
+    },
+    demoStart(el) {   // carry the tour's "about you" answers into the real setup
+      if (demo.personas.length) { state.settings.personas = demo.personas.slice(); quick.touched = false; quickPreselect(); S.save(state); }
+      location.hash = el.dataset.to === 'setup' ? '#/setup/1' : '#/quick/1';
+    },
     demoSchedule(el) {
       const task = demoTasks().find((t) => t.id === el.dataset.id) || (() => { const g = dg(el.dataset.id.replace('step:', '')); return g ? { text: g.steps[0], g } : null; })();
       if (!task) return;
@@ -3302,7 +3311,7 @@
   }
 
   /* ---------- welcome: an interactive demo with sample data (never touches your real data) ---------- */
-  const DEMO_GOALS = [
+  const DEMO_DEFAULT_GOALS = [
     { id: 'dad', title: 'Build a closer relationship with Dad', color: '#b5603c', why: 'He will not always be a phone call away.', steps: ['Pick a regular call day and time'], actions: ['Pick a call day and time with Dad'], routine: { text: 'Call Dad', per: 'once a week' } },
     { id: 'spouse', title: 'Deepen my marriage', color: '#a9697a', why: 'Our kids learn love by watching ours.', steps: ['Plan a monthly date night'], actions: ['Pick a date-night restaurant'], routine: { text: 'Daily check-in with my spouse', per: 'every day' } },
     { id: 'kids', title: 'One-on-one time with each kid', color: '#8a76a8', why: 'They will remember the time, not the stuff.', steps: ['Pick an activity for each child'], actions: ['Take Emma to breakfast'], routine: { text: 'Bedtime talk with one child', per: '3× a week' } },
@@ -3316,9 +3325,25 @@
     purpose: 'To raise confident kids, stay healthy, and serve my community.',
     focus: ['dad', 'kids', 'run'], day: 2, scheduled: {}, habit: {},
     assigned: { 'dad:0': 2, 'kids:0': 3, 'run:0': 1 },
+    personas: [], goals: DEMO_DEFAULT_GOALS,
   });
   let demo = demoFresh();
-  const dg = (id) => DEMO_GOALS.find((g) => g.id === id);
+  const dg = (id) => demo.goals.find((g) => g.id === id);
+  /* The tour's sample data follows the "I am…" answers: six goals spread across life areas that fit those answers. */
+  function rebuildDemo() {
+    const ids = demo.personas;
+    if (!ids.length) { const keep = { personas: [], day: demo.day }; demo = Object.assign(demoFresh(), keep); return; }
+    const sc = (it) => { const f = it.for || [], hit = f.filter((x) => ids.includes(x)).length; return !f.length ? 1 : hit ? 2 + hit : 0; };
+    const ranked = SUGGEST.goals.map((g, i) => ({ g, i, sc: sc(g) })).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc || a.i - b.i);
+    const picked = [], areas = new Set();
+    ranked.forEach((x) => { if (picked.length < 6 && !areas.has(x.g.area)) { picked.push(x); areas.add(x.g.area); } });
+    ranked.forEach((x) => { if (picked.length < 6 && !picked.includes(x)) picked.push(x); });
+    const perLabel = (n) => (n === 7 ? 'every day' : n === 1 ? 'once a week' : `${n}× a week`);
+    const goals = picked.map((x, i) => ({ id: `s${x.i}`, title: x.g.title, color: ['#b5603c', '#a9697a', '#8a76a8', '#5b7a5a', '#6f8296', '#c29a3f'][i % 6], why: x.g.why, steps: x.g.steps.slice(0, 2), actions: [x.g.steps[0]], routine: x.g.routine ? { text: x.g.routine.text, per: perLabel(x.g.routine.perWeek) } : undefined }));
+    const purpose = PERSONAS.filter((p) => ids.includes(p.id)).map((p) => p.purpose)[0] || demoFresh().purpose;
+    const focus = goals.slice(0, 3).map((g) => g.id), days = [2, 3, 1];
+    demo = Object.assign(demoFresh(), { personas: ids, goals, purpose, focus, assigned: Object.fromEntries(focus.map((id, i) => [`${id}:0`, days[i]])), day: demo.day });
+  }
   const gtag = (g) => `<span class="gtag" style="--c:${g.color}"><i></i>${esc(g.title)}</span>`;
   const demoTasks = () => demo.focus.flatMap((id) => dg(id).actions.slice(0, 1).map((text, i) => ({ id: `${id}:${i}`, text, g: dg(id) })));
   const demoBlocksFor = (dow) => {
@@ -3332,32 +3357,37 @@
   };
 
   function viewWelcome(arg) {
-    const n = Math.min(4, Math.max(1, Number(arg) || 1));
-    const labels = ['Purpose & goals', 'Weekly plan', 'Daily calendar', 'Make it yours'];
+    const n = Math.min(5, Math.max(1, Number(arg) || 1));
+    const labels = ['About you', 'Purpose & goals', 'Weekly plan', 'Daily calendar', 'Make it yours'];
     const stepper = `<ol class="setup-steps">${labels.map((l, i) => `<li class="${i + 1 === n ? 'cur' : ''}${i + 1 < n ? ' ok' : ''}"><a href="#/welcome/${i + 1}"><b>${i + 1 < n ? '✓' : i + 1}</b><span>${l}</span></a></li>`).join('')}</ol>`;
-    const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/welcome/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 4 ? `<a class="btn primary" href="#/welcome/${n + 1}">Next →</a>` : ''}</div>`;
+    const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/welcome/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 5 ? `<a class="btn primary" href="#/welcome/${n + 1}">Next →</a>` : ''}</div>`;
     const fg = demo.focus.map(dg);
     const signInStrip = signedIn() ? '' : `<section class="box sync-nudge signin-strip"><div class="grow"><strong>Already have an account, or want your plan saved?</strong> <span class="muted">Sign in with Google to keep it in your own Drive and open it on any device. New here? Your first sign-in creates your account.</span></div>
         <button type="button" class="btn primary" data-act="signIn">Continue with Google</button></section>`;
     let body = signInStrip + stepper;
 
     if (n === 1) {
+      const on = demo.personas;
+      body += `<section class="box"><h2>First, which of these sound like you?</h2>
+        <p class="prompt">Tap everything that fits and the sample plan on the next steps will match your life. Nothing here is saved, and you can skip it.</p>
+        <div class="pick-grid">${PERSONAS.map((p) => `<button type="button" class="pick-card${on.includes(p.id) ? ' on' : ''}" data-act="demoPersona" data-id="${p.id}" aria-pressed="${on.includes(p.id)}"><strong>${esc(p.label)}</strong><small class="muted">${esc(p.sub)}</small></button>`).join('')}</div></section>`;
+    } else if (n === 2) {
       body += `<section class="box"><h2>Turn your purpose into your calendar</h2>
           <p class="prompt">A two-minute tour with sample data. Nothing here is saved.</p>
-          <h3>1 · Your purpose</h3><textarea data-demo="purpose" rows="2">${esc(demo.purpose)}</textarea>
+          <h3>Your purpose</h3><textarea data-demo="purpose" rows="2">${esc(demo.purpose)}</textarea>
           <h3>Choose this quarter's focus <span class="muted">· ${fg.length} of 4</span></h3>
-          <div class="chips">${DEMO_GOALS.map((g) => { const on = demo.focus.includes(g.id); return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${g.color}" data-act="demoFocus" data-id="${g.id}" aria-pressed="${on}">${esc(g.title)}</button>`; }).join('')}</div>
+          <div class="chips">${demo.goals.map((g) => { const on = demo.focus.includes(g.id); return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${g.color}" data-act="demoFocus" data-id="${g.id}" aria-pressed="${on}">${esc(g.title)}</button>`; }).join('')}</div>
           ${fg.length ? `<ul class="plain-list">${fg.map((g) => `<li>${gtag(g)}<small class="muted">${esc(g.why)}</small></li>`).join('')}</ul>` : '<p class="muted">Pick at least one to continue.</p>'}
         </section>`;
-    } else if (n === 2) {
+    } else if (n === 3) {
       const tasks = demoTasks();
-      body += `<section class="box"><h2>2 · Each focus goal becomes an action</h2>
+      body += `<section class="box"><h2>3 · Each focus goal becomes an action</h2>
           <p class="prompt">In your weekly planning, choose the day each one happens.</p>
           ${tasks.map((t) => `<div class="demo-task"><div class="grow">${esc(t.text)}<br>${gtag(t.g)}</div><div class="daychips">${DEMO_DAYS.map(([d, l]) => `<button type="button" class="chip small${demo.assigned[t.id] === d ? ' on' : ''}" data-act="demoAssign" data-id="${t.id}" data-day="${d}">${l}</button>`).join('')}</div></div>`).join('') || '<p class="muted">Pick focus goals in step 1.</p>'}
           <h3>Your week</h3>
           <div class="board">${DEMO_DAYS.map(([d, l]) => `<div class="board-col"><strong>${l}</strong>${tasks.filter((t) => demo.assigned[t.id] === d).map((t) => `<div class="board-item" style="--c:${t.g.color}">${esc(t.text)}</div>`).join('')}</div>`).join('')}</div>
         </section>`;
-    } else if (n === 3) {
+    } else if (n === 4) {
       const dow = demo.day, dayName = DEMO_DAYS.find((x) => x[0] === dow)[1];
       const tasks = demoTasks().filter((t) => demo.assigned[t.id] === dow);
       const big = [...tasks.slice(0, 3)];
@@ -3366,7 +3396,7 @@
       const hours = Array.from({ length: 24 }, (_, h) => `<div class="tl-hr" style="top:${h * 60}px">${h === 0 ? '' : esc(fmtTime(`${U.pad(h)}:00`))}</div>`).join('');
       const blocks = placed.map((o) => `<div class="tl-blk ${o.cls}" style="top:${o.start}px;height:${o.end - o.start - 1}px;left:calc(${(o.col / o.cols) * 100}% + 1px);width:calc(${100 / o.cols}% - 3px)${o.c ? `;--c:${o.c}` : ''}"><b>${esc(fmtTime(o.time))}</b> ${o.html}</div>`).join('');
       const routines = fg.filter((g) => g.routine);
-      body += `<section class="box"><h2>3 · The plan lands on your calendar</h2>
+      body += `<section class="box"><h2>4 · The plan lands on your calendar</h2>
           <p class="prompt">Open a day. Tap 📅 on a task to give it a time.</p>
           <div class="chips">${DEMO_DAYS.map(([d, l]) => `<button type="button" class="chip${d === dow ? ' on' : ''}" data-act="demoDay" data-day="${d}">${l}</button>`).join('')}</div>
           <blockquote class="vision small">${esc(demo.purpose)}</blockquote></section>
@@ -3377,11 +3407,11 @@
             ${routines.length ? `<section class="box"><h3>Routines</h3>${routines.map((g) => `<label class="inline-check demo-habit"><input type="checkbox" data-act="demoHabit" data-id="r-${g.id}:${dow}" ${demo.habit[`r-${g.id}:${dow}`] ? 'checked' : ''}> ${esc(g.routine.text)} <small class="muted">${esc(g.routine.per)}</small></label>`).join('')}</section>` : ''}
           </div></div>`;
     } else {
-      body += `<section class="box demo-hero"><h2>4 · Make it yours</h2>
+      body += `<section class="box demo-hero"><h2>5 · Make it yours</h2>
           <p class="lead">Purpose, focus goals, a weekly plan, and a daily calendar, with a short review to keep it honest.</p>
-          <div class="row"><a class="btn primary" href="#/quick/1">Quick start (about 1 minute)</a>${signedIn() ? '' : '<button type="button" class="btn" data-act="signIn">Sign in with Google</button>'}<a class="btn ghost" href="#/setup/1">Full guide (about 5 minutes)</a><a class="btn ghost" href="#/today">Skip, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
+          <div class="row"><button type="button" class="btn primary" data-act="demoStart" data-to="quick">Quick start (about 1 minute)</button>${signedIn() ? '' : '<button type="button" class="btn" data-act="signIn">Sign in with Google</button>'}<button type="button" class="btn ghost" data-act="demoStart" data-to="setup">Full guide (about 5 minutes)</button><a class="btn ghost" href="#/today">Skip, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
     }
-    return page('Welcome to Life.OS', `Interactive demo · step ${n} of 4 · sample data only`, body + nav);
+    return page('Welcome to Life.OS', `Interactive demo · step ${n} of 5 · sample data only`, body + nav);
   }
   document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.demo === 'purpose') demo.purpose = e.target.value; });
 
