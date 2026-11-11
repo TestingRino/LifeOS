@@ -155,3 +155,11 @@ test('OCR scoring matches items by meaning, date and time', () => {
   const cal = score('calendar', { events: [{ date: '2026-03-02', time: '09:00', text: 'Standup' }] }, { events: [{ date: '2026-03-02', time: '09:10', text: 'standup meeting' }, { date: '2026-03-03', time: '09:00', text: 'Standup' }] });
   assert.equal(cal.matched, 1); assert.equal(cal.extra.length, 1);
 });
+
+test('OCR scoring understands planner pages', () => {
+  const { score } = require('../tools/ocr-score.js');
+  const want = { priorities: [{ text: 'Finish proposal', date: '2026-03-02' }], schedule: [{ text: 'Standup', date: '2026-03-02', time: '09:30' }], tasks: [{ text: 'Pay rent', date: '2026-03-02' }], notes: [], habits: [{ name: 'Read' }] };
+  const got = { priorities: [{ text: 'finish the proposal', date: '2026-03-02' }], schedule: [{ text: 'Standup', date: '2026-03-02', time: '09:35' }], tasks: [], notes: [{ text: 'extra', date: '2026-03-02' }], habits: [{ name: 'Read' }] };
+  const s = score('page', want, got);
+  assert.equal(s.expected, 4); assert.equal(s.matched, 3); assert.equal(s.extra.length, 1); assert.equal(s.missed[0].text, 'Pay rent');
+});

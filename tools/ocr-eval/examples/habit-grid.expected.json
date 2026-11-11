@@ -1,0 +1,17 @@
+{
+  "type": "page",
+  "today": "2026-03-31",
+  "data": {
+    "habits": [
+      {
+        "name": "Read"
+      },
+      {
+        "name": "Workout"
+      },
+      {
+        "name": "Journal"
+      }
+    ]
+  }
+}

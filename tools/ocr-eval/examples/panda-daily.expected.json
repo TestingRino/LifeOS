@@ -1,0 +1,25 @@
+{
+  "type": "page",
+  "today": "2026-03-02",
+  "data": {
+    "date": "2026-03-02",
+    "priorities": [
+      {
+        "text": "Draft the budget",
+        "date": "2026-03-02"
+      }
+    ],
+    "tasks": [
+      {
+        "text": "Email Sam",
+        "date": "2026-03-02"
+      }
+    ],
+    "notes": [
+      {
+        "text": "Grateful for: coffee; sun",
+        "date": "2026-03-02"
+      }
+    ]
+  }
+}

@@ -14,6 +14,7 @@ const mins = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? N
 function items(type, data) {
   const d = data || {};
   switch (type) {
+    case 'page': return [...(d.priorities || []).map((p) => ({ kind: 'priority', text: p.text, date: p.date })), ...(d.schedule || []).map((e) => ({ kind: 'event', text: e.text, date: e.date, time: e.time || e.start || '' })), ...(d.tasks || []).map((t) => ({ kind: 'task', text: t.text, date: t.date })), ...(d.notes || []).map((n) => ({ kind: 'note', text: n.text, date: n.date })), ...(d.habits || []).map((h) => ({ kind: 'habit', text: h.name }))];
     case 'goals': return [...(d.roles || []).map((r) => ({ kind: 'role', text: r.name })), ...(d.goals || []).map((g) => ({ kind: 'goal', text: g.title }))];
     case 'calendar': return (d.events || []).map((e) => ({ kind: 'event', text: e.text || e.title, date: e.date, time: e.time || e.start || '' }));
     case 'workouts': return (d.workouts || []).map((w) => ({ kind: 'workout', text: w.type, date: w.date }));

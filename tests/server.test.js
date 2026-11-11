@@ -87,3 +87,35 @@ test('photo import accepts Supabase session tokens and requires a confirmed emai
   assert.equal((await call('eyJunconfirmed.payload.sig')).status, 403);  // email not confirmed
   assert.equal((await call('eyJbad.payload.sig')).status, 401);
 });
+
+test('planner page normalizer handles daily, weekly and bullet-journal output', async () => {
+  const { normalizeByType } = await import('../server/lib/ocr-normalize.js');
+  const r = normalizeByType('page', {
+    layout: 'daily', planner: 'Full Focus', date: '2026-03-02',
+    priorities: [{ text: 'Finish proposal', done: 'yes', code: 'a1' }, { text: 'Finish proposal' }, { text: '' }],
+    schedule: [{ start: '9:30', end: '10:15', text: 'Standup' }, { date: '2026-03-03', text: 'Dentist', allDay: false, start: '14:00', end: '13:00' }],
+    tasks: [{ text: 'Pay rent', done: true }, { text: 'Gym', kind: 'event' }, { text: 'Call Mom', kind: 'migrated' }, { text: 'Idea: new route', kind: 'note' }, { text: 'Write', kind: 'priority' }],
+    notes: [{ text: 'Good day' }], gratitude: ['coffee', 'sun'], habits: [{ name: 'Read', days: ['2026-03-01', '2026-03-02', 'junk', '2026-03-01'] }],
+  });
+  assert.equal(r.layout, 'daily'); assert.equal(r.date, '2026-03-02');
+  assert.equal(r.priorities.length, 2);                                   // dupes and blanks dropped; "Write" arrived as a priority-kind line
+  assert.deepEqual([r.priorities[0].done, r.priorities[0].code], [true, 'A1']);
+  assert.deepEqual([r.schedule[0].time, r.schedule[0].mins, r.schedule[0].date], ['09:30', 45, '2026-03-02']);
+  assert.equal(r.schedule[1].mins, '');                                   // end before start: no length
+  assert.ok(r.schedule.some((e) => e.text === 'Gym' && e.allDay));        // bullet-journal event routed to the schedule
+  assert.ok(r.tasks.find((t) => t.text === 'Pay rent').done && r.tasks.find((t) => t.text === 'Call Mom').migrated);
+  assert.ok(r.notes.some((n) => n.text.startsWith('Idea')) && r.notes.some((n) => /Grateful for: coffee; sun/.test(n.text)));
+  assert.deepEqual(r.habits[0].days, ['2026-03-01', '2026-03-02']);
+  assert.equal(normalizeByType('page', null).priorities.length, 0);       // garbage in, empty page out
+});
+test('every planner choice in the photo dialog has a layout hint, and the type is in the prompt', async () => {
+  const fs = require('node:fs');
+  const { PLANNERS, plannerHint } = await import('../server/lib/planner-hints.js');
+  const html = fs.readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const ids = [...html.matchAll(/<select id="uploadPlanner">([\s\S]*?)<\/select>/g)][0][1].match(/value="(\w+)"/g).map((x) => x.slice(7, -1)).filter(Boolean);
+  assert.ok(ids.length >= 12);
+  ids.forEach((id) => assert.ok(PLANNERS[id], `no planner entry for ${id}`));
+  Object.keys(PLANNERS).filter((k) => k !== 'other').forEach((k) => assert.ok(plannerHint(k).includes(PLANNERS[k].label)));
+  assert.equal(plannerHint('unknown'), '');
+  assert.match(fs.readFileSync(require('node:path').join(__dirname, '..', 'server/routes/ocr.js'), 'utf8'), /type "page"|is type \\"page\\"/);
+});

@@ -90,6 +90,7 @@ window.LifeFeatures = function (c) {
 
   Object.assign(F, {
     addFromText, quickAdd, openTasks,
+    newTask: (o) => { const t = mkTask(o); T().push(t); return t; },
     plannerTasks: (iso) => T().filter((t) => isOpen(t) && t.status === 'next' && when(t) === iso).sort(sortTasks),
     poolTasks: (iso) => openTasks().filter((t) => !t.day && (!t.due || t.due > iso)).slice(0, 8),
     dayTasks: (iso, compact) => {

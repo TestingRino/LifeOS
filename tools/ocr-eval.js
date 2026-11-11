@@ -27,7 +27,7 @@ if (!dir) { console.error('Usage: node tools/ocr-eval.js <fixtures-dir> --token 
     const want = JSON.parse(fs.readFileSync(side, 'utf8'));
     const form = new FormData();
     form.append('image', new Blob([fs.readFileSync(path.join(dir, file))], { type: 'image/' + path.extname(file).slice(1).replace('jpg', 'jpeg') }), file);
-    form.append('type', want.type); form.append('today', want.today || new Date().toISOString().slice(0, 10));
+    form.append('type', want.type); form.append('today', want.today || new Date().toISOString().slice(0, 10)); if (want.planner) form.append('planner', want.planner);
     const t0 = Date.now();
     const res = await fetch(`${url}/api/ocr/analyze`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
     const body = await res.json().catch(() => ({}));

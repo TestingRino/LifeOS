@@ -1,0 +1,24 @@
+{
+  "type": "page",
+  "today": "2026-03-02",
+  "data": {
+    "date": "2026-03-02",
+    "priorities": [
+      {
+        "text": "Review contract",
+        "date": "2026-03-02"
+      },
+      {
+        "text": "Prepare slides",
+        "date": "2026-03-02"
+      }
+    ],
+    "schedule": [
+      {
+        "text": "Meet Dana",
+        "date": "2026-03-02",
+        "time": "13:00"
+      }
+    ]
+  }
+}

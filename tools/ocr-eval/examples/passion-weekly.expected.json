@@ -1,0 +1,29 @@
+{
+  "type": "page",
+  "today": "2026-03-02",
+  "data": {
+    "schedule": [
+      {
+        "text": "Gym",
+        "date": "2026-03-02",
+        "time": "06:30"
+      },
+      {
+        "text": "Client call",
+        "date": "2026-03-03",
+        "time": "11:00"
+      },
+      {
+        "text": "Dinner with Mom",
+        "date": "2026-03-05",
+        "time": "18:00"
+      }
+    ],
+    "tasks": [
+      {
+        "text": "Book flights",
+        "date": "2026-03-04"
+      }
+    ]
+  }
+}

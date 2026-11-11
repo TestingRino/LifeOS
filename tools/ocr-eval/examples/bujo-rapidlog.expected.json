@@ -1,0 +1,29 @@
+{
+  "type": "page",
+  "today": "2026-03-02",
+  "data": {
+    "date": "2026-03-02",
+    "tasks": [
+      {
+        "text": "Buy milk",
+        "date": "2026-03-02"
+      },
+      {
+        "text": "Call dentist",
+        "date": "2026-03-02"
+      }
+    ],
+    "schedule": [
+      {
+        "text": "Concert",
+        "date": "2026-03-02"
+      }
+    ],
+    "notes": [
+      {
+        "text": "Idea: weekend hike",
+        "date": "2026-03-02"
+      }
+    ]
+  }
+}

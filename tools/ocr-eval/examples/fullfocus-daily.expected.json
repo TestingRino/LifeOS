@@ -1,0 +1,34 @@
+{
+  "type": "page",
+  "today": "2026-03-02",
+  "data": {
+    "date": "2026-03-02",
+    "priorities": [
+      {
+        "text": "Finish the proposal",
+        "date": "2026-03-02"
+      },
+      {
+        "text": "Call Dad",
+        "date": "2026-03-02"
+      },
+      {
+        "text": "5K run",
+        "date": "2026-03-02"
+      }
+    ],
+    "schedule": [
+      {
+        "text": "Team standup",
+        "date": "2026-03-02",
+        "time": "09:30"
+      }
+    ],
+    "tasks": [
+      {
+        "text": "Pay rent",
+        "date": "2026-03-02"
+      }
+    ]
+  }
+}

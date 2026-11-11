@@ -521,11 +521,12 @@
     } catch (e) { return file; }
   }
 
-  async function uploadPhotoOCR(file, type = 'auto') {
+  async function uploadPhotoOCR(file, type = 'auto', planner = '') {
     const fd = new FormData();
     fd.append('image', await shrinkImage(file, type === 'calendar' ? 2400 : 1800, type === 'calendar' ? 0.9 : 0.85), 'photo.jpg');
     fd.append('type', type);
     fd.append('today', todayISO());
+    if (planner) fd.append('planner', planner);
     const send = () => fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${authToken()}` } });
     let res = await send();
     if (res.status === 401 && await googleRefresh()) res = await send();
@@ -573,15 +574,39 @@
     return results;
   }
 
-  const OCR_DEST = { schedule: '#/week', goals: '#/goals', workouts: '#/track/workouts', weights: '#/track/weight', habits: '#/today', shopping: '#/lists/shopping',
+  const OCR_DEST = { page: '#/today', schedule: '#/week', goals: '#/goals', workouts: '#/track/workouts', weights: '#/track/weight', habits: '#/today', shopping: '#/lists/shopping',
     journal: '#/lists/journal', bucket: '#/lists/bucket', reading: '#/lists/reading', projects: '#/lists/hobbies', events: '#/year' };
-  const countAll = () => ['goals', 'roles', 'schedule', 'workouts', 'weights', 'shopping', 'journals', 'bucket', 'reading', 'projects', 'events']
-    .reduce((n, k) => n + state[k].length, 0) + Object.values(state.weeks).reduce((n, w) => n + (w.habits || []).length, 0);
+  const countAll = () => ['goals', 'roles', 'schedule', 'workouts', 'weights', 'shopping', 'journals', 'bucket', 'reading', 'projects', 'events', 'tasks', 'big3']
+    .reduce((n, k) => n + state[k].length, 0) + state.goals.reduce((n, g) => n + Object.keys(g.log || {}).length, 0) + Object.values(state.weeks).reduce((n, w) => n + (w.habits || []).length, 0);
 
   function addOCRDataToApp(route, data) {
     const before = countAll();
     try {
       switch (route) {
+        case 'page': {          // a planner page: priorities, schedule, to-dos, notes, habit days
+          const day = (d) => d || todayISO(), mk = () => ({ id: S.uid() });
+          (data.priorities || []).forEach((p) => {
+            if (!p.text) return;
+            const date = day(p.date);
+            if (state.big3.filter((b) => b.date === date).length < 3 && !state.big3.some((b) => b.date === date && b.text.toLowerCase() === p.text.toLowerCase())) state.big3.push({ ...mk(), date, text: p.text, goalId: '', stepRef: '', done: !!p.done, doneAt: p.done ? date : '' });
+            else if (F.newTask) F.newTask({ title: p.text, day: date, priority: 'high', status: p.done ? 'done' : 'next', doneAt: p.done ? date : '' });
+          });
+          (data.schedule || []).forEach((e) => { if (e.date && e.text) addScheduleItem({ text: e.text, date: e.date, time: e.time || '', mins: Number(e.mins) || 30, src: 'photo' }); });
+          (data.tasks || []).forEach((t) => {
+            if (!t.text || !F.newTask) return;
+            if (state.tasks.some((x) => x.title.toLowerCase() === t.text.toLowerCase() && (x.day || x.due || '') === (t.date || ''))) return;
+            F.newTask({ title: t.text, day: t.date || '', status: t.done ? 'done' : 'next', doneAt: t.done ? day(t.date) : '' });
+          });
+          (data.notes || []).forEach((n) => { if (n.text) state.journals.push({ ...mk(), date: day(n.date), text: n.text, tags: 'planner photo' }); });
+          (data.habits || []).forEach((h) => {
+            if (!h.name) return;
+            const days = (Array.isArray(h.days) ? h.days : String(h.days || '').split(/[,\s]+/)).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
+            let g = state.goals.find((x) => x.kind === 'habit' && x.title.toLowerCase() === h.name.toLowerCase());
+            if (!g) g = addSuggestedGoal({ title: h.name, perWeek: 5, area: P.lifeArea('', '', h.name, true) }, 'habit');
+            g.log = g.log || {}; days.forEach((dt) => { g.log[dt] = true; });
+          });
+          break;
+        }
         case 'schedule':
           data.entries.forEach(e => {
             if (e.date && e.text) state.schedule.push({ id: S.uid(), date: e.date, time: e.time || '', text: e.text });
@@ -3844,6 +3869,14 @@
     goals: { title: 'Review roles & goals', route: 'goals', sections: [
       { key: 'roles', label: 'Roles', cols: [T('name', 'Role'), T('why', 'WHY', { wide: true })] },
       { key: 'goals', label: 'Goals', cols: [T('title', 'Goal', { wide: true }), T('role', 'Role'), T('cadence', '', { select: [['once', 'One-off goal'], ['daily', 'Daily habit'], ['weekly', 'Weekly habit'], ['monthly', 'Monthly']] }), T('target', '', { type: 'date' })] }] },
+    page: { title: 'Review planner page', route: 'page', sections: [
+      { key: 'priorities', label: 'Priorities', cols: [T('date', '', { type: 'date' }), T('text', 'Priority', { wide: true }), T('done', 'Done', { check: true })] },
+      { key: 'schedule', label: 'Schedule', cols: [T('date', '', { type: 'date' }), T('time', '', { type: 'time' }), T('text', 'What', { wide: true })] },
+      { key: 'tasks', label: 'To-dos', cols: [T('date', '', { type: 'date' }), T('text', 'To-do', { wide: true }), T('done', 'Done', { check: true })] },
+      { key: 'notes', label: 'Notes & gratitude', cols: [T('date', '', { type: 'date' }), T('text', 'Note', { area: true, wide: true })] },
+      { key: 'habits', label: 'Habit days', cols: [T('name', 'Habit'), T('days', 'Dates ticked (YYYY-MM-DD, comma separated)', { wide: true })] }],
+      load: (d) => ({ ...d, habits: (d.habits || []).map((h) => ({ ...h, days: (h.days || []).join(', ') })) }),
+      apply: (c) => ({ ...c, habits: (c.habits || []).map((h) => ({ ...h, days: String(h.days || '').split(/[,\s]+/).filter(Boolean) })) }) },
     workouts: { title: 'Review workouts', route: 'workouts', sections: [{ key: 'workouts', cols: [T('date', '', { type: 'date' }), T('type', 'Type'), T('minutes', 'min', { type: 'number', num: true }), T('details', 'Details', { wide: true })] }] },
     weights: { title: 'Review weigh-ins', route: 'weights', sections: [{ key: 'weights', cols: [T('date', '', { type: 'date' }), T('value', 'Weight', { type: 'number', num: true })] }] },
     habits: { title: 'Review habits', route: 'habits', sections: [{ key: 'habits', cols: [T('name', 'Habit', { wide: true }), T('target', 'days/wk', { type: 'number', num: true })] }] },
@@ -3905,6 +3938,7 @@
   uploadType.addEventListener('change', () => {
     const cal = uploadType.value === 'calendar';
     document.getElementById('uploadCalWrap').hidden = !cal; document.getElementById('uploadCalTip').hidden = !cal;
+    document.getElementById('uploadPlannerWrap').hidden = !['page', 'auto'].includes(uploadType.value);
   });
 
   function showCalendarReview(rawEvents, calName) {
@@ -3969,7 +4003,7 @@
   const onUpload = async (e) => {
     const files = [...e.target.files];
     if (!files.length) return;
-    const type = uploadType.value || 'auto', calName = document.getElementById('uploadCal').value.trim();
+    const type = uploadType.value || 'auto', calName = document.getElementById('uploadCal').value.trim(), planner = document.getElementById('uploadPlanner').value;
     toast(files.length > 1 ? `Reading ${files.length} photos…` : 'Reading photo…');
     try {
       if (type === 'calendar') {
@@ -3977,7 +4011,12 @@
         for (const f of files) { const r = await uploadPhotoOCR(f, 'calendar'); (r.data.events || []).forEach((ev) => events.push(ev)); }
         showCalendarReview(events, calName); return;
       }
-      const result = await uploadPhotoOCR(files[0], type);
+      if (type === 'page') {     // several pages at once (a whole week, a spread): read each and review them together
+        const all = { priorities: [], schedule: [], tasks: [], notes: [], habits: [] };
+        for (const f of files) { const r = await uploadPhotoOCR(f, 'page', planner); Object.keys(all).forEach((k) => all[k].push(...((r.data && r.data[k]) || []))); }
+        showReview('page', all); return;
+      }
+      const result = await uploadPhotoOCR(files[0], type, planner);
       if (result.type === 'calendar') { showCalendarReview(result.data.events || [], calName); return; }
       if (result.type === 'schedule') { showCalendarReview((result.data.entries || []).map((x) => ({ date: x.date, time: x.time || '', text: x.text, mins: '', allDay: !x.time, approx: !x.time })), calName); return; }
       if (REVIEW[result.type]) { showReview(result.type, result.data); return; }

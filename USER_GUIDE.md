@@ -49,6 +49,12 @@ Supported photos:
 - 🎯 Bucket list
 - And more!
 
+### 📸 Photo import: which planners work
+
+Choose **Planner page** and (optionally) your planner brand: Full Focus, Panda, Passion, Day Designer, Franklin Covey, Bullet Journal, Happy Planner, Erin Condren, Moleskine / Leuchtturm, Hobonichi, Cultivate What Matters, Simplified / Ink+Volt / Clever Fox, or another. Life.OS reads priorities (your Big 3), the hourly schedule, to-dos with their checkboxes, notes and gratitude, and habit-tracker ticks. You can choose several photos at once, such as every day of a week. Bullet-journal symbols (•, ×, >, <, ○, –, *) are understood too.
+
+Everything goes through a review screen first: fix anything misread and untick what you don't want. Reading handwriting is never perfect, so check the dates and times in particular.
+
 ### 📅 Google Calendar Sync (Optional)
 
 1. Settings ⚙
