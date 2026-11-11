@@ -379,6 +379,7 @@
   const gcalFriendly = (m) => (/insufficient authentication scopes|insufficientPermissions/i.test(m || '')
     ? 'Google did not give Life.OS permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
   const gcalNeedsReconnect = (m) => /permission to read your calendars/.test(m || '');
+  const gcalCanWrite = () => /auth\/calendar(\.events)?(\s|$)/.test(gScope());     // we only ask for write access when someone uses a feature that needs it
   const gcalWritable = (c) => ['owner', 'writer'].includes(c.accessRole);
   const gcalMasterId = () => state.settings.gcalMaster || 'primary';
   const gcalMasterMeta = () => { const m = gcalMeta(gcalMasterId()); return { id: gcalMasterId() === 'primary' && gcalPrimary() ? gcalPrimary().id : gcalMasterId(), name: m.name === 'primary' ? 'Primary calendar' : m.name }; };
@@ -521,6 +522,10 @@
   async function pushToGoogleCalendar(items, calendarId) {
     const token = localStorage.getItem('google_access_token');
     if (!token) { toast('Connect Google Calendar in Settings first'); return items.map(() => false); }
+    if (!gcalCanWrite()) {
+      if (confirm('Adding events to Google Calendar needs one more permission. Life.OS only asks when you use a feature that needs it, and only for creating events. Allow it now? (You will return here afterwards; then try again.)')) startGoogleOAuth('calendarwrite');
+      return items.map(() => false);
+    }
     const target = calendarId || gcalMasterMeta().id, targetName = (state.gcalCalendars.find((c) => c.id === target) || gcalMasterMeta()).name;
     const results = [];
     for (const e of items) {
@@ -2016,7 +2021,7 @@
         </div>` : notifPerm === 'denied' ? '<p class="muted small">⚠️ Notifications are blocked. Check your browser settings.</p>' : s.notificationsEnabled ? '<p class="muted small">Enable notifications for rituals due, habit milestones, and goal check-ins.</p>' : ''}
       </section>` : ''}
       <section class="box"><h2>Your data</h2>
-        <p>Everything is stored only in this browser. Export a backup regularly, and use it to move between devices.</p>
+        <p>${signedIn() && state.settings.syncOn ? 'Your plan is on this device and in your own Google Drive (a hidden folder only Life.OS can open).' : 'Your plan is stored only in this browser. Sign in to keep a copy in your own Google Drive.'} Export a backup any time.</p>
         <div class="row wrap">
           <button class="btn" data-act="export">Export backup (.json)</button>
           <a class="btn ghost" href="#/welcome/1">Take the tour</a>
@@ -2024,8 +2029,10 @@
           <a class="btn ghost" href="#/setup/1">Run setup guide</a>
           ${state.goals.some((g) => g.seed) ? '<button class="btn ghost" data-act="removeSamples">Remove sample goals</button>' : ''}
           <label class="btn ghost file">Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
-          <button class="btn ghost danger" data-act="reset">Erase all data</button>
+          <button class="btn ghost danger" data-act="reset">Erase data on this device</button>
+          <button class="btn ghost danger" data-act="deleteEverything">Delete everything, everywhere</button>
         </div>
+        <p class="muted small">“Delete everything” removes your plan from this device, deletes the copy and backups in your Google Drive, and revokes Life.OS's access to your Google account. <a href="privacy.html">Privacy policy</a> · <a href="terms.html">Terms</a></p>
       </section>`;
     return page('Settings', '', body);
   }
@@ -2339,6 +2346,7 @@
       if (quick.rhythm) applyIdealStarter();
       quick = quickFresh(); commit(); toast('Your plan is ready'); location.hash = '#/today';
     },
+    pickPhotos() { document.getElementById('uploadInput').click(); },
     signIn() { startGoogleOAuth('signin'); },
     landingSkip() { setAccountMode('local'); location.hash = '#/start'; },
     account() { if (signedIn()) location.hash = '#/settings'; else startGoogleOAuth('signin'); },
@@ -2348,6 +2356,21 @@
     },
     syncEnable() { if (syncHasScope()) { state.settings.syncOn = true; commit(); syncNow(); } else startGoogleOAuth('signin'); },
     syncNow() { if (!state.settings.syncOn) return; syncNow(); },
+    async deleteEverything() {
+      if (!confirm('Delete EVERYTHING? This erases your plan on this device, deletes your Life.OS copy and backups from Google Drive, and removes Life.OS\'s access to your Google account. It cannot be undone. Download a backup first if you might want it.')) return;
+      if ((prompt('Type DELETE to confirm') || '').trim() !== 'DELETE') { toast('Nothing was deleted'); return; }
+      toast('Deleting…');
+      clearTimeout(sync.timer); sync.epoch++;
+      try {
+        if (syncHasScope()) for (const f of [...await driveList(`name='${SYNC_FILE}' and trashed=false`), ...await driveList("name contains 'lifeos-backup-' and trashed=false")]) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
+      } catch (e) { toast(`Could not delete your Google Drive copy (${e.message}). Nothing was changed. Try again, or remove Life.OS in your Google account settings.`); return; }
+      const rt = localStorage.getItem('google_refresh_token') || localStorage.getItem('google_access_token');
+      if (rt) { try { await fetch('https://oauth2.googleapis.com/revoke', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `token=${encodeURIComponent(rt)}` }); } catch (e) { /* the token also expires on its own */ } }
+      try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* storage unavailable */ }
+      try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) { /* no cache API */ }
+      try { sessionStorage.setItem('lifeos.toast', 'Everything was deleted from this device and from Google Drive.'); } catch (e) { /* storage unavailable */ }
+      location.hash = '#/landing'; location.reload();
+    },
     syncOff() { state.settings.syncOn = false; sync.status = 'off'; commit(); toast('Sync is off. Your Drive copy is kept.'); },
     syncBackups() { loadBackups(); },
     syncRestore(el) { if (confirm('Replace this device\'s plan with that backup? It becomes your current copy everywhere.')) restoreBackup(el.dataset.id); },
@@ -3796,7 +3819,7 @@
       }
       localStorage.removeItem('google_cal_off');
       const canRead = !t.scope || /auth\/calendar(\.readonly|\.calendarlist(\.readonly)?)?(\s|$)/.test(t.scope);
-      toast(canRead ? 'Google Calendar connected' : 'Connected, but Google did not allow reading your calendars. Reconnect and tick every box.');
+      toast(intent === 'calendarwrite' ? 'Permission granted. Try adding to your calendar again.' : canRead ? 'Google Calendar connected' : 'Connected, but Google did not allow reading your calendars. Reconnect and tick every box.');
       render();
     } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
   })();

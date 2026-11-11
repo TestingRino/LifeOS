@@ -48,17 +48,15 @@ router.post('/google/refresh', async (req, res) => {
 });
 
 router.get('/google/url', (req, res) => {
-  // Calendar and sync are asked for separately so people only grant what they use.
-  const CALENDAR = [
-    'https://www.googleapis.com/auth/calendar.readonly', // read events and the list of calendars
-    'https://www.googleapis.com/auth/calendar.events',   // create events (photo imports, ideal week, scheduled tasks)
-  ];
+  // Each kind asks only for what that feature needs. Writing to a calendar is a separate, later request.
+  const CALENDAR = ['https://www.googleapis.com/auth/calendar.readonly'];             // see your events and the list of your calendars
+  const CALENDAR_WRITE = [...CALENDAR, 'https://www.googleapis.com/auth/calendar.events']; // also add events (photo imports, ideal week, scheduled tasks)
   const SYNC = [
     'openid', 'email',                                    // who is signed in (shown in Settings)
     'https://www.googleapis.com/auth/drive.appdata',      // Life.OS's own hidden app folder in the user's Drive
   ];
   const kind = req.query.scopes;
-  const scope = (kind === 'sync' || kind === 'signin' ? SYNC : kind === 'all' ? [...CALENDAR, ...SYNC] : CALENDAR).join(' ');
+  const scope = (kind === 'sync' || kind === 'signin' ? SYNC : kind === 'all' ? [...CALENDAR, ...SYNC] : kind === 'calendarwrite' ? CALENDAR_WRITE : CALENDAR).join(' ');
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,

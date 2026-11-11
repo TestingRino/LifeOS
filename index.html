@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <base href="/LifeOS/">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://life-os-bice-xi.vercel.app https://www.googleapis.com https://oauth2.googleapis.com http://localhost:3001; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -14,7 +15,7 @@
   <meta name="description" content="Purpose-based life planning that works alongside a physical planner.">
   <meta name="theme-color" content="#2f3352">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261111154326">
+  <link rel="stylesheet" href="css/style.css?v=20261111154651">
 </head>
 <body>
   <header class="topbar">
@@ -70,7 +71,7 @@
     <a href="#/welcome/1" data-route="welcome">Take the tour <small>interactive demo</small></a>
     <a href="#/settings" data-route="settings">Settings <small>planner, backup</small></a>
   </div>
-  <footer class="foot wrap"><span id="syncStatus" class="sync-status"></span><br><span id="quoteText"></span> <button type="button" class="quote-next" data-act="nextQuote" aria-label="Show another quote" title="Another quote">↻</button><br><a href="#/welcome/1">Take the tour</a> · <a href="#/landing">About Life.OS</a> · <a href="#/setup/1">Setup guide</a> · <button type="button" class="linklike" data-act="shortcuts">Shortcuts</button><br><small class="muted" id="appVer"></small></footer>
+  <footer class="foot wrap"><span id="syncStatus" class="sync-status"></span><br><span id="quoteText"></span> <button type="button" class="quote-next" data-act="nextQuote" aria-label="Show another quote" title="Another quote">↻</button><br><a href="#/welcome/1">Take the tour</a> · <a href="#/landing">About Life.OS</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="#/setup/1">Setup guide</a> · <button type="button" class="linklike" data-act="shortcuts">Shortcuts</button><br><small class="muted" id="appVer"></small></footer>
 
   <dialog id="dlg">
     <form method="dialog">
@@ -106,7 +107,7 @@
       <p class="muted small" id="uploadCalTip" hidden>Tip: include the hour labels down the left side so times are exact. You can choose several screenshots at once.</p>
       <input type="file" id="uploadInput" accept="image/*" multiple style="display:none">
       <div id="uploadPreview" style="margin:1rem 0; text-align:center;"></div>
-      <div class="row"><button type="button" class="btn" onclick="document.getElementById('uploadInput').click()">Choose photo(s)</button><button class="btn ghost">Cancel</button></div>
+      <div class="row"><button type="button" class="btn" data-act="pickPhotos">Choose photo(s)</button><button class="btn ghost">Cancel</button></div>
     </form>
   </dialog>
 
@@ -144,17 +145,17 @@
         <button type="button" class="btn primary" id="loginGoogleBtn">Continue with Google</button>
         <button class="btn ghost" id="loginSkipBtn">Continue without an account</button>
       </div>
-      <p class="muted small">Without an account your plan stays on this device only. You can sign in later from Settings. <a href="#/welcome/1" id="loginDemo">See the demo first</a></p>
+      <p class="muted small">Without an account your plan stays on this device only. You can sign in later from Settings. <a href="#/welcome/1" id="loginDemo">See the demo first</a>. By continuing you agree to the <a href="terms.html">Terms</a> and <a href="privacy.html">Privacy Policy</a>.</p>
     </form>
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/util.js?v=20261111154326"></script>
-  <script src="js/plan.js?v=20261111154326"></script>
-  <script src="js/store.js?v=20261111154326"></script>
-  <script src="js/features.js?v=20261111154326"></script>
-  <script src="js/app.js?v=20261111154326"></script>
+  <script src="js/util.js?v=20261111154651"></script>
+  <script src="js/plan.js?v=20261111154651"></script>
+  <script src="js/store.js?v=20261111154651"></script>
+  <script src="js/features.js?v=20261111154651"></script>
+  <script src="js/app.js?v=20261111154651"></script>
 </body>
 </html>
