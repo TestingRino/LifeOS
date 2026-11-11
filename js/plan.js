@@ -40,9 +40,6 @@
     if (r === 'Professional' || area === 'work') return 'career';
     return 'personal';
   }
-  /* The six planner areas on the week/month pages (priority actions are grouped by these). */
-  const PLANNER_OF = { career: 'work', finances: 'home', home: 'home', family: 'friends', community: 'friends', personal: 'fun', learning: 'projects', mental: 'health', fitness: 'health', faith: 'health' };
-  const plannerArea = (life) => PLANNER_OF[life] || (['work', 'home', 'friends', 'projects', 'fun', 'health'].includes(life) ? life : 'work');
   /* Old Wheel of Life keys to the shared set. */
   const WHEEL_KEYS = { physical: 'fitness', mental: 'learning', spiritual: 'faith', family: 'family', career: 'career', financial: 'finances', social: 'community' };
 
@@ -368,7 +365,7 @@
     pruned.tomb = tomb;
     return pruned;
   }
-  const api = { idsOf, recordDeletions, mergeStates, LIFE, LIFE_IDS, lifeName, lifeArea, plannerArea, WHEEL_KEYS, nextDue, recurLabel, ordinal, parseQuick, nextWeekday, rollable, rollTasks, buildIndex, search, snippet, period, shiftPeriod, summarize, summaryMarkdown, TEMPLATES, expandTemplate };
+  const api = { idsOf, recordDeletions, mergeStates, LIFE, LIFE_IDS, lifeName, lifeArea, WHEEL_KEYS, nextDue, recurLabel, ordinal, parseQuick, nextWeekday, rollable, rollTasks, buildIndex, search, snippet, period, shiftPeriod, summarize, summaryMarkdown, TEMPLATES, expandTemplate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -815,3 +815,7 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 
 .week-nav { margin: 0 0 .7rem; } .week-nav .chip { text-decoration: none; padding: .25rem .8rem; } .week-nav .chip.is-today:not(.on) { border-style: solid; border-color: var(--ok); } .week-nav .chip b { font-weight: 600; opacity: .75; margin-left: .15rem; }
 .day-banner { margin: 0 0 .6rem; }
+
+.first-day { border-left: 4px solid var(--gold); } .first-day h2 { margin-top: 0; } .fd-steps { padding-left: 1.2rem; display: grid; gap: .9rem; } .fd-steps li > strong { display: inline-block; margin-bottom: .2rem; } .fd-steps textarea { width: 100%; margin-top: .3rem; }
+.areas .area-h { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .8rem 0 .2rem; }
+.more-week > summary, details.box > summary { cursor: pointer; }

@@ -14,7 +14,7 @@
   <meta name="description" content="Purpose-based life planning that works alongside a physical planner.">
   <meta name="theme-color" content="#2f3352">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261111154145">
+  <link rel="stylesheet" href="css/style.css?v=20261111154326">
 </head>
 <body>
   <header class="topbar">
@@ -24,26 +24,22 @@
       <a href="#/week" data-route="week">Week</a>
       <a href="#/calendar" data-route="calendar">Calendar</a>
       <a href="#/tasks" data-route="tasks">Tasks</a>
+      <a href="#/goals" data-route="goals">Goals</a>
       <div class="nav-group">
-        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="session month year ideal summary print">Plan <span aria-hidden="true">▾</span></button>
+        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="session month year ideal summary print foundation wheel track lists archive">More <span aria-hidden="true">▾</span></button>
         <div class="nav-menu" hidden>
           <a href="#/session" data-route="session"><strong>Planning sessions</strong><small>yearly to daily checklists</small></a>
           <a href="#/month" data-route="month"><strong>Month</strong><small>events and monthly priorities</small></a>
           <a href="#/year" data-route="year"><strong>Year</strong><small>key dates and annual notes</small></a>
           <a href="#/ideal" data-route="ideal"><strong>Ideal week</strong><small>your weekly rhythm</small></a>
-          <a href="#/summary" data-route="summary"><strong>What I finished</strong><small>weekly to yearly review summary</small></a>
+          <a href="#/foundation" data-route="foundation"><strong>Foundation</strong><small>purpose, vision, values, legacy</small></a>
+          <a href="#/wheel" data-route="wheel"><strong>Wheel of Life</strong><small>score ten areas of life</small></a>
+          <a href="#/track" data-route="track"><strong>Track</strong><small>weight, workouts, habits, goals</small></a>
+          <a href="#/lists" data-route="lists"><strong>Lists</strong><small>bucket, reading, shopping, journal</small></a>
+          <a href="#/summary" data-route="summary"><strong>What I finished</strong><small>weekly to yearly summary</small></a>
+          <a href="#/archive" data-route="archive"><strong>Archive</strong><small>deleted items, finished work</small></a>
         </div>
       </div>
-      <div class="nav-group">
-        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="goals foundation wheel">Goals <span aria-hidden="true">▾</span></button>
-        <div class="nav-menu" hidden>
-          <a href="#/goals" data-route="goals"><strong>Roles &amp; goals</strong><small>your roles, WHY and goals</small></a>
-          <a href="#/foundation" data-route="foundation"><strong>Foundation</strong><small>purpose, vision, values</small></a>
-          <a href="#/wheel" data-route="wheel"><strong>Wheel of Life</strong><small>score seven areas of life</small></a>
-        </div>
-      </div>
-      <a href="#/track" data-route="track">Track</a>
-      <a href="#/lists" data-route="lists">Lists</a>
       <button type="button" class="nav-search" data-act="search" aria-label="Search (press /)" title="Search (press /)">🔍</button>
       <a href="#/settings" data-route="settings" aria-label="Settings">⚙</a>
       <button type="button" id="navAccount" class="nav-acct" data-act="account">Sign in</button>
@@ -155,10 +151,10 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/util.js?v=20261111154145"></script>
-  <script src="js/plan.js?v=20261111154145"></script>
-  <script src="js/store.js?v=20261111154145"></script>
-  <script src="js/features.js?v=20261111154145"></script>
-  <script src="js/app.js?v=20261111154145"></script>
+  <script src="js/util.js?v=20261111154326"></script>
+  <script src="js/plan.js?v=20261111154326"></script>
+  <script src="js/store.js?v=20261111154326"></script>
+  <script src="js/features.js?v=20261111154326"></script>
+  <script src="js/app.js?v=20261111154326"></script>
 </body>
 </html>

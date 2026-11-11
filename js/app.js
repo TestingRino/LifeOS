@@ -4,7 +4,6 @@
   const U = window.LifeUtil;
   const S = window.LifeStore;
   const P = window.LifePlan;
-  const AREAS = S.AREAS;
 
   let firstRun = false;
   try { firstRun = localStorage.getItem(S.KEY) === null; } catch (e) { /* storage unavailable */ }
@@ -74,7 +73,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), action ? 6000 : 1200);
   }
 
-  const areaName = (id) => (AREAS.find((a) => a.id === id) || P.LIFE.find((a) => a.id === id) || { name: 'Other' }).name;
+  const areaName = (id) => (P.LIFE.find((a) => a.id === id) || { name: 'Other' }).name;
   const roleName = (id) => (state.roles.find((r) => r.id === id) || { name: '' }).name;
 
   function getMonth(key) {
@@ -230,7 +229,6 @@
   const chk = (path, label = '') =>
     `<input type="checkbox" data-bind="${esc(path)}" data-rerender ${get(path) ? 'checked' : ''} ${label ? `aria-label="${esc(label)}"` : ''}>`;
   const opts = (list, cur) => list.map((o) => `<option value="${esc(o.v)}" ${String(o.v) === String(cur) ? 'selected' : ''}>${esc(o.l)}</option>`).join('');
-  const areaOpts = (cur) => opts(AREAS.map((a) => ({ v: a.id, l: a.name })), cur);
   const lifeOpts = (cur) => opts(P.LIFE.map((a) => ({ v: a.id, l: a.name })), cur);
   const goalOpts = (goals, cur) => opts([{ v: '', l: '— link to goal —' }].concat(
     goals.map((g) => ({ v: g.id, l: `${g.tier === 'purpose' ? '★ ' : ''}${g.title}` }))), cur);
@@ -247,21 +245,18 @@
   }
 
   /* Priority-action boxes, shared by Month and Week pages. */
+  /* Priority actions for a week or month: one list grouped by life area (the same ten areas as goals and the Wheel). */
   function areaBoxes(base, items, goals) {
-    return `<div class="areas">${AREAS.map((a) => {
-      const list = items.filter((i) => i.area === a.id);
-      const uncovered = goals.filter((g) => P.plannerArea(g.area) === a.id && !items.some((i) => i.goalId === g.id));
-      return `<section class="box area">
-        <h3>${a.name}</h3>
-        <ul class="checks">${list.map((i) => actionRow(base, i, goals)).join('')}</ul>
-        ${uncovered.length ? `<div class="nudge">No action yet for:
-          ${uncovered.map((g) => `<button class="chip" data-act="quickAction" data-path="${base}" data-area="${a.id}" data-goal="${g.id}">+ ${esc(g.title)}</button>`).join('')}</div>` : ''}
-        <form class="add" data-add="${base}" data-area="${a.id}">
-          <input name="text" placeholder="Add priority action…" required aria-label="New ${a.name} action">
-          <button aria-label="Add">+</button>
-        </form>
-      </section>`;
-    }).join('')}</div>`;
+    const areaOf = (i) => P.lifeArea(i.area || '', '', i.text);
+    const groups = P.LIFE.map((a) => ({ a, list: items.filter((i) => areaOf(i) === a.id) })).filter((g) => g.list.length);
+    const uncovered = goals.filter((g) => g.status === 'active' && g.kind !== 'habit' && !items.some((i) => i.goalId === g.id)).slice(0, 6);
+    return `<section class="box areas">
+      ${groups.length ? groups.map((g) => `<h3 class="area-h">${esc(g.a.name)}</h3><ul class="checks">${g.list.map((i) => actionRow(base, i, goals)).join('')}</ul>`).join('') : '<p class="muted">No priorities yet. Add the few things that matter most.</p>'}
+      ${uncovered.length ? `<div class="nudge">No action yet for: ${uncovered.map((g) => `<button class="chip" data-act="quickAction" data-path="${base}" data-area="${esc(g.area)}" data-goal="${g.id}">+ ${esc(g.title)}</button>`).join('')}</div>` : ''}
+      <form class="add" data-add="${base}"><input name="text" placeholder="Add a priority action…" required aria-label="New priority action">
+        <select name="area" aria-label="Area"><option value="">Area…</option>${P.LIFE.map((a) => `<option value="${a.id}">${esc(a.short)}</option>`).join('')}</select>
+        <select name="goalId" class="link" aria-label="Linked goal">${goalOpts(goals, '')}</select><button aria-label="Add">+</button></form>
+    </section>`;
   }
   function actionRow(base, i, goals) {
     const p = `${base}.@${i.id}`;
@@ -674,7 +669,9 @@
     const syncNudge = !syncEnabled() && dataWeight() >= 8 && (state.settings.syncNudgeUntil || '') <= iso
       ? `<section class="box sync-nudge"><div class="grow"><strong>Your plan only lives in this browser.</strong> <span class="muted">Turn on sync so a cleared browser or a lost phone can't erase the time you've invested.</span></div>
         <button class="btn primary" data-act="syncEnable">Turn on sync</button><button class="btn ghost" data-act="export">Download backup</button><button class="x" data-act="syncSnooze" aria-label="Remind me in a week" title="Remind me in a week">×</button></section>` : '';
-    const setupBanner = !state.settings.setupDone && !state.settings.setupDismissed && stNext ? `<section class="box setup-banner"><div class="grow"><strong>Finish setting up Life.OS</strong> <span class="muted">· ${stDone} of ${st.length} · next: ${esc(stNext.label)}</span><br>${progressBar((stDone / st.length) * 100)}</div><a class="btn primary" href="#/setup/${stNext.step}">Continue</a><button class="x" data-act="dismissSetup" aria-label="Hide setup">×</button></section>` : '';
+    const blankPlan = !state.settings.setupDone && !state.settings.setupDismissed && !state.goals.length && !state.tasks.length && !state.big3.length;
+    const firstDay = blankPlan ? firstDayCard() : '';
+    const setupBanner = !blankPlan && !state.settings.setupDone && !state.settings.setupDismissed && stNext ? `<section class="box setup-banner"><div class="grow"><strong>Finish setting up Life.OS</strong> <span class="muted">· ${stDone} of ${st.length} · next: ${esc(stNext.label)}</span><br>${progressBar((stDone / st.length) * 100)}</div><a class="btn primary" href="#/setup/${stNext.step}">Continue</a><button class="x" data-act="dismissSetup" aria-label="Hide setup">×</button></section>` : '';
     const rv = state.reviews[iso] || {};
     const rvCount = ['purpose', 'goals', 'ideal'].filter((k) => rv[k]).length;
     let rvStreak = 0;
@@ -713,6 +710,7 @@
       return `<a class="chip${di === iso ? ' on' : ''}${di === realToday ? ' is-today' : ''}" role="tab" aria-selected="${di === iso}" href="${dayHref(di)}">${U.DAYS[d.getDay()].slice(0, 3)} ${d.getDate()}${open ? ` <b>${open}</b>` : ''}</a>`; }).join('')}</div>`;
     const viewing = isToday ? '' : `<p class="muted small day-banner">Viewing ${esc(U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric' }))}${iso < realToday ? ' (a past day)' : ''}. <a href="#/today">Back to today</a></p>`;
     const body = `
+      ${firstDay}
       ${setupBanner}
       ${syncNudge}
       ${dueStrip}
@@ -1120,7 +1118,6 @@
         <select name="mins" aria-label="Length">${opts([30, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : '30 min' })), 60)}</select>
         <input name="text" placeholder="Call, meeting, appointment, family time…" required><button aria-label="Add block">+</button></form>` : ''}`;
   }
-  const timeGrid = (wk, dayOptsHtml) => timeGridDays(DAYS_ISO(wk), dayOptsHtml);
 
   /* ---------- calendar zoom ---------- */
   const ZOOMS = [[0.75, 'Compact'], [1, 'Normal'], [1.5, 'Large'], [2, 'Extra large']];
@@ -1452,7 +1449,7 @@
       ${top3}
       <h2 class="section">Schedule</h2>
       ${strip}
-      <details class="box" data-keep="grid"><summary><strong>Plan the week by the half hour</strong></summary>${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}${timeGrid(wk, dayOpts(defDay))}</details>
+      <p class="muted small"><a href="#/calendar/week:${wk}">Open the full week calendar →</a></p>
       ${dayPlanner}
       <h2 class="section">Priority Actions for the Week</h2>
       ${roleWeekly.length ? `<div class="nudge role-nudge"><strong>Your weekly role commitments:</strong> ${roleWeekly.map((x) => `<span><em>${esc(x.r.name)}:</em> ${esc(x.t)}</span>`).join(' · ')}</div>` : ''}
@@ -1461,7 +1458,8 @@
         <button class="btn ghost" data-act="pullMonth" data-key="${wk}">Pull open actions from ${U.MONTHS[wom.month]}</button>
       </div>
       ${areaBoxes(base + '.actions', w.actions, goals)}
-      ${pullBox}
+      <details class="box" data-keep="pull"><summary><strong>Pull in from your lists</strong> <span class="muted">to-dos and bucket list</span></summary>${pullBox}</details>
+      <details class="box more-week" data-keep="weekmore"><summary><strong>More for the week</strong> <span class="muted">habits, workouts, goal pulse, shopping, notes and review</span></summary>
       <div class="grid2">
         <section class="box"><h3>Habit Tracker</h3>${habits}</section>
         <section class="box"><h3>Workouts <small class="muted">${woDone}${woTarget ? `/${woTarget}` : ''} done · ${wos.reduce((s, x) => s + (x.done ? Number(x.minutes) || 0 : 0), 0)} min</small></h3>${workouts}</section>
@@ -1477,7 +1475,8 @@
       </div>
       <section class="box"><h3>Notes · Ideas · Reminders · Acts of Kindness · Memories</h3>${ta(base + '.notes', '', 5)}</section>
       <section class="box review"><h3>Are you chasing your dreams this week?</h3>${ta(base + '.dreams', '', 3)}
-        <h3>Rate your week</h3>${stars}</section>`;
+        <h3>Rate your week</h3>${stars}</section>
+      </details>`;
     const prev = U.toISO(U.addDays(startD, -7)), next = U.toISO(U.addDays(startD, 7));
     const nav = `<a class="btn ghost" href="#/week/${prev}" aria-label="Previous week">←</a>
       <a class="btn ghost" href="#/week/${U.weekKey(today(), ws())}">This week</a>
@@ -2033,8 +2032,8 @@
 
   /* ---------- copy-for-planner text ---------- */
   function actionsText(list) {
-    return AREAS.map((a) => {
-      const l = list.filter((i) => i.area === a.id);
+    return P.LIFE.map((a) => {
+      const l = list.filter((i) => P.lifeArea(i.area || '', '', i.text) === a.id);
       return l.length ? `${a.name}\n${l.map((i) => `  ${i.done ? '✓' : '○'} ${i.text}`).join('\n')}` : '';
     }).filter(Boolean).join('\n\n');
   }
@@ -2256,7 +2255,7 @@
     assignStep(el) {
       const g = state.goals.find((x) => x.id === el.dataset.goal); if (!g) return;
       const ns = nextStep(g);
-      getWeek(U.weekKey(U.parseISO(el.dataset.day), ws())).actions.push({ id: S.uid(), area: P.plannerArea(g.area), text: ns ? ns.text : `Work on: ${g.title}`, goalId: g.id, done: false, day: el.dataset.day });
+      getWeek(U.weekKey(U.parseISO(el.dataset.day), ws())).actions.push({ id: S.uid(), area: g.area, text: ns ? ns.text : `Work on: ${g.title}`, goalId: g.id, done: false, day: el.dataset.day });
       commit();
     },
     selectDay(el) {
@@ -2295,6 +2294,15 @@
       const cur = (state.foundation.legacy || '').trim();
       state.foundation.legacy = `${cur ? `${cur}\n\n` : ''}${seeds[Number(el.dataset.idx)] || ''} `; commit();
     },
+    fdPurpose() { const p = personas().length ? PERSONAS.find((x) => x.id === personas()[0]).purpose : QUICK_PURPOSES[0]; state.foundation.mission = p; commit(); },
+    fdGoal(el) {
+      const sg = SUGGEST.goals[Number(el.dataset.idx)]; if (!sg) return;
+      const g = addSuggestedGoal(sg, 'achievement', true), qk = quarterKey(todayISO());
+      state.focus[qk] = state.focus[qk] || []; if (!state.focus[qk].includes(g.id) && state.focus[qk].length < 4) state.focus[qk].push(g.id);
+      if (sg.steps && sg.steps[0] && state.big3.filter((b) => b.date === todayISO()).length < 3) state.big3.push({ id: S.uid(), date: todayISO(), text: sg.steps[0], goalId: g.id, stepRef: '', done: false });
+      commit(); toast(`Added “${sg.title}”. Its first step is on today's list.`);
+    },
+    fdDismiss() { state.settings.setupDismissed = true; commit(); },
     quickPurpose(el) { quick.purpose = purposeIdeas()[Number(el.dataset.idx)] || ''; render(); },
     quickGoal(el) {
       quick.touched = true;
@@ -2608,6 +2616,7 @@
       else if (el.type === 'number') item[el.name] = el.value === '' ? (item[el.name] != null ? item[el.name] : '') : Number(el.value);
       else item[el.name] = el.value.trim();
     }
+    if (/\.actions$/.test(path) && !item.area) { const g = state.goals.find((x) => x.id === item.goalId); item.area = g ? g.area : 'personal'; }
     list.push(item);
     commit();
     if (item.kind === 'habit' && path === 'goals') toast('Habit added. Tick it off each day on Today.');
@@ -2909,6 +2918,23 @@
     quick.habits = diversePick(quickHabitList(), 'h', 5);
   }
   const purposeIdeas = () => personas().map((id) => PERSONAS.find((p) => p.id === id).purpose).concat(QUICK_PURPOSES).slice(0, 5);
+
+  /* The first real Today for someone with an empty plan: three small steps instead of a blank page and a nag. */
+  function firstDayCard() {
+    const ranked = rankedIdx(SUGGEST.goals).slice(0, 6);
+    const idea = personas().length ? PERSONAS.find((p) => p.id === personas()[0]).purpose : QUICK_PURPOSES[0];
+    return `<section class="box first-day"><h2>Let's make your first day count</h2>
+      <p class="muted">Three small steps, about two minutes. You can change everything later.</p>
+      <ol class="fd-steps">
+        <li><strong>Why are you here?</strong> <span class="muted">One sentence is plenty. You will see it in your daily review.</span>
+          <textarea data-bind="foundation.mission" rows="2" placeholder="My purpose is to…">${esc(state.foundation.mission || '')}</textarea>
+          ${state.foundation.mission ? '' : `<div class="chips"><button type="button" class="chip" data-act="fdPurpose" data-idx="0">Use: ${esc(idea)}</button></div>`}</li>
+        <li><strong>Pick a goal to start with</strong> <span class="muted">Tap one. It becomes a goal with a first step on today's list.</span>
+          <div class="chips">${ranked.map((x) => `<button type="button" class="chip" data-act="fdGoal" data-idx="${x.i}">+ ${esc(x.item.title)}</button>`).join('')}</div></li>
+        <li><strong>Add one thing to do today</strong>${F.quickAdd ? F.quickAdd(todayISO(), 'e.g. Call the dentist friday !high') : ''}</li>
+      </ol>
+      <div class="row"><a class="btn primary" href="#/quick/1">Build my whole plan in a minute →</a><button type="button" class="btn ghost" data-act="fdDismiss">I'll explore on my own</button></div></section>`;
+  }
 
   function viewStart() {
     return page('Set up your plan', 'Pick how much time you have. You can add detail any time.', `

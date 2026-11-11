@@ -6,17 +6,6 @@
   const KEY = 'lifeos.v1';
   const VERSION = 1;
 
-  // Planner areas: how the week and month pages group priority actions (like a paper planner).
-  // Goals, the balance view and the Wheel of Life use the shared life areas in plan.js (LIFE).
-  const AREAS = [
-    { id: 'work', name: 'Work & Career' },
-    { id: 'home', name: 'Home & Admin' },
-    { id: 'friends', name: 'Friends & Networks' },
-    { id: 'projects', name: 'Projects & Passion' },
-    { id: 'fun', name: 'Fun & Activities' },
-    { id: 'health', name: 'Health & Habits' },
-  ];
-
   const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 
   function defaultState() {
@@ -51,7 +40,7 @@
       trash: [],          // {id, path, item, at, label} — deleted items, restorable for 60 days
       templates: [],      // {id, name, desc, anchor 'start'|'end', project, tasks[{title, offset, subtasks[], priority, tags[]}]} — your own templates
       tomb: {},           // {id: 'YYYY-MM-DD'} — ids deleted on this plan, so a sync cannot bring them back
-      areasV: 2,          // 2 = goals use the shared life areas
+      areasV: 3,          // 2 = goals use the shared life areas; 3 = priority actions do too
       memories: [],       // {id, date, kind 'memory'|'quote'|'event', who, text}
       sessions: {},       // 'cadence:period' -> {steps:{id:true}, done:'YYYY-MM-DD'} — guided planning sessions
       idealWeek: [],      // {id, quarter 'YYYY-Qn', dow 0-6, time, text, goalId, workout} — the ideal week, set per quarter
@@ -88,7 +77,15 @@
         w.scores = ns;
       });
     }
-    out.areasV = 2;
+    // priority actions on the week and month pages used the six planner areas; they use the shared life areas now
+    if (((s && s.areasV) || 0) < 3 && P) {
+      const goalArea = Object.fromEntries((out.goals || []).map((g) => [g.id, g.area]));
+      const PL = { work: 'career', home: 'home', friends: 'personal', projects: 'learning', fun: 'personal', health: 'fitness' };
+      const fix = (a) => { a.area = (a.goalId && goalArea[a.goalId]) || PL[a.area] || (P.LIFE_IDS.includes(a.area) ? a.area : 'personal'); };
+      Object.values(out.weeks || {}).forEach((w) => (w.actions || []).forEach(fix));
+      Object.values(out.months || {}).forEach((m) => (m.actions || []).forEach(fix));
+    }
+    out.areasV = 3;
     return out;
   }
 
@@ -139,7 +136,7 @@
     return true;
   }
 
-  const api = { KEY, AREAS, uid, defaultState, migrate, load, save, emptyMonth, emptyWeek, getPath, setPath };
+  const api = { KEY, uid, defaultState, migrate, load, save, emptyMonth, emptyWeek, getPath, setPath };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LifeStore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

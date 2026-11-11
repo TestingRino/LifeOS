@@ -112,3 +112,11 @@ test('idsOf finds nested ids and ignores trash and tombstones', () => {
   const ids = P.idsOf({ goals: [{ id: 'g', milestones: [{ id: 'm' }] }], weeks: { w1: { actions: [{ id: 'a1' }] } }, trash: [{ id: 'gone', item: { id: 'gone' } }], tomb: { z: 1 } });
   assert.deepStrictEqual([...ids].sort(), ['a1', 'g', 'm']);
 });
+
+test('store.migrate moves week and month actions to the shared life areas', () => {
+  const S = require('../js/store.js');
+  const m = S.migrate({ areasV: 2, goals: [{ id: 'g', title: 'Run', area: 'fitness' }], weeks: { w: { actions: [{ id: 'a', text: 'x', area: 'work' }, { id: 'b', text: 'y', area: 'home', goalId: 'g' }] } }, months: { m: { actions: [{ id: 'c', text: 'z', area: 'fun' }] } } });
+  assert.strictEqual(m.weeks.w.actions[0].area, 'career');
+  assert.strictEqual(m.weeks.w.actions[1].area, 'fitness');
+  assert.strictEqual(m.months.m.actions[0].area, 'personal');
+});
