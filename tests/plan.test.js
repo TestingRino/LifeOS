@@ -120,3 +120,38 @@ test('store.migrate moves week and month actions to the shared life areas', () =
   assert.strictEqual(m.weeks.w.actions[1].area, 'fitness');
   assert.strictEqual(m.months.m.actions[0].area, 'personal');
 });
+
+test('suggestion library is complete and consistent', () => {
+  const { PERSONAS, SUGGEST } = require('../js/library.js');
+  const personaIds = PERSONAS.map((p) => p.id), roleNames = SUGGEST.roles.map((r) => r.name);
+  const titles = new Set();
+  [...SUGGEST.goals, ...SUGGEST.habits].forEach((x) => {
+    assert.ok(x.title && !titles.has(x.title.toLowerCase()), `duplicate or empty title: ${x.title}`); titles.add(x.title.toLowerCase());
+    assert.ok(roleNames.includes(x.role), `unknown role ${x.role} on ${x.title}`);
+    assert.ok(P.LIFE_IDS.includes(x.area), `bad area ${x.area} on ${x.title}`);
+    (x.for || []).forEach((f) => assert.ok(personaIds.includes(f), `unknown persona ${f} on ${x.title}`));
+  });
+  SUGGEST.goals.forEach((g) => { assert.ok(g.steps.length >= 2, `${g.title} needs steps`); assert.ok(g.why, `${g.title} needs a why`); });
+  SUGGEST.habits.forEach((h) => assert.ok(h.perWeek >= 1 && h.perWeek <= 7));
+  PERSONAS.forEach((p) => {
+    assert.ok(SUGGEST.goals.filter((g) => (g.for || []).includes(p.id)).length >= 3, `${p.id} needs goals`);
+    assert.ok(SUGGEST.habits.filter((h) => (h.for || []).includes(p.id)).length >= 2, `${p.id} needs habits`);
+    assert.ok(SUGGEST.roles.some((r) => (r.for || []).includes(p.id)), `${p.id} needs a role`);
+    assert.ok(p.purpose && p.label);
+  });
+  // every life area is reachable from the suggestions, so the balance view can be filled
+  const areas = new Set(SUGGEST.goals.map((g) => g.area));
+  P.LIFE_IDS.forEach((a) => assert.ok(areas.has(a), `no suggested goal for ${a}`));
+});
+
+test('OCR scoring matches items by meaning, date and time', () => {
+  const { score, similarity } = require('../tools/ocr-score.js');
+  assert.ok(similarity('Run a 10K race', 'run a 10k') >= 0.6);
+  const want = { roles: [{ name: 'Parent' }, { name: 'Partner' }], goals: [{ title: 'Run a 10K' }, { title: 'Save an emergency fund' }] };
+  const got = { roles: [{ name: 'Parent' }], goals: [{ title: 'Run a 10K!' }, { title: 'Learn guitar' }] };
+  const s = score('goals', want, got);
+  assert.equal(s.matched, 2); assert.equal(s.expected, 4); assert.equal(s.read, 3);
+  assert.ok(Math.abs(s.recall - 0.5) < 1e-9 && Math.abs(s.precision - 2 / 3) < 1e-9);
+  const cal = score('calendar', { events: [{ date: '2026-03-02', time: '09:00', text: 'Standup' }] }, { events: [{ date: '2026-03-02', time: '09:10', text: 'standup meeting' }, { date: '2026-03-03', time: '09:00', text: 'Standup' }] });
+  assert.equal(cal.matched, 1); assert.equal(cal.extra.length, 1);
+});
