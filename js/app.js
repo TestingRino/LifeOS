@@ -1124,33 +1124,6 @@
   }
 
   /* Half-hour time-block grid for any list of days: Google Calendar, ideal-week blocks, schedule entries, workouts. */
-  function timeGridDays(days, dayOptsHtml) {
-    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-    const START = 6 * 60, END = 22 * 60, slots = [];
-    for (let m = START; m < END; m += 30) slots.push(m);
-    const itemsOn = (iso) => [
-      ...gcalOn(iso).filter((g) => g.time).map((g) => ({ time: g.time, text: g.text, mins: g.mins, cls: 'gcal', c: g.color })),
-      ...idealOn(iso).filter((i) => i.time).map((i) => ({ time: i.time, text: i.text, mins: 60, cls: 'ideal' })),
-      ...scheduleOn(iso).filter((x) => x.time).map((x) => ({ time: x.time, text: x.text, mins: Number(x.mins) || 30, cls: 'sched' })),
-      ...state.workouts.filter((x) => x.date === iso && x.time && !x.ideal).map((x) => ({ time: x.time, text: x.type, mins: Number(x.minutes) || 45, cls: 'wo' })),
-    ];
-    const allDayOn = (iso) => [...gcalOn(iso).filter((g) => g.allDay).map((g) => `<div class="ad gcal" style="${gcalVar(g.color)}">📅 ${esc(g.text)}</div>`),
-      ...U.eventsOn(state.events, iso).map((e) => `<div class="ad">${evIcon(e)}${esc(e.text)}</div>`)].join('');
-    const byDay = days.map(itemsOn);
-    const slotOf = (t) => Math.min(END - 30, Math.max(START, Math.floor(toMin(t) / 30) * 30));
-    const hhmm = (m) => `${U.pad(Math.floor(m / 60))}:${U.pad(m % 60)}`;
-    return `<div class="cal-wrap"><table class="tgrid${days.length === 1 ? ' one' : ''}"><thead><tr><th></th>${days.map((d) => `<th><a href="#/calendar/day:${d}">${U.DAYS[U.parseISO(d).getDay()].slice(0, 3)} <small>${U.fmtDate(d, { day: 'numeric' })}</small></a></th>`).join('')}</tr></thead><tbody>
-      <tr class="allday"><th>all day</th>${days.map((d) => `<td>${allDayOn(d)}</td>`).join('')}</tr>
-      ${slots.map((m) => `<tr class="${m % 60 === 0 ? 'hr' : ''}"><th>${m % 60 === 0 ? esc(fmtTime(hhmm(m))) : ''}</th>${byDay.map((list) => {
-        const here = list.filter((x) => slotOf(x.time) === m);
-        return `<td>${here.map((x) => `<div class="blk ${x.cls}" style="--span:${Math.max(1, Math.ceil(x.mins / 30))}${x.c ? `;${gcalVar(x.c)}` : ''}" title="${esc(fmtTime(x.time))} ${esc(x.text)}"><b>${esc(fmtTime(x.time))}</b> ${esc(x.text)}</div>`).join('')}</td>`;
-      }).join('')}</tr>`).join('')}</tbody></table></div>
-      ${dayOptsHtml ? `<form class="add wrap" data-add="schedule"><select name="date" aria-label="Day">${dayOptsHtml}</select>
-        <input type="time" name="time" step="1800" required aria-label="Start time">
-        <select name="mins" aria-label="Length">${opts([30, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : '30 min' })), 60)}</select>
-        <input name="text" placeholder="Call, meeting, appointment, family time…" required><button aria-label="Add block">+</button></form>` : ''}`;
-  }
-
   /* ---------- calendar zoom ---------- */
   const ZOOMS = [[0.75, 'Compact'], [1, 'Normal'], [1.5, 'Large'], [2, 'Extra large']];
   const zoomLevel = () => { const z = Number(state.settings.calZoom); return ZOOMS.some((x) => x[0] === z) ? z : 1; };
@@ -1324,6 +1297,86 @@
         <button class="x" data-act="delImport" data-id="${g.id}" aria-label="Remove this import">×</button></li>`; }).join('')}</ul></section>`;
   }
 
+
+  /* ---------- planner-style calendar pages (day, week, month) ---------- */
+  /* Everything on a day as handwritten-style lines: all-day first, then by time, then "anytime". */
+  function plannerEntries(iso) {
+    const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+    const out = [];
+    gcalOn(iso).forEach((g) => out.push({ k: 'gcal', time: g.time || '', text: g.text, c: g.color, allDay: !!g.allDay || !g.time, tip: g.cal || '' }));
+    U.eventsOn(state.events, iso).forEach((e) => out.push({ k: 'key', time: '', text: `${evIcon(e)}${e.text}`, allDay: true }));
+    scheduleOn(iso).forEach((x) => out.push({ k: 'sched', time: x.time || '', text: x.text, id: x.id, allDay: false }));
+    idealOn(iso).forEach((i) => out.push({ k: 'ideal', time: i.time || '', text: i.text, done: idealDone(i, iso), id: i.id, allDay: false }));
+    state.workouts.filter((x) => x.date === iso && !x.ideal).forEach((x) => out.push({ k: 'wo', time: x.time || '', text: x.type, done: !!x.done, allDay: false }));
+    (F.plannerTasks ? F.plannerTasks(iso) : []).forEach((t) => out.push({ k: 'task', time: t.time || '', text: t.title, id: t.id, done: t.status === 'done', allDay: false }));
+    const rank = (e) => (e.allDay ? 0 : e.time ? 1 : 2);
+    return out.sort((a, b) => rank(a) - rank(b) || (a.time && b.time ? toMin(a.time) - toMin(b.time) : 0));
+  }
+  function plannerLine(e, o) {
+    const t = e.time ? `<span class="pl-t">${esc(fmtTime(e.time))}</span>` : '';
+    const mark = e.k === 'task' ? `<input type="checkbox" class="pl-box" data-act="taskDone" data-id="${e.id}" ${e.done ? 'checked' : ''} aria-label="Done: ${esc(e.text)}">`
+      : e.k === 'ideal' ? `<input type="checkbox" class="pl-box" data-act="idealDone" data-id="${e.id}" data-date="${o.iso}" ${e.done ? 'checked' : ''} aria-label="Done: ${esc(e.text)}">`
+      : `<i class="pl-mark" ${e.c ? `style="${gcalVar(e.c)}"` : ''} aria-hidden="true"></i>`;
+    return `<li class="pl pl-${e.k}${e.done ? ' done' : ''}" ${e.tip ? `title="${esc(e.tip)}"` : ''}>${mark}${t}<span class="pl-x">${esc(e.text)}</span>${e.k === 'sched' && e.id ? `<button class="x" data-act="del" data-path="schedule" data-id="${e.id}" aria-label="Remove">×</button>` : ''}</li>`;
+  }
+  const plannerDow = (d) => U.DAYS[d.getDay()];
+
+  function plannerMonth(mk, tIso) {
+    const grid = U.monthGrid(mk, ws()), d0 = U.parseMonthKey(mk), m = state.months[mk] || {};
+    const head = [0, 1, 2, 3, 4, 5, 6].map((i) => U.DAYS[(i + ws()) % 7]);
+    const cell = (d) => {
+      const iso = U.toISO(d), out = U.monthKey(d) !== mk, list = plannerEntries(iso), shown = list.slice(0, 3);
+      return `<td class="${out ? 'out' : ''}${iso === tIso ? ' today' : ''}${[0, 6].includes(d.getDay()) ? ' wknd' : ''}" data-dropday="${iso}">
+        <a class="pm-num" href="#/calendar/day:${iso}"><span>${d.getDate()}</span></a>
+        <ul class="pm-list">${shown.map((e) => `<li class="pl pl-${e.k}${e.done ? ' done' : ''}">${e.k === 'task' ? '<span class="pl-sq">☐</span>' : `<i class="pl-mark" ${e.c ? `style="${gcalVar(e.c)}"` : ''}></i>`}<span class="pl-x">${e.time ? `<b>${esc(fmtTime(e.time))}</b> ` : ''}${esc(e.text)}</span></li>`).join('')}</ul>
+        ${list.length > 3 ? `<a class="pm-more" href="#/calendar/day:${iso}">+${list.length - 3} more</a>` : ''}</td>`;
+    };
+    return `<div class="pm-head"><h2>${U.MONTHS[d0.getMonth()]}</h2><span>${d0.getFullYear()}</span></div>
+      <div class="pm-body"><table class="pm"><thead><tr>${head.map((h) => `<th><span class="long">${h}</span><span class="short">${h.slice(0, 3)}</span></th>`).join('')}</tr></thead>
+        <tbody>${grid.map((row) => `<tr>${row.map(cell).join('')}</tr>`).join('')}</tbody></table>
+        <aside class="pm-side"><h3>Priorities</h3><ul class="pl-plain">${(m.actions || []).slice(0, 8).map((a) => `<li class="${a.done ? 'done' : ''}">${chk(`months.${mk}.actions.@${a.id}.done`, 'Done')} <span>${esc(a.text)}</span></li>`).join('') || '<li class="muted">None yet. <a href="#/month/' + mk + '">Plan the month →</a></li>'}</ul>
+          <h3>Notes</h3><div class="ruled">${ta(`months.${mk}.notes`, '', 6)}</div></aside></div>`;
+  }
+
+  function plannerWeek(days, tIso, wk, dayOptsHtml) {
+    const w = state.weeks[wk] || {};
+    const box = (iso) => {
+      const d = U.parseISO(iso), list = plannerEntries(iso);
+      return `<section class="pw-day${iso === tIso ? ' today' : ''}${[0, 6].includes(d.getDay()) ? ' wknd' : ''}" data-dropday="${iso}">
+        <header><span class="pw-dow">${plannerDow(d)}</span><a class="pw-num" href="#/calendar/day:${iso}"><span>${d.getDate()}</span></a></header>
+        <ul class="pw-list">${list.map((e) => plannerLine(e, { iso })).join('')}</ul></section>`;
+    };
+    const top = (w.top3 || []).map((x) => `<li class="${x.done ? 'done' : ''}">${chk(`weeks.${wk}.top3.@${x.id}.done`, 'Done')} <span>${esc(x.text)}</span></li>`).join('');
+    return `<div class="pw">${days.map(box).join('')}
+      <section class="pw-day pw-notes"><header><span class="pw-dow">This week</span></header>
+        <h4>Top 3</h4><ul class="pl-plain">${top || `<li class="muted">Pick them on the <a href="#/week/${wk}">Week page</a>.</li>`}</ul>
+        <h4>Notes</h4><div class="ruled">${ta(`weeks.${wk}.notes`, '', 5)}</div></section></div>
+      ${dayOptsHtml ? `<form class="add wrap pw-add" data-add="schedule"><select name="date" aria-label="Day">${dayOptsHtml}</select>
+        <input type="time" name="time" step="900" aria-label="Start time (optional)">
+        <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : `${n} min` })), 60)}</select>
+        <input name="text" placeholder="Add to the page: appointment, meeting, time block…" required><button aria-label="Add">+</button></form>` : ''}`;
+  }
+
+  function plannerDay(iso) {
+    const list = plannerEntries(iso), d = U.parseISO(iso), isT = iso === todayISO();
+    const toH = (t) => Number(String(t).split(':')[0]);
+    const anytime = list.filter((e) => e.allDay || !e.time), timed = list.filter((e) => !e.allDay && e.time);
+    const hours = Array.from({ length: 17 }, (_, i) => i + 6);          // 6am to 10pm
+    const rowFor = (h) => timed.filter((e) => Math.min(22, Math.max(6, toH(e.time))) === h);
+    const wk = U.weekKey(d, ws()), big = state.big3.filter((b) => b.date === iso);
+    const side = `<aside class="pd-side">
+      <h3>Top priorities</h3><ul class="pl-plain">${big.length ? big.map((b) => `<li class="${b.done ? 'done' : ''}">${chk(`big3.@${b.id}.done`, 'Done')} <span>${esc(b.text)}</span></li>`).join('') : '<li class="muted">Nothing set. <a href="#/today">Pick your Big 3 →</a></li>'}</ul>
+      <h3>To do</h3>${F.dayTasks ? F.dayTasks(iso, true) : ''}${F.quickAdd ? F.quickAdd(iso, 'Add a to-do…') : ''}
+      ${planTray()}</aside>`;
+    return `<div class="pd-head"><span class="pd-dow">${plannerDow(d)}</span><span class="pd-date${isT ? ' is-today' : ''}"><span>${d.getDate()}</span></span><span class="pd-my">${U.MONTHS[d.getMonth()]} ${d.getFullYear()}</span></div>
+      <div class="pd-cols"><div class="pd-main pd-box" data-date="${iso}">
+        <form class="add wrap pd-form" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" step="900" required aria-label="Start time">
+          <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : `${n} min` })), 30)}</select>
+          <input name="text" placeholder="Tap an hour, or write it here…" required><button aria-label="Add">+</button></form>
+        ${anytime.length ? `<div class="pd-any"><span class="pd-lbl">All day · anytime</span><ul>${anytime.map((e) => plannerLine(e, { iso })).join('')}</ul></div>` : ''}
+        <div class="pd-hours">${hours.map((h) => `<div class="pd-row" data-time="${U.pad(h)}:00"><span class="pd-h">${h === 12 ? 'noon' : esc(fmtTime(`${U.pad(h)}:00`))}</span><ul>${rowFor(h).map((e) => plannerLine(e, { iso })).join('')}</ul></div>`).join('')}</div></div>${side}</div>`;
+  }
+
   function viewCalendar(arg) {
     const c = calParse(arg), { mode, fd } = c, tIso = todayISO();
     const fIso = c.focus, link = (m, f) => `#/calendar/${m}:${m === 'month' ? U.monthKey(U.parseISO(f)) : m === 'week' ? U.weekKey(U.parseISO(f), ws()) : f}`;
@@ -1337,35 +1390,22 @@
     const dayOpts = (days) => opts(days.map((d) => ({ v: d, l: `${U.DAYS[U.parseISO(d).getDay()].slice(0, 3)} ${U.fmtDate(d)}` })), days.includes(tIso) ? tIso : days[0]);
     if (mode === 'day') {
       title = U.fmtDate(fIso, { weekday: 'long', month: 'long', day: 'numeric' }); sub = U.parseISO(fIso).getFullYear();
-      content = `<div class="day-cols"><div class="day-main">${dayTimeline(fIso, { height: 680 })}</div>${planTray()}</div>`;
+      content = plannerDay(fIso);
     } else if (mode === 'week') {
       const days = DAYS_ISO(U.weekKey(fd, ws()));
       title = `Week of ${U.fmtDate(days[0], { month: 'short', day: 'numeric' })}`; sub = `${U.fmtDate(days[0])} – ${U.fmtDate(days[6])}`;
-      content = timeGridDays(days, dayOpts(days));
+      content = plannerWeek(days, tIso, U.weekKey(fd, ws()), dayOpts(days));
     } else {
-      const mk = U.monthKey(fd), grid = U.monthGrid(mk, ws());
-      title = `${U.MONTHS[fd.getMonth()]} ${fd.getFullYear()}`; sub = 'Google Calendar, key dates and your schedule';
-      const dayNames = [0, 1, 2, 3, 4, 5, 6].map((i) => U.DAYS[(i + ws()) % 7]);
-      content = `<div class="cal-wrap"><table class="cal month-full"><thead><tr>${dayNames.map((d) => `<th><span class="long">${d}</span><span class="short">${d.slice(0, 3)}</span></th>`).join('')}</tr></thead><tbody>
-        ${grid.map((row) => `<tr>${row.map((d) => {
-          const iso = U.toISO(d), out = U.monthKey(d) !== mk;
-          const items = [
-            ...gcalOn(iso).map((g) => ({ cls: 'gcal', c: g.color, t: g.time, txt: `📅 ${g.text}` })),
-            ...U.eventsOn(state.events, iso).map((e) => ({ cls: 'key', t: '', txt: `${evIcon(e)}${e.text}` })),
-            ...scheduleOn(iso).map((x) => ({ cls: 'sched', t: x.time, txt: x.text })),
-          ];
-          const shown = items.slice(0, 4);
-          return `<td class="${out ? 'out' : ''} ${iso === tIso ? 'today' : ''}"><a class="dnum" href="#/calendar/day:${iso}">${d.getDate()}</a>
-            ${shown.map((x) => `<div class="ev ${x.cls}" ${x.c ? `style="${gcalVar(x.c)}" ` : ''}title="${esc(x.txt)}"><span>${x.t ? `${esc(fmtTime(x.t))} ` : ''}${esc(x.txt)}</span></div>`).join('')}
-            ${items.length > 4 ? `<a class="more-ev" href="#/calendar/day:${iso}">+${items.length - 4} more</a>` : ''}</td>`;
-        }).join('')}</tr>`).join('')}</tbody></table></div>`;
+      const mk = U.monthKey(fd);
+      title = `${U.MONTHS[fd.getMonth()]} ${fd.getFullYear()}`; sub = 'Your month on one page';
+      content = plannerMonth(mk, tIso);
     }
     const body = `<div class="row cal-bar"><div class="chips">${switcher}</div><span class="grow"></span>${nav}</div>
       ${gcalChips()}
       ${gcalStatusLine(c.from, c.to)}
-      <section class="box">${content}</section>
+      <section class="planner-page pp-${mode}">${content}</section>
       ${photoImports()}
-      <p class="muted small"><span class="key gcal"></span> Google Calendar · <span class="key ideal"></span> Ideal week · <span class="key sched"></span> Your schedule · <span class="key wo"></span> Workouts</p>`;
+      <p class="muted small pp-legend"><i class="pl-mark" style="--c:var(--slate)"></i> calendar · <i class="pl-mark sched"></i> your schedule · ☐ task or ideal-week block · ★ key date. Tap a day number to open that day.</p>`;
     return page(title, sub, body);
   }
 
@@ -3635,6 +3675,12 @@
   /* ---------- router ---------- */
   document.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('tl-wrap')) tlScroll = e.target.scrollTop; }, true);
   document.addEventListener('click', (e) => {
+    const row = e.target.closest && e.target.closest('.pd-row');
+    if (row && !e.target.closest('a, button, input, label')) {
+      const f = row.closest('.pd-box').querySelector('form');
+      f.querySelector('input[name=time]').value = row.dataset.time; f.querySelector('input[name=text]').focus();
+      return;
+    }
     const slot = e.target.closest && e.target.closest('.tl-slot');
     if (!slot) return;
     const f = slot.closest('.tl-box').querySelector('form');
@@ -3994,20 +4040,20 @@
     e.dataTransfer.setData('text/plain', el.dataset.drag); e.dataTransfer.effectAllowed = 'copy';
   });
   document.addEventListener('dragover', (e) => {
-    const slot = e.target.closest && e.target.closest('.tl-slot');
+    const slot = e.target.closest && e.target.closest('.tl-slot, .pd-row');
     if (!slot) return;
     e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-    document.querySelectorAll('.tl-slot.drop').forEach((x) => { if (x !== slot) x.classList.remove('drop'); });
+    document.querySelectorAll('.tl-slot.drop, .pd-row.drop').forEach((x) => { if (x !== slot) x.classList.remove('drop'); });
     slot.classList.add('drop');
   });
   document.addEventListener('drop', (e) => {
-    const slot = e.target.closest && e.target.closest('.tl-slot');
-    document.querySelectorAll('.tl-slot.drop').forEach((x) => x.classList.remove('drop'));
+    const slot = e.target.closest && e.target.closest('.tl-slot, .pd-row');
+    document.querySelectorAll('.tl-slot.drop, .pd-row.drop').forEach((x) => x.classList.remove('drop'));
     if (!slot) return;
     e.preventDefault();
     let d; try { d = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (err) { return; }
     if (!d || !d.text) return;
-    const date = slot.closest('.tl-box').dataset.date;
+    const date = slot.closest('.tl-box, .pd-box').dataset.date;
     if (d.taskId && F.dropTaskOnSlot && F.dropTaskOnSlot(d.taskId, date, slot.dataset.time)) { commit(); toast(`Time-blocked for ${fmtTime(slot.dataset.time)}`, { label: 'Undo', fn: undo }); return; }
     const added = addScheduleItem({ text: d.text, date, time: slot.dataset.time, mins: d.mins || 30 });
     commit();
