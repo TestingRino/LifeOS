@@ -2,9 +2,12 @@
 (function (root) {
   'use strict';
 
+  const P = typeof module !== 'undefined' && module.exports ? require('./plan.js') : root.LifePlan;
   const KEY = 'lifeos.v1';
   const VERSION = 1;
 
+  // Planner areas: how the week and month pages group priority actions (like a paper planner).
+  // Goals, the balance view and the Wheel of Life use the shared life areas in plan.js (LIFE).
   const AREAS = [
     { id: 'work', name: 'Work & Career' },
     { id: 'home', name: 'Home & Admin' },
@@ -19,8 +22,8 @@
   function defaultState() {
     return {
       version: VERSION,
-      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, syncOn: false, syncNudgeUntil: '', personas: [], notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00' },
-      foundation: { vision: '', eulogy: '', mission: '', values: '' },
+      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, syncOn: false, syncNudgeUntil: '', personas: [], notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00', remindersOn: true, remindLead: 10, remindAt: '08:30', tasksTab: 'today' },
+      foundation: { vision: '', eulogy: '', mission: '', values: '', legacy: '' },
       roles: [],          // {id, name, why}
       cycles: [],         // {id, name, start, end, review:{wins,lessons,adjust}, roleActions:{roleId:{monthly,weekly,daily}}}
       goals: [],          // {id, cycleId, roleId, title, area, tier, why, measure, target, doneBy, progress, status}
@@ -41,7 +44,13 @@
       big3: [],           // {id, date, text, goalId, done, migrated} — Daily Big 3 (Full Focus / Bullet Journal style)
       syncMeta: {},       // device-only: {fileId, remoteVersion, hash, at, snapshotDay} for Drive sync
       gcalCalendars: [],  // [{id, name, color, primary}] — the user's Google calendars (view-only)
-      inbox: [],          // {id, kind 'todo'|'goal'|'note', text, date, done} — quick capture
+      inbox: [],          // {id, kind 'goal'|'note', text, date, done} — quick capture of ideas (to-dos live in tasks)
+      tasks: [],          // {id, title, notes, status 'next'|'waiting'|'someday'|'done', due, day, time, mins, priority 'high'|'med'|'low'|'',
+                          //  project, tags[], goalId, area, subtasks[{id,text,done}], recur{freq,every,dows,dom,mode,until}, remind, waitingOn,
+                          //  created, doneAt, archived} — the one task type used on Today, Week, Goals and Calendar
+      trash: [],          // {id, path, item, at, label} — deleted items, restorable for 60 days
+      templates: [],      // {id, name, desc, anchor 'start'|'end', project, tasks[{title, offset, subtasks[], priority, tags[]}]} — your own templates
+      areasV: 2,          // 2 = goals use the shared life areas
       memories: [],       // {id, date, kind 'memory'|'quote'|'event', who, text}
       sessions: {},       // 'cadence:period' -> {steps:{id:true}, done:'YYYY-MM-DD'} — guided planning sessions
       idealWeek: [],      // {id, quarter 'YYYY-Qn', dow 0-6, time, text, goalId, workout} — the ideal week, set per quarter
@@ -59,6 +68,25 @@
     out.settings = Object.assign(defaultState().settings, (s && s.settings) || {});
     out.foundation = Object.assign(defaultState().foundation, (s && s.foundation) || {});
     out.version = VERSION;
+    if (!out.tasks) out.tasks = [];
+    // to-dos used to live in the inbox; they are tasks now
+    const todos = (out.inbox || []).filter((x) => x && x.kind === 'todo');
+    if (todos.length) {
+      todos.forEach((x) => out.tasks.push({ id: x.id, title: x.text || '', notes: '', status: x.done ? 'done' : 'next', due: '', day: x.day || '', time: '', mins: 30, priority: '', project: '', tags: [], goalId: '', area: '', subtasks: [], recur: null, remind: '', waitingOn: '', created: x.date || '', doneAt: x.done ? (x.date || '') : '', archived: false }));
+      out.inbox = out.inbox.filter((x) => !(x && x.kind === 'todo'));
+    }
+    // goals moved from six planner areas to ten shared life areas; the Wheel of Life too
+    if ((s && !s.areasV) && P) {
+      const roleName = (id) => ((out.roles || []).find((r) => r.id === id) || {}).name || '';
+      (out.goals || []).forEach((g) => { g.area = P.lifeArea(g.area, roleName(g.roleId), g.title, true); });
+      (out.wheel || []).forEach((w) => {
+        const ns = {};
+        Object.entries(w.scores || {}).forEach(([k, v]) => { const nk = P.WHEEL_KEYS[k] || k; if (!(nk in ns)) ns[nk] = v; });
+        if ('mental' in (w.scores || {}) && ns.mental == null) ns.mental = w.scores.mental;
+        w.scores = ns;
+      });
+    }
+    out.areasV = 2;
     return out;
   }
 

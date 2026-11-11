@@ -3,6 +3,7 @@
   'use strict';
   const U = window.LifeUtil;
   const S = window.LifeStore;
+  const P = window.LifePlan;
   const AREAS = S.AREAS;
 
   let firstRun = false;
@@ -37,7 +38,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1200);
   }
 
-  const areaName = (id) => (AREAS.find((a) => a.id === id) || { name: 'Other' }).name;
+  const areaName = (id) => (AREAS.find((a) => a.id === id) || P.LIFE.find((a) => a.id === id) || { name: 'Other' }).name;
   const roleName = (id) => (state.roles.find((r) => r.id === id) || { name: '' }).name;
 
   function getMonth(key) {
@@ -194,6 +195,7 @@
     `<input type="checkbox" data-bind="${esc(path)}" data-rerender ${get(path) ? 'checked' : ''} ${label ? `aria-label="${esc(label)}"` : ''}>`;
   const opts = (list, cur) => list.map((o) => `<option value="${esc(o.v)}" ${String(o.v) === String(cur) ? 'selected' : ''}>${esc(o.l)}</option>`).join('');
   const areaOpts = (cur) => opts(AREAS.map((a) => ({ v: a.id, l: a.name })), cur);
+  const lifeOpts = (cur) => opts(P.LIFE.map((a) => ({ v: a.id, l: a.name })), cur);
   const goalOpts = (goals, cur) => opts([{ v: '', l: '— link to goal —' }].concat(
     goals.map((g) => ({ v: g.id, l: `${g.tier === 'purpose' ? '★ ' : ''}${g.title}` }))), cur);
   const tierOpts = (cur) => opts([{ v: 'purpose', l: '★ Purpose' }, { v: 'pursuit', l: 'Pursuit' }], cur);
@@ -212,7 +214,7 @@
   function areaBoxes(base, items, goals) {
     return `<div class="areas">${AREAS.map((a) => {
       const list = items.filter((i) => i.area === a.id);
-      const uncovered = goals.filter((g) => g.area === a.id && !items.some((i) => i.goalId === g.id));
+      const uncovered = goals.filter((g) => P.plannerArea(g.area) === a.id && !items.some((i) => i.goalId === g.id));
       return `<section class="box area">
         <h3>${a.name}</h3>
         <ul class="checks">${list.map((i) => actionRow(base, i, goals)).join('')}</ul>
@@ -546,7 +548,7 @@
           (data.goals || []).forEach((g) => {
             if (!g.title) return;
             state.goals.push({
-              id: S.uid(), cycleId: cyc.id, roleId: roleId(g.role), title: g.title, why: g.why || '', area: g.area || 'work', tier: 'pursuit',
+              id: S.uid(), cycleId: cyc.id, roleId: roleId(g.role), title: g.title, why: g.why || '', area: P.lifeArea(g.area, g.role, g.title, true), tier: 'pursuit',
               progress: 0, status: 'active', target: g.target || '', doneBy: g.target || '', measure: '',
               kind: g.cadence === 'daily' || g.cadence === 'weekly' ? 'habit' : 'achievement', perWeek: g.cadence === 'daily' ? 7 : g.cadence === 'weekly' ? 1 : 5,
               log: {}, milestones: [], objectives: [], routines: []
@@ -785,6 +787,10 @@
       <section class="box"><h2>My eulogy</h2>
         <p class="prompt">What do you hope your family, friends, colleagues and community will say about you at your funeral?</p>
         ${ta(f + '.eulogy', 'He was…', 6)}</section>
+      <section class="box"><h2>My legacy</h2>
+        <p class="prompt">What will outlast you? Who do you want to have helped, and what do you want them to carry forward: a value, a skill, a family tradition, a cause, a body of work?</p>
+        <div class="chips">${['The people I helped…', 'What I want my children to carry forward…', 'The cause or community I invested in…', 'The work I want to leave behind…'].map((t, i) => `<button type="button" class="chip" data-act="legacySeed" data-idx="${i}">${esc(t)}</button>`).join('')}</div>
+        ${ta(f + '.legacy', 'My legacy is…', 5)}</section>
       <div class="grid2">
         <section class="box"><h2>Personal mission</h2>
           <p class="prompt">One or two sentences: why you're here and how you'll spend your life.</p>
@@ -837,7 +843,7 @@
           ${schedBtn(`Work on: ${g.title}`, 60)}<button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete goal">×</button>
         </div>
         <div class="goal-meta">
-          <label>Area <select data-bind="${p}.area" aria-label="Area">${areaOpts(g.area)}</select></label>
+          <label>Area <select data-bind="${p}.area" data-rerender aria-label="Area">${lifeOpts(g.area)}</select></label>
           <label>Target <input type="date" data-bind="${p}.target" value="${esc(g.target)}"></label>
           <label>Done by <input type="date" data-bind="${p}.doneBy" value="${esc(g.doneBy)}"></label>
           <label>Status <select data-bind="${p}.status" data-rerender>${opts([{ v: 'active', l: 'Active' }, { v: 'done', l: 'Done ✓' }, { v: 'dropped', l: 'Dropped' }], g.status)}</select></label>
@@ -873,12 +879,12 @@
     const addGoal = (roleId) => `<form class="add" data-add="goals">
         <input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="roleId" value="${roleId}"><input type="hidden" name="kind" value="achievement">
         <input name="title" placeholder="New achievement goal (e.g. Run a half marathon)…" required>
-        <select name="area" aria-label="Area">${areaOpts('work')}</select>
+        <select name="area" aria-label="Area">${lifeOpts('career')}</select>
         <select name="tier" aria-label="Tier">${tierOpts('pursuit')}</select>
         <button aria-label="Add goal">+</button></form>
       <form class="add habit-add" data-add="goals">
         <input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="roleId" value="${roleId}"><input type="hidden" name="kind" value="habit">
-        <input type="hidden" name="area" value="health"><input type="hidden" name="tier" value="pursuit">
+        <input type="hidden" name="area" value="fitness"><input type="hidden" name="tier" value="pursuit">
         <input name="title" placeholder="New habit goal (e.g. Read a book)…" required>
         <select name="perWeek" aria-label="Days per week">${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? 'Every day' : `${n}× a week` })), 5)}</select>
         <button aria-label="Add habit goal">+ Habit</button></form>`;
@@ -1707,15 +1713,7 @@
 
 
   /* ---------- Wheel of Life (Zig Ziglar) ---------- */
-  const WHEEL = [
-    { id: 'physical', name: 'Physical', hint: 'Health, energy, fitness, sleep, nutrition' },
-    { id: 'mental', name: 'Mental', hint: 'Learning, growth, focus, attitude' },
-    { id: 'spiritual', name: 'Spiritual', hint: 'Faith, purpose, inner peace, values' },
-    { id: 'family', name: 'Family', hint: 'Spouse, children, parents, home life' },
-    { id: 'career', name: 'Career', hint: 'Work, calling, contribution, progress' },
-    { id: 'financial', name: 'Financial', hint: 'Income, savings, debt, security' },
-    { id: 'social', name: 'Social', hint: 'Friendships, community, service' },
-  ];
+  const WHEEL = P.LIFE.map((a) => ({ id: a.id, name: a.short, full: a.name, hint: a.hint }));
 
   function radar(cur, prev) {
     const SZ = 380, c = SZ / 2, R = 128, n = WHEEL.length;
@@ -1737,24 +1735,25 @@
 
   function viewWheel() {
     const list = state.wheel.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const has = (sc, id) => sc && sc[id] != null && sc[id] !== '';
     const last = list[list.length - 1], prev = list[list.length - 2];
-    const avg = (sc) => round1(WHEEL.reduce((s, a) => s + (Number(sc[a.id]) || 0), 0) / WHEEL.length);
+    const avg = (sc) => { const ids = WHEEL.filter((a) => has(sc, a.id)); return ids.length ? round1(ids.reduce((s, a) => s + Number(sc[a.id]), 0) / ids.length) : 0; };
     const start = last ? last.scores : {};
-    const sorted = last ? WHEEL.slice().sort((a, b) => last.scores[a.id] - last.scores[b.id]) : [];
-    const delta = (id) => (last && prev ? last.scores[id] - prev.scores[id] : null);
+    const sorted = last ? WHEEL.filter((a) => has(last.scores, a.id)).sort((a, b) => last.scores[a.id] - last.scores[b.id]) : [];
+    const delta = (id) => (last && prev && has(last.scores, id) && has(prev.scores, id) ? last.scores[id] - prev.scores[id] : null);
     const fmtD = (d) => (d == null ? '' : d > 0 ? `+${d}` : d < 0 ? `${d}` : '=');
     const tile = (l, v, sub) => `<div class="tile"><span>${l}</span><strong>${v}</strong><small>${sub}</small></div>`;
 
     const form = `<form data-act-form="wheel" class="wheel-form">
       <label class="field">Date <input type="date" name="date" value="${todayISO()}" required></label>
-      ${WHEEL.map((a) => `<div class="wheel-row"><div><strong>${a.name}</strong><small class="muted">${a.hint}</small></div>
+      ${WHEEL.map((a) => `<div class="wheel-row"><div><strong>${a.full}</strong><small class="muted">${a.hint}</small></div>
         <input type="range" min="1" max="10" step="1" name="s_${a.id}" value="${start[a.id] || 5}" data-wheel aria-label="${a.name} score"><output>${start[a.id] || 5}</output></div>`).join('')}
       <label class="field">Notes <textarea name="note" rows="2" placeholder="What's driving these scores? What do you want to change?"></textarea></label>
       <div class="row end"><button class="primary">Save assessment</button></div>
     </form>`;
 
     const body = `
-      <p class="lead">Zig Ziglar's Wheel of Life: seven areas that make up a balanced life. Score each from 1 (needs a lot of attention) to 10 (thriving). Repeat every quarter to watch your balance change.</p>
+      <p class="lead">Zig Ziglar's Wheel of Life, using the same ten areas as your goals and your balance view. Score each from 1 (needs a lot of attention) to 10 (thriving). Repeat every quarter to watch your balance change.</p>
       <div class="grid2">
         <section class="box"><h2>Score yourself</h2>${form}</section>
         <section class="box"><h2>${last ? `Your wheel <small class="muted">${U.fmtDate(last.date, { month: 'short', day: 'numeric', year: 'numeric' })}</small>` : 'Your wheel'}</h2>
@@ -1765,25 +1764,25 @@
       ${last ? `
       <div class="tiles">
         ${tile('Balance score', avg(last.scores), prev ? `${avg(last.scores) - avg(prev.scores) >= 0 ? '+' : ''}${round1(avg(last.scores) - avg(prev.scores))} since ${U.fmtDate(prev.date)}` : 'average of 7 areas')}
-        ${tile('Strongest', esc(sorted[sorted.length - 1].name), `${last.scores[sorted[sorted.length - 1].id]}/10`)}
-        ${tile('Needs attention', esc(sorted[0].name), `${last.scores[sorted[0].id]}/10`)}
+        ${sorted.length ? tile('Strongest', esc(sorted[sorted.length - 1].name), `${last.scores[sorted[sorted.length - 1].id]}/10`) : ''}
+        ${sorted.length ? tile('Needs attention', esc(sorted[0].name), `${last.scores[sorted[0].id]}/10`) : ''}
         ${tile('Assessments', list.length, 'saved so far')}
       </div>
       <section class="box"><h2>By area</h2>
         <table class="index wheel-table"><thead><tr><th>Area</th><th>Now</th><th>Change</th><th></th><th>Trend</th></tr></thead><tbody>
-        ${WHEEL.map((a) => `<tr><td><strong>${a.name}</strong></td><td>${last.scores[a.id]}/10</td><td class="muted">${fmtD(delta(a.id))}</td>
-          <td>${progressBar(last.scores[a.id] * 10)}</td>
-          <td>${sparkline(list.map((x) => ({ date: x.date, v: x.scores[a.id] * 10 })))}</td></tr>`).join('')}</tbody></table>
-        <p class="muted small">Lowest scores are your best places to start. <a href="#/goals">Turn ${esc(sorted[0].name)} into a goal →</a></p>
+        ${WHEEL.map((a) => `<tr><td><strong>${a.full}</strong></td><td>${has(last.scores, a.id) ? `${last.scores[a.id]}/10` : '—'}</td><td class="muted">${fmtD(delta(a.id))}</td>
+          <td>${progressBar((Number(last.scores[a.id]) || 0) * 10)}</td>
+          <td>${sparkline(list.filter((x) => has(x.scores, a.id)).map((x) => ({ date: x.date, v: x.scores[a.id] * 10 })))}</td></tr>`).join('')}</tbody></table>
+        <p class="muted small">Lowest scores are your best places to start. <a href="#/goals">${sorted.length ? `Turn ${esc(sorted[0].name)} into a goal →` : 'Set goals →'}</a></p>
       </section>
       ${list.length > 1 ? `<section class="box"><h2>Balance over time</h2>${lineChart(list.map((x) => ({ date: x.date, value: avg(x.scores) })), null, '/10', 'Wheel of Life balance score')}</section>` : ''}
       <section class="box"><h2>History</h2>
         <div class="cal-wrap"><table class="index"><thead><tr><th>Date</th>${WHEEL.map((a) => `<th>${a.name.slice(0, 4)}</th>`).join('')}<th>Avg</th><th></th></tr></thead><tbody>
         ${list.slice().reverse().map((x) => `<tr><td>${U.fmtDate(x.date, { month: 'short', day: 'numeric', year: 'numeric' })}${x.note ? `<br><small class="muted">${esc(x.note)}</small>` : ''}</td>
-          ${WHEEL.map((a) => `<td>${x.scores[a.id]}</td>`).join('')}<td><strong>${avg(x.scores)}</strong></td>
+          ${WHEEL.map((a) => `<td>${has(x.scores, a.id) ? x.scores[a.id] : '—'}</td>`).join('')}<td><strong>${avg(x.scores)}</strong></td>
           <td><button class="x" data-act="del" data-path="wheel" data-id="${x.id}" aria-label="Delete assessment">×</button></td></tr>`).join('')}</tbody></table></div>
       </section>` : ''}`;
-    return page('Wheel of Life', 'Seven areas, scored over time', body);
+    return page('Wheel of Life', 'Ten life areas, scored over time', body);
   }
 
   function viewIdeal(arg) {
@@ -2020,7 +2019,7 @@
 
   /* ---------- actions ---------- */
   const DEFAULTS = {
-    goals: () => ({ area: 'work', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [] }),
+    goals: () => ({ area: 'career', tier: 'pursuit', progress: 0, status: 'active', target: '', doneBy: '', measure: '', kind: 'achievement', why: '', perWeek: 5, log: {}, milestones: [], objectives: [], routines: [] }),
     big3: () => ({ done: false, goalId: '' }),
     top3: () => ({ done: false, goalId: '' }),
     inbox: () => ({ kind: 'todo', done: false }),
@@ -2159,7 +2158,7 @@
     inboxToGoal(el) {
       const it = state.inbox.find((x) => x.id === el.dataset.id);
       if (!it) return;
-      addSuggestedGoal({ title: it.text, area: 'work' }, 'achievement');
+      addSuggestedGoal({ title: it.text, area: 'career' }, 'achievement');
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
@@ -2186,7 +2185,7 @@
     assignStep(el) {
       const g = state.goals.find((x) => x.id === el.dataset.goal); if (!g) return;
       const ns = nextStep(g);
-      getWeek(U.weekKey(U.parseISO(el.dataset.day), ws())).actions.push({ id: S.uid(), area: g.area || 'work', text: ns ? ns.text : `Work on: ${g.title}`, goalId: g.id, done: false, day: el.dataset.day });
+      getWeek(U.weekKey(U.parseISO(el.dataset.day), ws())).actions.push({ id: S.uid(), area: P.plannerArea(g.area), text: ns ? ns.text : `Work on: ${g.title}`, goalId: g.id, done: false, day: el.dataset.day });
       commit();
     },
     selectDay(el) {
@@ -2219,6 +2218,11 @@
     addPersonaRoles() {
       personaRoles().forEach((r) => { if (!state.roles.some((x) => x.name.toLowerCase() === r.name.toLowerCase())) state.roles.push({ id: S.uid(), name: r.name, why: r.why }); });
       commit();
+    },
+    legacySeed(el) {
+      const seeds = ['The people I helped…', 'What I want my children to carry forward…', 'The cause or community I invested in…', 'The work I want to leave behind…'];
+      const cur = (state.foundation.legacy || '').trim();
+      state.foundation.legacy = `${cur ? `${cur}\n\n` : ''}${seeds[Number(el.dataset.idx)] || ''} `; commit();
     },
     quickPurpose(el) { quick.purpose = purposeIdeas()[Number(el.dataset.idx)] || ''; render(); },
     quickGoal(el) {
@@ -2740,14 +2744,9 @@
   const showMore = { roles: false, goals: false, habits: false };
   const showMoreBtn = (k, hidden) => (hidden > 0 ? `<button type="button" class="btn ghost small" data-act="showMore" data-k="${k}">Show ${hidden} more</button>` : '');
   /* Five life domains to keep in balance */
-  const DOMAINS = [{ id: 'career', label: 'Career' }, { id: 'personal', label: 'Personal' }, { id: 'family', label: 'Family' }, { id: 'faith', label: 'Faith' }, { id: 'fitness', label: 'Fitness' }];
-  const ROLE_DOMAIN = { Student: 'career', Professional: 'career', 'Business owner': 'career', Leader: 'career', Parent: 'family', Partner: 'family', Family: 'family', Caregiver: 'family', Grandparent: 'family', 'Household manager': 'family', 'Person of faith': 'faith', 'Healthy person': 'fitness' };
-  function domainOf(role, area, title) {
-    if (/prayer|scripture|worship|faith|church/i.test(title || '')) return 'faith';
-    if (area === 'health') return ROLE_DOMAIN[role] === 'faith' ? 'faith' : 'fitness';
-    return ROLE_DOMAIN[role] || 'personal';
-  }
-  const goalDomain = (g) => domainOf(roleName(g.roleId), g.area, g.title);
+  const DOMAINS = P.LIFE.map((a) => ({ id: a.id, label: a.short }));
+  const domainOf = (role, area, title) => P.lifeArea(area, role, title, false);
+  const goalDomain = (g) => P.lifeArea(g.area, roleName(g.roleId), g.title, false);
   function balanceStrip(domainIds, note) {
     const n = (d) => domainIds.filter((x) => x === d).length;
     return `<div class="balance" aria-label="Balance across life areas">${DOMAINS.map((d) => `<span class="bal${n(d.id) ? ' on' : ''}"><b>${n(d.id)}</b> ${d.label}</span>`).join('')}${note ? `<small class="muted">${note}</small>` : ''}</div>`;
@@ -2758,6 +2757,8 @@
     list.filter((x) => x.id[0] === pre).forEach((x) => { const d = domainOf(x.role, x.area, x.title), sc = relScore(x); if (!best[d] || sc > best[d].sc) best[d] = { id: x.id, sc }; });
     return Object.values(best).sort((a, b) => b.sc - a.sc).slice(0, n).map((x) => x.id);
   }
+  const AREA_FIX = { 'Finish a hobby project I keep putting off': 'personal', 'Host friends or family for a gathering': 'personal', 'Make a new friend or join a community': 'personal', 'Take up a hobby together': 'personal', 'Call or text a friend or family member': 'personal', 'Protect my own health while I care': 'mental', 'Take the trip that has been on my list': 'personal' };
+  [...SUGGEST.goals, ...SUGGEST.habits].forEach((x) => { x.area = AREA_FIX[x.title] || P.lifeArea(x.area, x.role, x.title, true); });
   function personaRoles() { const ps = personas(); return SUGGEST.roles.filter((r) => (r.for || []).some((x) => ps.includes(x))); }
   function personaPicker(title) {
     const on = personas();
@@ -2795,7 +2796,7 @@
     const cyc = ensureCycle();
     const have = state.goals.find((g) => g.title.toLowerCase() === sg.title.toLowerCase());
     if (have) return have;
-    const g = { id: S.uid(), cycleId: cyc.id, roleId: roleIdFor(sg.role, force), title: sg.title, why: sg.why || '', area: sg.area || 'work', tier: sg.purpose ? 'purpose' : 'pursuit',
+    const g = { id: S.uid(), cycleId: cyc.id, roleId: roleIdFor(sg.role, force), title: sg.title, why: sg.why || '', area: sg.area || 'career', tier: sg.purpose ? 'purpose' : 'pursuit',
       progress: 0, status: 'active', target: cyc.end, doneBy: cyc.end, measure: '', kind, perWeek: sg.perWeek || 5, log: {},
       milestones: (sg.steps || []).map((text, i) => ({ id: S.uid(), text, due: U.toISO(U.addDays(today(), 21 * (i + 1))), done: false })), objectives: [],
       routines: sg.routine ? [{ id: S.uid(), text: sg.routine.text, perWeek: sg.routine.perWeek, log: {} }] : [] };
@@ -2816,7 +2817,7 @@
   const quickFresh = () => ({ purpose: '', goals: [], habits: [], rhythm: true, custom: [], touched: false });
   let quick = quickFresh();
   const QUICK_PURPOSES = ['To love my family well and serve my community.', 'To grow in faith, health and purpose.', 'To build a calm, intentional life.', 'To leave things better than I found them.'];
-  const quickGoalList = () => SUGGEST.goals.map((g, i) => ({ ...g, id: `g${i}` })).concat(quick.custom.map((t, i) => ({ id: `c${i}`, title: t, role: 'Me', area: 'work', why: '', steps: [] })));
+  const quickGoalList = () => SUGGEST.goals.map((g, i) => ({ ...g, id: `g${i}` })).concat(quick.custom.map((t, i) => ({ id: `c${i}`, title: t, role: 'Me', area: 'career', why: '', steps: [] })));
   const quickHabitList = () => SUGGEST.habits.map((h, i) => ({ ...h, id: `h${i}` }));
   // What step 3 and 4 show: best matches first, a short list until "Show more"
   const quickShown = (list, pre, selected, k, limit) => {
@@ -2924,7 +2925,7 @@
         <h3>Suggestions <small class="muted">tap to add</small></h3>
         ${chipList('goals', SUGGEST.goals, (g) => have.has(g.title.toLowerCase()), (g) => g.title, 'addSuggestedGoal', 12)}
         <form class="add" data-add="goals"><input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="kind" value="achievement">
-          <input name="title" placeholder="Add your own goal…" required><select name="roleId" aria-label="Role">${roleOpts('')}</select><select name="area" aria-label="Area">${areaOpts('work')}</select><button aria-label="Add goal">+</button></form></section>`;
+          <input name="title" placeholder="Add your own goal…" required><select name="roleId" aria-label="Role">${roleOpts('')}</select><select name="area" aria-label="Area">${lifeOpts('career')}</select><button aria-label="Add goal">+</button></form></section>`;
     } else if (n === 4) {
       const gl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind !== 'habit' && g.status === 'active');
       const sel = focusGoals(todayISO());
@@ -2941,7 +2942,7 @@
           <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
         <h3>Suggestions <small class="muted">tap to add</small></h3>
         ${chipList('habits', SUGGEST.habits, (h) => have.has(h.title.toLowerCase()), (h) => `${h.title} (${h.perWeek === 7 ? 'daily' : h.perWeek + '×/wk'})`, 'addSuggestedHabit', 10)}
-        <form class="add" data-add="goals"><input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="kind" value="habit"><input type="hidden" name="area" value="health"><input type="hidden" name="roleId" value="${state.roles[0] ? state.roles[0].id : ''}">
+        <form class="add" data-add="goals"><input type="hidden" name="cycleId" value="${cyc.id}"><input type="hidden" name="kind" value="habit"><input type="hidden" name="area" value="fitness"><input type="hidden" name="roleId" value="${state.roles[0] ? state.roles[0].id : ''}">
           <input name="title" placeholder="Add your own habit…" required><select name="perWeek" aria-label="Days per week">${opts([1, 2, 3, 4, 5, 6, 7].map((d) => ({ v: d, l: d === 7 ? 'Every day' : `${d}× a week` })), 5)}</select><button aria-label="Add habit">+</button></form></section>`;
     } else {
       const order = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + ws()) % 7);
