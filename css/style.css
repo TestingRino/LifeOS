@@ -800,3 +800,15 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .land-quote { margin-top: 1.6rem !important; font-family: Georgia, serif; font-style: italic; font-size: .95rem; } .land-quote span { font-style: normal; font-size: .8rem; margin-left: .3rem; }
 @media (max-width: 860px) { .land-hero { grid-template-columns: 1fr; padding-top: 1rem; } .land-preview { order: 2; max-width: 420px; margin: 0 auto; } .land-flow { grid-template-columns: 1fr 1fr; } .land-feats { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .land-two, .land-flow, .land-feats { grid-template-columns: 1fr; } .land-cta .btn.big { width: 100%; text-align: center; } .lp-card { transform: none; } }
+
+.land-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.land-card { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; padding: 1.1rem 1.2rem; }
+.land-card .ico { display: inline-grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: 8px; background: color-mix(in srgb, var(--gold) 18%, var(--paper)); color: #7a5d1d; font-size: 1.1rem; margin-bottom: .5rem; }
+.land-card h3 { margin: 0 0 .3rem; font-size: 1.1rem; } .land-card p { margin: 0; font-size: .93rem; color: var(--muted); line-height: 1.55; }
+.land-work h2 { font-size: clamp(1.5rem, 3vw, 2rem); color: var(--navy); margin: 0 0 1rem; text-align: center; }
+.land-loop { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .4rem .2rem; margin: 1.4rem 0 0; padding: 0; font-size: .88rem; }
+.land-loop li { background: color-mix(in srgb, var(--navy) 8%, var(--card)); border-radius: 99px; padding: .25rem .8rem; } .land-loop li + li::before { content: '→'; margin-right: .5rem; margin-left: -.35rem; color: var(--muted); }
+.land-loop li:first-child, .land-loop li:last-child { background: color-mix(in srgb, var(--gold) 22%, var(--card)); font-weight: 600; }
+.land-groups { display: grid; grid-template-columns: 1fr 2fr; gap: 1.2rem; text-align: left; margin-top: .6rem; } .land-groups h3 { margin: 0 0 .5rem; font-size: .95rem; color: var(--navy); text-align: center; } .land-groups .land-chips { justify-content: center; }
+.land-groups > div:first-child .land-chip { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, var(--card)); }
+@media (max-width: 860px) { .land-three { grid-template-columns: 1fr; } .land-groups { grid-template-columns: 1fr; } }

@@ -3135,7 +3135,7 @@
 
 
   /* ---------- landing page for people who have not signed up ---------- */
-  function viewLanding() {
+  function viewLandingV1() {  // the first landing page, kept so it can be restored: point ROUTES.landing at this
     const cta = (primaryLabel) => `<div class="land-cta">
       <button type="button" class="btn primary big" data-act="signIn">${primaryLabel || 'Continue with Google'}</button>
       <a class="btn big" href="#/welcome/1">See how it works</a>
@@ -3204,6 +3204,96 @@
 
       <section class="land-final">
         <h2>Start with what matters. Plan the rest around it.</h2>
+        <p>Your first sign-in creates your account. There is nothing else to fill in. Or take the two-minute demo first.</p>
+        ${cta('Get started with Google')}
+        <p class="land-quote">“The key is not to prioritize what's on your schedule, but to schedule your priorities.” <span>Stephen Covey</span></p>
+      </section>
+    </div>`;
+  }
+
+  function viewLanding() {
+    const cta = (primaryLabel) => `<div class="land-cta">
+      <button type="button" class="btn primary big" data-act="signIn">${primaryLabel || 'Continue with Google'}</button>
+      <a class="btn big" href="#/welcome/1">See how it works</a>
+      <button type="button" class="linklike muted" data-act="landingSkip">or start without an account</button></div>`;
+    const chipsOf = (ids) => ids.map((id) => `<span class="land-chip">${esc(P.LIFE.find((a) => a.id === id).short)}</span>`).join('');
+    const feat = (ico, h, t) => `<div class="land-feat"><span class="ico" aria-hidden="true">${ico}</span><h3>${h}</h3><p>${t}</p></div>`;
+    return `<div class="landing">
+      <section class="land-hero">
+        <div class="land-copy">
+          <p class="land-kicker">Life.OS · purpose-based planning</p>
+          <h1>Build a life that matters, <em>not just a longer to-do list.</em></h1>
+          <p class="land-sub">Life.OS starts with what you want your life to stand for: the work you are called to, the people you love, the faith, health and community that sustain you. Then it turns that into goals, habits and a calendar you can actually follow, so the things you do add up to the life you want.</p>
+          ${cta()}
+          <p class="land-note">No account needed. Your plan stays on your device, or in your own Google Drive if you sign in.</p>
+        </div>
+        <div class="land-preview" aria-hidden="true">
+          <div class="lp-card">
+            <div class="lp-purpose"><small>MY PURPOSE</small>To do work I am proud of, so I can love my family well and serve my community.</div>
+            <div class="lp-row"><b>Today's Big 3</b></div>
+            <div class="lp-item"><i class="on"></i>Draft the proposal <span class="lp-tag t2">Career</span></div>
+            <div class="lp-item"><i></i>Call Dad <span class="lp-tag t1">Family</span></div>
+            <div class="lp-item"><i></i>5K run <span class="lp-tag t3">Fitness</span></div>
+            <div class="lp-row"><b>Tasks</b></div>
+            <div class="lp-item"><i></i>Send invoice <span class="lp-tag">+Business</span></div>
+            <div class="lp-item"><i></i>Pay rent <span class="lp-tag">↻ monthly</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="land-work">
+        <h2>Your work is part of the point</h2>
+        <p class="land-lead">The career you choose and the passions you pursue shape almost everything else: the time you have, the money you can give and keep, the energy you bring home, and the person you become. Meaning does not live only outside of work. Life.OS plans for both.</p>
+        <div class="land-three">
+          <div class="land-card"><span class="ico" aria-hidden="true">⚒</span><h3>Work that makes room</h3><p>A good career is how you provide, grow your skills and earn the freedom to say yes to what matters most: family, faith, community, generosity.</p></div>
+          <div class="land-card"><span class="ico" aria-hidden="true">✦</span><h3>Passion that gives it meaning</h3><p>The craft you love, the problem you care about, the business you are building. When your work and your values line up, effort stops feeling like a grind.</p></div>
+          <div class="land-card"><span class="ico" aria-hidden="true">⚖</span><h3>Boundaries that protect the rest</h3><p>Ambition that eats your evenings is not success. Put deep work, rest, family time and workouts on the same calendar, so work serves your life instead of replacing it.</p></div>
+        </div>
+        <ol class="land-loop" aria-label="How the areas of life feed each other"><li>Purpose</li><li>Work &amp; passion</li><li>Income, skills &amp; energy</li><li>Family, faith, health &amp; community</li><li>Purpose</li></ol>
+      </section>
+
+      <section class="land-contrast">
+        <h2>Doing more is not the same as living well</h2>
+        <div class="land-two">
+          <div class="land-col muted-col"><h3>A busy life</h3><ul><li>A task list that never ends</li><li>Urgent things crowd out important things</li><li>Work for its own sake, or work you drifted into</li><li>Productive, but not sure it mattered</li></ul></div>
+          <div class="land-col good-col"><h3>A life that matters</h3><ul><li>Your purpose and values come first</li><li>Career and passions chosen on purpose</li><li>A few focus goals, not fifty</li><li>Time on the calendar for what counts</li></ul></div>
+        </div>
+      </section>
+
+      <section class="land-steps">
+        <h2>From purpose to Tuesday afternoon</h2>
+        <ol class="land-flow">
+          <li><b>1</b><h3>Know your why</h3><p>Write your purpose, vision and legacy. They return in your daily review so you never drift.</p></li>
+          <li><b>2</b><h3>Set goals that matter</h3><p>Choose goals for your career and passions as well as for home, health and faith, one set for each of your roles.</p></li>
+          <li><b>3</b><h3>Plan your week</h3><p>Pick 3 or 4 focus goals, a Big 3 for each day and tasks for the days they belong.</p></li>
+          <li><b>4</b><h3>Live it daily</h3><p>See your day by the 15 minutes, check off habits, and look back on what you finished.</p></li>
+        </ol>
+      </section>
+
+      <section class="land-balance">
+        <h2>A balanced life, in plain sight</h2>
+        <p>Goals, habits and the Wheel of Life share the same ten areas, so you can see what is getting your time and what is being neglected. Work and money are the foundation. The rest is what they make possible.</p>
+        <div class="land-groups">
+          <div><h3>Work &amp; means</h3><div class="land-chips">${chipsOf(['career', 'finances', 'learning'])}</div></div>
+          <div><h3>What it makes room for</h3><div class="land-chips">${chipsOf(['family', 'faith', 'fitness', 'mental', 'community', 'personal', 'home'])}</div></div>
+        </div>
+      </section>
+
+      <section class="land-tools">
+        <h2>And the planning tools to do it well</h2>
+        <p class="land-lead">Purpose gives the direction. Life.OS also gives you the everyday machinery for serious work and a full life.</p>
+        <div class="land-feats">
+          ${feat('✓', 'Tasks and projects for real work', 'Due dates, priorities, projects, tags, subtasks, and Waiting and Someday lists. Add them in plain words, like “send invoice friday !high +Client”.')}
+          ${feat('↻', 'Repeating tasks and habits', 'Bills, reports and routines repeat on their own. Habits show streaks instead of piling up as overdue.')}
+          ${feat('▦', 'A real daily calendar', 'An hour-by-hour day down to 15 minutes. Block time for deep work, drag tasks onto it, and see your Google Calendars beside them.')}
+          ${feat('☰', 'Weekly and daily planning', 'Guided sessions for the year, quarter, month, week and day, plus a Big 3 and a one-tap “move undone to tomorrow”.')}
+          ${feat('★', 'Review and reflect', '“What I finished” summaries by week, month, quarter or year you can copy, download or print, handy for career reviews too.')}
+          ${feat('⌘', 'Fast and forgiving', 'Search everything with one key, undo and restore deleted items, work offline, and print a clean page for your paper planner.')}
+        </div>
+      </section>
+
+      <section class="land-final">
+        <h2>Choose work that matters. Build a life around it.</h2>
         <p>Your first sign-in creates your account. There is nothing else to fill in. Or take the two-minute demo first.</p>
         ${cta('Get started with Google')}
         <p class="land-quote">“The key is not to prioritize what's on your schedule, but to schedule your priorities.” <span>Stephen Covey</span></p>
@@ -3561,7 +3651,7 @@
   const keepOpen = {};
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
-    today: viewToday, landing: viewLanding, foundation: viewFoundation, goals: viewGoals, year: viewYear,
+    today: viewToday, landing: viewLanding, 'landing-v1': viewLandingV1, foundation: viewFoundation, goals: viewGoals, year: viewYear,
     month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewStart, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
@@ -3571,7 +3661,7 @@
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
     app.innerHTML = view(arg, arg2);
     document.body.classList.toggle('printing-view', name === 'print');
-    document.body.classList.toggle('landing-view', name === 'landing');
+    document.body.classList.toggle('landing-view', name === 'landing' || name === 'landing-v1');
     gcalKick(name, arg);
     maybePromptLogin(name);
     app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
@@ -3664,7 +3754,7 @@
   }
   /* Ask people to sign in (or choose no account) once, but never on top of the tour or the setup guide. */
   function maybePromptLogin(route) {
-    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(landing|welcome|demo|setup|quick|start)$/.test(route)) return;
+    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(landing|landing-v1|welcome|demo|setup|quick|start)$/.test(route)) return;
     let mode = '';
     try { mode = localStorage.getItem('account_mode') || localStorage.getItem('login_prompt_seen') || ''; } catch (e) { /* storage unavailable */ }
     if (mode || signedIn() || new URLSearchParams(location.search).get('code')) return;
