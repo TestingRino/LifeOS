@@ -913,6 +913,7 @@
         <div class="meter ${meterCls}" title="Aim for 10–12 goals per cycle (habit goals are tracked separately)"><strong>${n}</strong> goals<br><small>aim 10–12</small></div>
       </section>
       ${state.foundation.vision ? `<blockquote class="vision small"><span>Who I'm becoming</span>${esc(state.foundation.vision.split('\n')[0])}</blockquote>` : `<p class="nudge">Tip: <a href="#/foundation">write your vision & eulogy</a> first. Goals should flow from them.</p>`}
+      <section class="box"><h2>Your balance</h2>${balanceStrip(all.filter((g) => g.status === 'active').map(goalDomain), 'Active goals and habits by area. Aim for something in each.')}</section>
       <section class="box focus-pick">
         <h2>This quarter's focus <small class="muted">${quarterLabel(todayISO())} · choose 3–4 · ${focusGoals(todayISO()).length}/4 selected</small></h2>
         <p class="prompt">You can't give ten goals your best energy at once. Choose the few that matter most right now. They appear on Today with your Big 3 and habits.</p>
@@ -2213,6 +2214,7 @@
       showMore.roles = showMore.goals = showMore.habits = false;
       quickPreselect(); commit();
     },
+    quickBalance() { quickPreselect(true); quick.touched = true; render(); },
     showMore(el) { showMore[el.dataset.k] = true; render(); },
     addPersonaRoles() {
       personaRoles().forEach((r) => { if (!state.roles.some((x) => x.name.toLowerCase() === r.name.toLowerCase())) state.roles.push({ id: S.uid(), name: r.name, why: r.why }); });
@@ -2223,7 +2225,7 @@
       quick.touched = true;
       const id = el.dataset.id, i = quick.goals.indexOf(id);
       if (i >= 0) quick.goals.splice(i, 1);
-      else if (quick.goals.length >= 3) { toast('Three is plenty to start. You can add more later.'); return; }
+      else if (quick.goals.length >= 5) { toast('Five is plenty to start. You can add more later.'); return; }
       else quick.goals.push(id);
       render();
     },
@@ -2231,7 +2233,7 @@
       quick.touched = true;
       const id = el.dataset.id, i = quick.habits.indexOf(id);
       if (i >= 0) quick.habits.splice(i, 1);
-      else if (quick.habits.length >= 4) { toast('Four habits is a good start. You can add more later.'); return; }
+      else if (quick.habits.length >= 5) { toast('Five habits is a good start. You can add more later.'); return; }
       else quick.habits.push(id);
       render();
     },
@@ -2239,7 +2241,7 @@
     quickAddCustom() {
       const inp = document.getElementById('quickCustom'), t = inp ? inp.value.trim() : '';
       if (!t) return;
-      if (quick.goals.length >= 3) { toast('Three is plenty to start. You can add more later.'); return; }
+      if (quick.goals.length >= 5) { toast('Five is plenty to start. You can add more later.'); return; }
       quick.touched = true; quick.custom.push(t); quick.goals.push(`c${quick.custom.length - 1}`); render();
     },
     quickBuild() {
@@ -2737,6 +2739,25 @@
     .map((x) => ({ ...x, sc: relScore(x.item) })).sort((a, b) => b.sc - a.sc || a.i - b.i);
   const showMore = { roles: false, goals: false, habits: false };
   const showMoreBtn = (k, hidden) => (hidden > 0 ? `<button type="button" class="btn ghost small" data-act="showMore" data-k="${k}">Show ${hidden} more</button>` : '');
+  /* Five life domains to keep in balance */
+  const DOMAINS = [{ id: 'career', label: 'Career' }, { id: 'personal', label: 'Personal' }, { id: 'family', label: 'Family' }, { id: 'faith', label: 'Faith' }, { id: 'fitness', label: 'Fitness' }];
+  const ROLE_DOMAIN = { Student: 'career', Professional: 'career', 'Business owner': 'career', Leader: 'career', Parent: 'family', Partner: 'family', Family: 'family', Caregiver: 'family', Grandparent: 'family', 'Household manager': 'family', 'Person of faith': 'faith', 'Healthy person': 'fitness' };
+  function domainOf(role, area, title) {
+    if (/prayer|scripture|worship|faith|church/i.test(title || '')) return 'faith';
+    if (area === 'health') return ROLE_DOMAIN[role] === 'faith' ? 'faith' : 'fitness';
+    return ROLE_DOMAIN[role] || 'personal';
+  }
+  const goalDomain = (g) => domainOf(roleName(g.roleId), g.area, g.title);
+  function balanceStrip(domainIds, note) {
+    const n = (d) => domainIds.filter((x) => x === d).length;
+    return `<div class="balance" aria-label="Balance across life areas">${DOMAINS.map((d) => `<span class="bal${n(d.id) ? ' on' : ''}"><b>${n(d.id)}</b> ${d.label}</span>`).join('')}${note ? `<small class="muted">${note}</small>` : ''}</div>`;
+  }
+  // one best item per life domain, strongest fit first
+  function diversePick(list, pre, n) {
+    const best = {};
+    list.filter((x) => x.id[0] === pre).forEach((x) => { const d = domainOf(x.role, x.area, x.title), sc = relScore(x); if (!best[d] || sc > best[d].sc) best[d] = { id: x.id, sc }; });
+    return Object.values(best).sort((a, b) => b.sc - a.sc).slice(0, n).map((x) => x.id);
+  }
   function personaRoles() { const ps = personas(); return SUGGEST.roles.filter((r) => (r.for || []).some((x) => ps.includes(x))); }
   function personaPicker(title) {
     const on = personas();
@@ -2803,19 +2824,18 @@
     const keep = showMore[k] ? ranked : ranked.filter((x, n) => n < limit || selected.includes(x.item.id));
     return { items: keep.map((x) => x.item).concat(list.filter((x) => x.id[0] !== pre)), hidden: ranked.length - keep.length };
   };
-  function quickPreselect() {
-    if (quick.touched) return;
-    const pick = (list, pre, n) => (personas().length ? list.filter((x) => x.id[0] === pre && relScore(x) >= 3).slice(0, n).map((x) => x.id) : []);
-    const gl = quickGoalList().map((g) => ({ ...g, _s: relScore(g) })).sort((a, b) => b._s - a._s);
-    const hl = quickHabitList().map((h) => ({ ...h, _s: relScore(h) })).sort((a, b) => b._s - a._s);
-    quick.goals = pick(gl, 'g', 3); quick.habits = pick(hl, 'h', 4);
+  function quickPreselect(force) {
+    if (quick.touched && !force) return;
+    if (!force && !personas().length) { quick.goals = []; quick.habits = []; return; }
+    quick.goals = quick.goals.filter((id) => id[0] === 'c').concat(diversePick(quickGoalList(), 'g', 5 - quick.goals.filter((id) => id[0] === 'c').length));
+    quick.habits = diversePick(quickHabitList(), 'h', 5);
   }
   const purposeIdeas = () => personas().map((id) => PERSONAS.find((p) => p.id === id).purpose).concat(QUICK_PURPOSES).slice(0, 5);
 
   function viewStart() {
     return page('Set up your plan', 'Pick how much time you have. You can add detail any time.', `
       <div class="grid2">
-        <a class="box start-card" href="#/quick/1"><h2>Quick start</h2><p class="muted">About 1 minute. Your why, up to three focus goals and a daily rhythm. Today fills itself in.</p><span class="btn primary">Start quick</span></a>
+        <a class="box start-card" href="#/quick/1"><h2>Quick start</h2><p class="muted">About 1 minute. Your why, goals across the main areas of life and a daily rhythm. Today fills itself in.</p><span class="btn primary">Start quick</span></a>
         <a class="box start-card" href="#/setup/1"><h2>Guided setup</h2><p class="muted">About 5 minutes. Roles and their WHY, annual goals, habits and an ideal week, step by step.</p><span class="btn ghost">Start guided</span></a>
       </div>
       <p><a href="#/today">I'll explore on my own</a></p>`);
@@ -2839,8 +2859,10 @@
         <div class="chips">${purposeIdeas().map((t, i) => `<button type="button" class="chip" data-act="quickPurpose" data-idx="${i}">${esc(t)}</button>`).join('')}</div></section>`;
     } else if (n === 3) {
       const sh = quickShown(quickGoalList(), 'g', quick.goals, 'goals', 12);
-      body += `<section class="box"><h2>Pick up to 3 goals for this quarter <span class="muted">· ${quick.goals.length} of 3</span></h2>
-        <p class="prompt">${personas().length ? 'Chosen to fit you. Untap any that are not right.' : 'Tap what you want to move forward.'} Each one comes with a reason and a first step.</p>
+      body += `<section class="box"><h2>Pick up to 5 goals for this quarter <span class="muted">· ${quick.goals.length} of 5</span></h2>
+        <p class="prompt">${personas().length ? 'Chosen to fit you. Untap any that are not right.' : 'Tap what you want to move forward.'} A balanced life has some career, personal, family, faith and fitness in it.</p>
+        ${balanceStrip(quickGoalList().filter((g) => quick.goals.includes(g.id)).map((g) => domainOf(g.role, g.area, g.title)))}
+        <p><button type="button" class="btn ghost small" data-act="quickBalance">Balance my picks</button></p>
         <div class="pick-grid">${sh.items.map((g) => card('quickGoal', g.id, quick.goals.includes(g.id), g.title, g.why, g.role)).join('')}</div>
         ${showMoreBtn('goals', sh.hidden)}
         <div class="add"><input id="quickCustom" placeholder="Or write your own goal…" aria-label="Your own goal"><button type="button" data-act="quickAddCustom" aria-label="Add">+</button></div></section>`;
@@ -2848,6 +2870,7 @@
       const sh = quickShown(quickHabitList(), 'h', quick.habits, 'habits', 10);
       body += `<section class="box"><h2>Choose your daily rhythm <span class="muted">· ${quick.habits.length} habit${quick.habits.length === 1 ? '' : 's'}</span></h2>
         <p class="prompt">Habits appear on Today as a checkbox, with a picture of how you are doing.</p>
+        ${balanceStrip(quickHabitList().filter((h) => quick.habits.includes(h.id)).map((h) => domainOf(h.role, h.area, h.title)))}
         <div class="pick-grid">${sh.items.map((h) => card('quickHabit', h.id, quick.habits.includes(h.id), h.title, h.perWeek === 7 ? 'every day' : h.perWeek === 1 ? 'once a week' : `${h.perWeek}× a week`, '')).join('')}</div>
         ${showMoreBtn('habits', sh.hidden)}
         <h3>A starter week</h3>

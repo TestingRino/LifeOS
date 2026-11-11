@@ -674,3 +674,8 @@ ul.backups .btn { margin-top: 0; }
 .pick-tag { margin-top: auto; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 a.start-card { text-decoration: none; color: var(--ink); display: block; }
 a.start-card:hover { border-color: var(--ok); }
+
+.balance { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .5rem 0; }
+.bal { border: 1px dashed var(--line); border-radius: 99px; padding: .15rem .7rem; font-size: .85rem; color: var(--muted); }
+.bal b { font-family: Georgia, serif; }
+.bal.on { border-style: solid; border-color: var(--ok); color: var(--ink); background: #e9eddc; }
