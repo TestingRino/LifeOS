@@ -21,8 +21,11 @@ Foundation  →  Roles & WHY  →  Goals (10–12 per cycle)  →  Monthly actio
 | **Year** | Annual Key Dates Overview & Annual Planning Notes | Key dates (ranges, yearly birthdays) and notes for M1–M12. |
 | **Month** | Monthly calendar + Goals & Priority Actions | Calendar with key dates; priority actions in the six planner areas, each linkable to a goal (with "no action yet" nudges); ideas, gratitude, affirmations; end-of-month reflections. |
 | **Week** | Weekly spread | Schedule (appointments per day), priority actions by area, habit tracker, workouts (plan + log), goal pulse (on track / slipping / stalled), shopping list, not-to-do list, notes, gratitude & health, "Are you chasing your dreams?", rate your week. |
+| **Tasks** | — | One task list with due dates, priorities, projects, tags, subtasks, Next / Waiting / Someday, repeating tasks, templates, rollover and drag-and-drop planning. Also shown on Today, Week, goals and the calendar. |
 | **Track** | — | Weight log with trend chart and target, workouts per week (12-week chart, by type), habit history heatmap with streaks, goal progress with trend sparklines. |
 | **Lists** | Bucket List, Reading & Entertainment, Notes Index | Plus hobby/project plans (next-step checklists linked to goals) and a running shopping list. |
+
+Search (`/`), undo (Ctrl/⌘ Z), an Archive with restore, "What I finished" summaries, print layouts, offline use (service worker) and reminders are built in. See the User Guide.
 
 **Copy for planner** on the Month and Week pages produces a plain-text summary to transcribe into the paper spread.
 

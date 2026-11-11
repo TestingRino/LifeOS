@@ -70,10 +70,48 @@ Important: **Export your data regularly**
 
 ---
 
+## Tasks
+
+**Tasks** (top menu) is one list for everything you need to do. Each task can have a due date, a day to do it, a time, a priority, a project, tags, subtasks, notes, a goal it serves and a status: **Next**, **Waiting** (for someone), **Someday** or **Done**. Tasks show up on Today, on the Week page, under the goal they belong to, and on the calendar when they have a time.
+
+- **Add quickly.** Type naturally: `Call dentist friday !high #health +Admin`. Dates (today, tomorrow, friday, in 2 weeks, 3/14), `!high`/`!med`/`!low`, `#tags`, `+Project`, `@waiting` and `~someday` are understood. Press **n** anywhere.
+- **Repeat.** `Pay rent monthly on the 1st`, `Take out trash every monday`, `every 2 weeks`. When you finish one, the next appears. Open a task to choose weekdays, "every N", or "count from when I finish it". Skip one with ⤼.
+- **Plan by dragging.** Drag a task onto a day in the Week page to plan it for that day, or onto a time slot on the calendar to time-block it.
+- **Move undone to tomorrow.** On Today (and the Tasks page) one tap moves everything you did not finish: tasks, planned priorities and your Big 3. Repeating tasks and habits stay put, because they are not meant to pile up.
+- **Templates.** *From template* adds a ready-made checklist: weekly review, monthly money review, trip checklist (counted back from your departure date), project plan, hosting a gathering and more. Save any project as your own template.
+- **Reminders.** Set a reminder in a task, and turn on notifications in Settings. Reminders and a morning digest appear while Life.OS is open, or installed on your phone or computer and running in the background. A fully closed app cannot be woken without a push service.
+- **Works offline.** After the first visit Life.OS opens without a connection and syncs when you are back online.
+
+## Search, undo and the Archive
+
+- **Search** (press `/`, or Ctrl/⌘ K, or tap 🔍): searches tasks, goals, milestones, habits, notes, journal, memories, lists, key dates, your purpose, vision and legacy. Type `task:` or `goal:` first to narrow.
+- **Undo** (Ctrl/⌘ Z, or the Undo button after a delete or move) steps back through your recent changes. Ctrl/⌘ Shift Z redoes.
+- **Archive** holds items you deleted for 60 days (restore any), finished tasks older than 30 days, and finished or dropped goals.
+
+## What I finished (review summaries)
+
+Under **Plan**. Pick week, month, quarter or year to see tasks, milestones, priorities, Big 3, habits, workouts and where your effort went across life areas. **Copy**, **Download .md** or **Print / PDF**.
+
+## Printing for a paper planner
+
+**Print** on Today, Week and Month opens a clean page for your printer or "Save as PDF" (choose Landscape and turn off headers and footers).
+
+## Life areas
+
+Goals, the balance view and the Wheel of Life share ten areas: Career, Finances, Family, Faith, Fitness, Mental & emotional, Learning, Community & service, Personal & social, and Home. The Foundation page also has a **legacy** prompt.
+
 ## Keyboard Shortcuts
 
-- `Escape` — Close any menu or dialog
-- Tab — Move through inputs
+| Keys | What it does |
+|---|---|
+| `/` or Ctrl/⌘ K | Search everything |
+| `n` | Add a task |
+| Shift `N` | New task with all options |
+| `g` then `t` `w` `c` `k` `g` `m` `p` `r` `l` `a` `s` | Go to Today, Week, Calendar, Tasks, Goals, Month, Planning, Summary, Lists, Archive, Settings |
+| `[` and `]` | Previous / next week, month or day |
+| Ctrl/⌘ Z, Ctrl/⌘ Shift Z | Undo, redo |
+| `?` | Show the shortcut list |
+| `Escape` | Close any menu or dialog |
 
 ---
 

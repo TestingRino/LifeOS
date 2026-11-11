@@ -9,8 +9,37 @@
   let firstRun = false;
   try { firstRun = localStorage.getItem(S.KEY) === null; } catch (e) { /* storage unavailable */ }
   let state = S.load();
+  const F = {};            // features.js plugs tasks, search, templates, summaries and print layouts in here
   const rawSave = S.save;
-  S.save = (st) => { const ok = rawSave(st); if (st === state) scheduleSync(); return ok; };
+  /* Undo history: a snapshot of the plan before each change (rapid typing counts as one change). */
+  const hist = { undo: [], redo: [], last: '', at: 0, bytes: 0 };
+  hist.last = JSON.stringify(state);
+  S.save = (st) => {
+    if (st === state) {
+      const now = JSON.stringify(st);
+      if (now !== hist.last) {
+        if (Date.now() - hist.at > 1500 || !hist.undo.length) {
+          hist.undo.push(hist.last); hist.bytes += hist.last.length;
+          while (hist.undo.length > 60 || hist.bytes > 24e6) hist.bytes -= hist.undo.shift().length;
+        }
+        hist.at = Date.now(); hist.redo = []; hist.last = now;
+      }
+    }
+    const ok = rawSave(st); if (st === state) scheduleSync(); return ok;
+  };
+  function applySnapshot(snap) {
+    const keep = { lastNotifications: state.lastNotifications, gcalCalendars: state.gcalCalendars, syncMeta: state.syncMeta };
+    state = S.migrate(JSON.parse(snap)); Object.assign(state, keep); hist.last = JSON.stringify(state); hist.at = 0;
+    rawSave(state); scheduleSync(); render();
+  }
+  function undo() {
+    if (!hist.undo.length) { toast('Nothing to undo'); return false; }
+    const snap = hist.undo.pop(); hist.bytes -= snap.length; hist.redo.push(hist.last); applySnapshot(snap); toast('Undone', { label: 'Redo', fn: redo }); return true;
+  }
+  function redo() {
+    if (!hist.redo.length) { toast('Nothing to redo'); return false; }
+    hist.undo.push(hist.last); applySnapshot(hist.redo.pop()); toast('Redone'); return true;
+  }
   const app = document.getElementById('app');
 
   /* ---------- basics ---------- */
@@ -31,11 +60,13 @@
   }
   function commit() { S.save(state); render(); }
 
-  let toastTimer;
-  function toast(msg) {
+  let toastTimer, toastAct = null;
+  function toast(msg, action) {
     const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1200);
+    t.textContent = msg; toastAct = action || null;
+    if (action) { const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = action.label; b.addEventListener('click', () => { const f = toastAct; toastAct = null; t.classList.remove('show'); if (f) f.fn(); }); t.append(' ', b); }
+    t.classList.toggle('actionable', !!action); t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), action ? 6000 : 1200);
   }
 
   const areaName = (id) => (AREAS.find((a) => a.id === id) || P.LIFE.find((a) => a.id === id) || { name: 'Other' }).name;
@@ -668,7 +699,7 @@
     const sc = sessionCtx();
     const dueSessions = ['yearly', 'quarterly', 'monthly', 'weekly'].map((cad) => sessionStatus(cad, sc)).filter((x) => x.due && !x.complete);
     const dueStrip = dueSessions.length ? `<section class="box due-strip"><strong>Planning due</strong> ${dueSessions.map((x) => `<a class="chip" href="#/session/${x.cad}">${esc(x.def.title)} · ${x.doneN}/${x.steps.length} →</a>`).join(' ')}</section>` : '';
-    const capture = `<form class="add capture" data-act-form="capture"><input name="text" placeholder="Capture a to-do, goal idea, memory or quote…" required aria-label="Quick capture">
+    const capture = `<form class="add capture" data-act-form="capture"><input name="text" placeholder="Capture a to-do (try: call dentist friday !high), goal idea, memory or quote…" required aria-label="Quick capture">
       <select name="kind" aria-label="Type"><option value="todo">To-do</option><option value="goal">Goal idea</option><option value="memory">Memory</option><option value="quote">Quote</option></select><button aria-label="Capture">+</button></form>`;
     const body = `
       ${setupBanner}
@@ -774,7 +805,8 @@
         ${state.journals.find((j) => j.date === iso) ? `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Add to today's thoughts…"></textarea><button aria-label="Save">+</button></form>` : `<form class="add" data-add="journals"><input type="hidden" name="date" value="${iso}"><textarea name="text" rows="3" placeholder="Today's thoughts and reflections…"></textarea><button aria-label="Save">+</button></form>`}
       </section>
       </details>`;
-    return page('Today', U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body);
+    return page('Today', U.fmtDate(iso, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), body,
+      `<a class="btn ghost" href="#/print/day/${iso}">Print</a>`);
   }
 
   function viewFoundation() {
@@ -851,6 +883,7 @@
         </div>
         <input class="inline measure" data-bind="${p}.measure" value="${esc(g.measure)}" placeholder="${g.kind === 'habit' ? 'What counts? (e.g. 20+ minutes, no phone)' : 'What does done look like? (be specific)'}">
         ${goalPlan(g, p)}
+        ${F.goalTasks ? F.goalTasks(g) : ''}
       </div>`;
     };
     const habitPerWeek = (p, cur) => `<label>Days per week <select data-bind="${p}.perWeek" data-type="number" data-rerender>${opts([1, 2, 3, 4, 5, 6, 7].map((n) => ({ v: n, l: n === 7 ? '7 (every day)' : String(n) })), cur)}</select></label>`;
@@ -1012,7 +1045,7 @@
           const out = U.monthKey(d) !== mk;
           return `<td class="${out ? 'out' : ''} ${iso === tIso ? 'today' : ''}"><a class="dnum" href="#/week/${wkey}">${d.getDate()}</a>
             ${gcalOn(iso).slice(0, 3).map((g) => `<div class="ev gcal" style="${gcalVar(g.color)}" title="${esc(g.text)}"><span>${g.time ? `${esc(fmtTime(g.time))} ` : ''}📅 ${esc(g.text)}</span></div>`).join('')}
-            ${evs.map((e) => `<div class="ev" title="${esc(e.text)}"><span>${evIcon(e)}${esc(e.text)}</span></div>`).join('')}</td>`;
+            ${evs.map((e) => `<div class="ev" title="${esc(e.text)}"><span>${evIcon(e)}${esc(e.text)}</span></div>`).join('')}${F.monthTasks ? F.monthTasks(iso) : ''}</td>`;
         }).join('')}</tr>`;
       }).join('')}</tbody></table></div>`;
 
@@ -1043,7 +1076,8 @@
     const nav = `<a class="btn ghost" href="#/month/${prev}" aria-label="Previous month">←</a>
       <a class="btn ghost" href="#/month/${U.monthKey(today())}">This month</a>
       <a class="btn ghost" href="#/month/${next}" aria-label="Next month">→</a>
-      <button class="btn" data-act="copyMonth" data-key="${mk}">Copy for planner</button>`;
+      <button class="btn" data-act="copyMonth" data-key="${mk}">Copy for planner</button>
+      <a class="btn" href="#/print/month/${mk}">Print</a>`;
     return page(`${U.MONTHS[md.getMonth()]} ${md.getFullYear()}`, 'Monthly calendar & goals', body, nav);
   }
 
@@ -1121,6 +1155,7 @@
       if (x.time) push({ cls: 'sched', start: toMin(x.time), mins: Number(x.mins) || 30, time: x.time, html, tip: x.text });
       else anytime.push(`<span class="ad sched">${html}</span>`);
     });
+    if (F.timelineTasks) { const tt = F.timelineTasks(iso); tt.timed.forEach((o) => push({ ...o, start: toMin(o.time) })); tt.anytime.forEach((h) => anytime.push(h)); }
     state.workouts.filter((x) => x.date === iso && !x.ideal).forEach((x) => {
       const cb = chk(`workouts.@${x.id}.done`, 'Workout done');
       if (x.time) push({ cls: `wo${x.done ? ' done' : ''}`, start: toMin(x.time), mins: Number(x.minutes) || 45, time: x.time, html: `${cb} ${esc(x.type)}`, tip: x.type });
@@ -1151,7 +1186,6 @@
       (w.top3 || []).forEach((a) => a.day && out.push({ day: a.day, kind: 'Top 3', id: a.id, text: a.text, done: a.done, base: `weeks.${wk}.top3.@${a.id}`, goalId: a.goalId }));
     });
     Object.entries(state.months).forEach(([mk, m]) => (m.actions || []).forEach((a) => a.day && out.push({ day: a.day, kind: 'Month', id: a.id, text: a.text, done: a.done, base: `months.${mk}.actions.@${a.id}`, goalId: a.goalId })));
-    state.inbox.filter((x) => x.kind === 'todo' && x.day).forEach((x) => out.push({ day: x.day, kind: 'To-do', id: x.id, text: x.text, done: x.done, base: `inbox.@${x.id}`, goalId: '' }));
     return out;
   }
   const tasksOn = (iso) => assignedTasks().filter((t) => t.day === iso);
@@ -1161,7 +1195,7 @@
     (w.top3 || []).filter((a) => !a.done && !a.day).forEach((a) => out.push({ kind: 'Top 3', text: a.text, base: `weeks.${wk}.top3.@${a.id}` }));
     (w.actions || []).filter((a) => !a.done && !a.day).forEach((a) => out.push({ kind: 'Priority', text: a.text, base: `weeks.${wk}.actions.@${a.id}` }));
     (m.actions || []).filter((a) => !a.done && !a.day).forEach((a) => out.push({ kind: 'Month', text: a.text, base: `months.${mk}.actions.@${a.id}` }));
-    state.inbox.filter((x) => x.kind === 'todo' && !x.done && !x.day).forEach((x) => out.push({ kind: 'To-do', text: x.text, base: `inbox.@${x.id}` }));
+    if (F.poolTasks) F.poolTasks(iso).forEach((t) => out.push({ kind: 'Task', text: t.title, taskId: t.id }));
     focusGoals(iso).forEach((g) => { const ns = nextStep(g); out.push({ kind: 'Goal step', text: ns ? ns.text : `Work on: ${g.title}`, goal: g.id }); });
     return out;
   }
@@ -1169,17 +1203,18 @@
     <input class="inline grow" data-bind="${t.base}.text" value="${esc(t.text)}" aria-label="Task">${schedBtn(t.text)}
     <button class="x" data-act="unassignTask" data-path="${t.base}" title="${opts2 && opts2.late ? 'Drop it' : 'Take off this day'}" aria-label="Remove from this day">×</button></div>`;
   const poolRow = (t, iso) => `<div class="tray-item"><span class="grow">${esc(t.text)} <small class="muted">${esc(t.kind)}</small></span>
-    ${t.base ? `<button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">+ Assign</button>` : `<button class="btn ghost small" data-act="assignStep" data-goal="${t.goal}" data-day="${iso}">+ Assign</button>`}</div>`;
+    ${t.taskId ? `<button class="btn ghost small" data-act="taskAssign" data-id="${t.taskId}" data-day="${iso}">+ Assign</button>` : t.base ? `<button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">+ Assign</button>` : `<button class="btn ghost small" data-act="assignStep" data-goal="${t.goal}" data-day="${iso}">+ Assign</button>`}</div>`;
 
   function otherTasksHtml(iso) {
     const mine = tasksOn(iso), late = assignedTasks().filter((t) => t.day < iso && !t.done).sort((a, b) => (a.day < b.day ? 1 : -1)).slice(0, 5), pool = taskPool(iso).slice(0, 6);
     return `<section class="box other-tasks">
-      <h2>Other tasks <span class="muted">· ${mine.filter((t) => t.done).length}/${mine.length} done</span><a class="more" href="#/week">Plan the week →</a></h2>
+      <h2>Tasks <span class="muted">· ${F.dayTasksDone ? F.dayTasksDone(iso, mine) : `${mine.filter((t) => t.done).length}/${mine.length} done`}</span><a class="more" href="#/tasks">All tasks →</a></h2>
       ${late.length ? `<h4 class="tl-h">Carried over</h4>${late.map((t) => `<div class="tray-item late">${chk(`${t.base}.done`, 'Done')}<span class="grow">${esc(t.text)} <small class="muted">from ${U.fmtDate(t.day, { weekday: 'short', month: 'short', day: 'numeric' })}</small></span>
         <button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">› Today</button></div>`).join('')}` : ''}
-      ${mine.length ? mine.map((t) => taskRow(t, iso)).join('') : '<p class="muted small">Nothing assigned to today yet. Add a task, or assign from your lists below.</p>'}
-      <form class="add" data-add="inbox"><input type="hidden" name="kind" value="todo"><input type="hidden" name="date" value="${iso}"><input type="hidden" name="day" value="${iso}">
-        <input name="text" placeholder="Add a task for today…" required aria-label="Task for today"><button aria-label="Add task">+</button></form>
+      ${F.dayTasks ? F.dayTasks(iso) : ''}
+      ${mine.length ? mine.map((t) => taskRow(t, iso)).join('') : (F.dayTasks && F.dayTasksCount(iso) ? '' : '<p class="muted small">Nothing assigned to today yet. Add a task, or assign from your lists below.</p>')}
+      ${F.quickAdd ? F.quickAdd(iso, 'Add a task for today… (try "Pay rent monthly on the 1st !high")') : ''}
+      ${F.rolloverBar ? F.rolloverBar(iso) : ''}
       ${pool.length ? `<details data-keep="pool"><summary class="muted small">Assign from your lists (${pool.length})</summary>${pool.map((t) => poolRow(t, iso)).join('')}</details>` : ''}
     </section>`;
   }
@@ -1212,7 +1247,7 @@
     state.big3.filter((b) => b.date === iso && !b.done).forEach((b) => out.push({ group: "Today's Big 3", text: b.text }));
     (w.top3 || []).filter((x) => !x.done).forEach((x) => out.push({ group: 'Top 3 this week', text: x.text }));
     (w.actions || []).filter((a) => !a.done).forEach((a) => out.push({ group: 'Priority actions', text: a.text }));
-    state.inbox.filter((x) => x.kind === 'todo' && !x.done).forEach((x) => out.push({ group: 'To-dos', text: x.text }));
+    if (F.openTasks) F.openTasks().slice(0, 10).forEach((t) => out.push({ group: 'Tasks', text: t.title, mins: Number(t.mins) || 30 }));
     focusGoals(iso).forEach((g) => { const ns = nextStep(g); out.push({ group: 'Goals · next steps', text: ns ? ns.text : `Work on: ${g.title}`, mins: 60 }); });
     return out;
   }
@@ -1314,8 +1349,9 @@
     const strip = `<div class="strip">${days.map((d) => {
       const iso = U.toISO(d);
       const picked = (weekSel[wk] || (tIso >= wk && tIso <= endIso ? tIso : wk)) === iso;
-      return `<div class="${iso === tIso ? 'today' : ''}${picked ? ' picked' : ''}" data-act="selectDay" data-key="${wk}" data-day="${iso}" data-scroll="1" title="Open this day in the planner"><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
+      return `<div class="${iso === tIso ? 'today' : ''}${picked ? ' picked' : ''}" data-act="selectDay" data-key="${wk}" data-day="${iso}" data-dropday="${iso}" data-scroll="1" title="Open this day in the planner. Drop a task here to plan it for this day."><strong>${U.DAYS[d.getDay()].slice(0, 3)}</strong> <span>${U.fmtDate(iso)}</span>
         ${U.eventsOn(state.events, iso).map((e) => `<div class="ev">${evIcon(e)}${esc(e.text)}</div>`).join('')}
+        ${F.stripTasks ? F.stripTasks(iso) : ''}
         <ul class="sched">${gcalOn(iso).map((g) => `<li class="gcal" style="${gcalVar(g.color)}"><span class="grow">${g.time ? `<time>${esc(fmtTime(g.time))}</time> ` : ''}📅 ${esc(g.text)}${gcalTag(g)}</span></li>`).join('')}
           ${idealOn(iso).map((i) => `<li class="ideal ${idealDone(i, iso) ? 'done' : ''}"><span class="grow">${idealDone(i, iso) ? '✓' : '◦'} ${i.time ? `<time>${esc(fmtTime(i.time))}</time> ` : ''}${esc(i.text)}</span></li>`).join('')}
           ${scheduleOn(iso).map((s) => `<li>${s.time ? `<time>${esc(fmtTime(s.time))}</time>` : ''}<span class="grow">${esc(s.text)}${s.cal ? ` <small class="muted">${esc(s.cal)}</small>` : ''}</span><button class="x" data-act="del" data-path="schedule" data-id="${s.id}" aria-label="Remove">×</button></li>`).join('')}
@@ -1376,11 +1412,11 @@
         ${schedBtn(x.text)}<button class="x" data-act="del" data-path="${base}.top3" data-id="${x.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
       ${(w.top3 || []).length < 3 ? `<form class="add" data-add="${base}.top3"><input name="text" placeholder="One of the three most important things this week…" required><select name="goalId" aria-label="Linked goal">${goalOpts(goals, '')}</select><button aria-label="Add">+</button></form>` : '<p class="muted small">Top 3 set. Everything else is secondary.</p>'}</section>`;
     const pullBox = (() => {
-      const inb = state.inbox.filter((x) => x.kind === 'todo' && !x.done).slice(0, 8), bl = state.bucket.filter((b) => !b.done && b.text).slice(0, 8);
+      const inb = (F.openTasks ? F.openTasks().filter((t) => !t.day).slice(0, 8) : []).map((t) => ({ id: t.id, text: t.title })), bl = state.bucket.filter((b) => !b.done && b.text).slice(0, 8);
       const row = (src, id, text) => `<li><span class="grow">${esc(text)}</span><button class="btn ghost small" data-act="pullIn" data-src="${src}" data-id="${id}" data-key="${wk}">+ This week</button></li>`;
       return `<section class="box"><h3>Pull in from your lists</h3>
-        ${inb.length || bl.length ? `<ul class="checks compact">${inb.map((x) => row('inbox', x.id, x.text)).join('')}${bl.map((b) => row('bucket', b.id, `Bucket list: ${b.text}`)).join('')}</ul>` : '<p class="muted">Nothing waiting. Capture to-dos on Today and add bucket-list items under <a href="#/lists/bucket">Lists</a>.</p>'}
-        <p class="muted small"><a href="#/lists/inbox">Open your inbox & to-dos →</a></p></section>`;
+        ${inb.length || bl.length ? `<ul class="checks compact">${inb.map((x) => row('task', x.id, x.text)).join('')}${bl.map((b) => row('bucket', b.id, `Bucket list: ${b.text}`)).join('')}</ul>` : '<p class="muted">Nothing waiting. Capture to-dos on Today and add bucket-list items under <a href="#/lists/bucket">Lists</a>.</p>'}
+        <p class="muted small"><a href="#/tasks">Open all tasks →</a></p></section>`;
     })();
     const selIso = weekSel[wk] && days.some((d) => U.toISO(d) === weekSel[wk]) ? weekSel[wk] : (tIso >= wk && tIso <= endIso ? tIso : wk);
     const dayPlanner = (() => {
@@ -1392,9 +1428,9 @@
         <div class="chips day-tabs">${tabs}</div>
         <div class="day-cols"><div class="day-main">${dayTimeline(selIso, { height: 520 })}</div>
           <aside class="tl-tray"><h3>Tasks for ${esc(U.fmtDate(selIso, { weekday: 'short', month: 'short', day: 'numeric' }))}</h3>
-            ${mineSel.length ? mineSel.map((t) => taskRow(t, selIso)).join('') : '<p class="muted small">Nothing assigned yet.</p>'}
-            <form class="add" data-add="inbox"><input type="hidden" name="kind" value="todo"><input type="hidden" name="date" value="${selIso}"><input type="hidden" name="day" value="${selIso}">
-              <input name="text" placeholder="New task for this day…" required aria-label="New task"><button aria-label="Add task">+</button></form>
+            ${mineSel.length ? mineSel.map((t) => taskRow(t, selIso)).join('') : (F.dayTasksCount && F.dayTasksCount(selIso) ? '' : '<p class="muted small">Nothing assigned yet.</p>')}
+            ${F.dayTasks ? F.dayTasks(selIso, true) : ''}
+            ${F.quickAdd ? F.quickAdd(selIso, 'New task for this day…') : ''}
             <h4>Assign from your lists</h4>
             ${poolSel.length ? poolSel.map((t) => poolRow(t, selIso)).join('') : '<p class="muted small">Everything is already assigned.</p>'}
           </aside></div></section>`;
@@ -1434,7 +1470,8 @@
     const nav = `<a class="btn ghost" href="#/week/${prev}" aria-label="Previous week">←</a>
       <a class="btn ghost" href="#/week/${U.weekKey(today(), ws())}">This week</a>
       <a class="btn ghost" href="#/week/${next}" aria-label="Next week">→</a>
-      <button class="btn" data-act="copyWeek" data-key="${wk}">Copy for planner</button>`;
+      <button class="btn" data-act="copyWeek" data-key="${wk}">Copy for planner</button>
+      <a class="btn" href="#/print/week/${wk}">Print</a>`;
     return page(`Week ${wom.n} of ${U.MONTHS[wom.month]}`,
       `${U.fmtDate(wk, { weekday: 'short', month: 'short', day: 'numeric' })} – ${U.fmtDate(endIso, { weekday: 'short', month: 'short', day: 'numeric' })} · <a href="#/month/${wom.monthKey}">Month view</a>`,
       body, nav);
@@ -1959,7 +1996,8 @@
         </div>
         <p class="muted small">Changing the week start after you've planned weeks will hide those weeks (they're stored by start date).</p>
       </section>
-      ${canNotify ? `<section class="box"><h2>Reminders</h2>
+      ${F.settingsExtra ? F.settingsExtra() : ''}
+      ${canNotify ? `<section class="box"><h2>Daily ritual reminders</h2>
         <label class="row"><input type="checkbox" data-bind="settings.notificationsEnabled" data-rerender> Browser notifications for rituals and goals</label>
         ${notifPerm === 'granted' ? `<div class="row wrap">
           <label>Notify me at <input type="time" data-bind="settings.notificationTime" data-rerender value="${esc(s.notificationTime)}"></label>
@@ -2042,6 +2080,13 @@
     journals: () => ({ text: '' }),
   };
 
+  const trashLabel = (it) => String((it && (it.title || it.text || it.name || it.type || it.date)) || '').trim();
+  function trashItem(path, item) {
+    if (!item || path === 'trash') return;
+    state.trash = (state.trash || []).filter((t) => t.at >= U.toISO(U.addDays(today(), -60)));
+    state.trash.push({ id: S.uid(), path, item: JSON.parse(JSON.stringify(item)), at: todayISO(), label: trashLabel(item) });
+    if (state.trash.length > 300) state.trash.shift();
+  }
   function nextCycle(id) {
     const cyc = state.cycles.find((c) => c.id === id);
     const months = Number(state.settings.cycleMonths) || 6;
@@ -2062,8 +2107,11 @@
       const list = get(el.dataset.path);
       if (!Array.isArray(list)) return;
       const i = list.findIndex((x) => x.id === el.dataset.id);
-      if (i >= 0) list.splice(i, 1);
-      commit();
+      if (i >= 0) {
+        const [item] = list.splice(i, 1);
+        trashItem(el.dataset.path, item);
+        commit(); toast(`Deleted ${trashLabel(item) ? `“${trashLabel(item).slice(0, 40)}”` : 'item'}`, { label: 'Undo', fn: undo });
+      } else commit();
     },
     toggle(el) { S.setPath(state, el.dataset.path, !get(el.dataset.path)); commit(); },
     quickAction(el) {
@@ -2075,14 +2123,15 @@
       const r = state.roles.find((x) => x.id === el.dataset.id);
       if (!confirm(`Delete role "${r.name}"? Its goals will be kept under "Goals without a role".`)) return;
       state.roles = state.roles.filter((x) => x.id !== r.id);
-      commit();
+      trashItem('roles', r);
+      commit(); toast(`Deleted role “${r.name}”`, { label: 'Undo', fn: undo });
     },
     delCycle(el) {
       const c = state.cycles.find((x) => x.id === el.dataset.id);
       if (!confirm(`Delete cycle "${c.name}" and its goals?`)) return;
       state.cycles = state.cycles.filter((x) => x.id !== c.id);
       state.goals = state.goals.filter((g) => g.cycleId !== c.id);
-      commit(); location.hash = '#/goals';
+      commit(); location.hash = '#/goals'; toast(`Deleted cycle “${c.name}”`, { label: 'Undo', fn: undo });
     },
     nextCycle(el) { nextCycle(el.dataset.id); },
     pulse(el) {
@@ -2149,6 +2198,7 @@
     },
     pullIn(el) {
       const { src, id, key } = el.dataset;
+      if (src === 'task') { const t = state.tasks.find((x) => x.id === id); if (t) { const days = Array.from({ length: 7 }, (_, i) => U.toISO(U.addDays(U.parseISO(key), i))); t.day = days.includes(todayISO()) ? todayISO() : key; toast('Planned for this week'); commit(); } return; }
       const item = src === 'inbox' ? state.inbox.find((x) => x.id === id) : state.bucket.find((x) => x.id === id);
       if (!item) return;
       getWeek(key).actions.push({ id: S.uid(), area: src === 'bucket' ? 'fun' : 'home', text: item.text, goalId: '', done: false });
@@ -2453,6 +2503,10 @@
     if (!el.dataset || !el.dataset.bind) return;
     if (el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'date' || 'rerender' in el.dataset) {
       S.setPath(state, el.dataset.bind, readValue(el));
+      if (el.type === 'checkbox' && /\.done$/.test(el.dataset.bind)) {   // remember when things were finished, for review summaries
+        const parent = get(el.dataset.bind.replace(/\.done$/, ''));
+        if (parent && typeof parent === 'object' && !Array.isArray(parent)) parent.doneAt = el.checked ? todayISO() : '';
+      }
       if ('rerender' in el.dataset) commit(); else persist();
     }
   });
@@ -2473,6 +2527,7 @@
       const fd = new FormData(form), text = String(fd.get('text') || '').trim(), kind = fd.get('kind');
       if (!text) return;
       if (kind === 'memory' || kind === 'quote') state.memories.push({ id: S.uid(), date: todayISO(), kind, who: '', text });
+      else if (kind === 'todo' && F.quickAdd) { F.addFromText(text); const again = document.querySelector('form.capture input[name=text]'); if (again) again.focus(); return; }
       else state.inbox.push({ id: S.uid(), kind, text, date: todayISO(), done: false });
       commit(); toast(kind === 'memory' || kind === 'quote' ? 'Saved to Memories & Quotes' : 'Captured to your inbox');
       const again = document.querySelector('form.capture input[name=text]'); if (again) again.focus();
@@ -3030,7 +3085,7 @@
         { id: 'big3', label: 'Pick your top 3 for the day', hint: 'Pre-filled from your focus goals. Adjust as needed.', href: '#/today', auto: state.big3.some((b) => b.date === c.iso) },
         { id: 'habits', label: 'Work on your habits', hint: 'Tick them off as you go.', href: '#/today', auto: trackers().some((k) => k.log[c.iso]) },
         { id: 'todos', label: 'Track your to-dos and notes', hint: 'Process your inbox.', href: '#/lists/inbox' },
-        { id: 'capture', label: 'Save future tasks and goals as you think of them', hint: 'Use the capture bar on Today.', href: '#/today', auto: state.inbox.some((x) => x.date === c.iso) },
+        { id: 'capture', label: 'Save future tasks and goals as you think of them', hint: 'Use the capture bar on Today.', href: '#/today', auto: state.inbox.some((x) => x.date === c.iso) || state.tasks.some((x) => x.created === c.iso) },
         { id: 'memories', label: 'Document key memories, events and family quotes', hint: 'Capture them before they fade.', href: '#/lists/memories', auto: state.memories.some((m) => m.date === c.iso) },
       ],
     },
@@ -3210,20 +3265,20 @@
   const deviceId = () => { let d = localStorage.getItem('lifeos.device'); if (!d) { d = S.uid(); localStorage.setItem('lifeos.device', d); } return d; };
   const hashStr = (str) => { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return String(h >>> 0); };
   const wrapData = (data) => ({ app: 'lifeos', version: 1, updatedAt: new Date().toISOString(), device: deviceId(), data });
-  const dataWeight = () => ['goals', 'roles', 'events', 'workouts', 'journals', 'schedule', 'idealWeek', 'wheel', 'memories', 'inbox'].reduce((n, k) => n + state[k].length, 0)
+  const dataWeight = () => ['goals', 'roles', 'events', 'workouts', 'journals', 'schedule', 'idealWeek', 'wheel', 'memories', 'inbox', 'tasks'].reduce((n, k) => n + state[k].length, 0)
     + Object.keys(state.weeks).length + Object.keys(state.months).length + ((state.foundation.mission || '').trim() ? 4 : 0);
   function isBlank() {
-    return ['goals', 'roles', 'schedule', 'workouts', 'journals', 'events', 'idealWeek', 'inbox', 'wheel', 'memories'].every((k) => !state[k].length) && !(state.foundation.mission || '').trim();
+    return ['goals', 'roles', 'schedule', 'workouts', 'journals', 'events', 'idealWeek', 'inbox', 'tasks', 'wheel', 'memories'].every((k) => !state[k].length) && !(state.foundation.mission || '').trim();
   }
   /* Everything except per-device things (notification state, calendar list cache, sync bookkeeping). */
   function syncPayload() {
     const o = JSON.parse(JSON.stringify(state));
-    ['lastNotifications', 'gcalCalendars', 'syncMeta'].forEach((k) => delete o[k]);
+    ['lastNotifications', 'gcalCalendars', 'syncMeta', 'trash'].forEach((k) => delete o[k]);
     ['notificationsEnabled', 'syncOn'].forEach((k) => delete o.settings[k]);
     return o;
   }
   function adoptData(data) {
-    const keep = { lastNotifications: state.lastNotifications, gcalCalendars: state.gcalCalendars, syncMeta: state.syncMeta };
+    const keep = { lastNotifications: state.lastNotifications, gcalCalendars: state.gcalCalendars, syncMeta: state.syncMeta, trash: state.trash };
     const dev = { notificationsEnabled: state.settings.notificationsEnabled, syncOn: state.settings.syncOn };
     const next = S.migrate(data);
     Object.assign(next, keep); Object.assign(next.settings, dev);
@@ -3429,11 +3484,12 @@
     month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewStart, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
-    const [, name = 'today', arg] = (location.hash || '#/today').split('/');
+    const [, name = 'today', arg, arg2] = (location.hash || '#/today').split('/');
     const view = ROUTES[name] || viewToday;
     const y = window.scrollY;
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
-    app.innerHTML = view(arg);
+    app.innerHTML = view(arg, arg2);
+    document.body.classList.toggle('printing-view', name === 'print');
     gcalKick(name, arg);
     maybePromptLogin(name);
     app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
@@ -3766,7 +3822,9 @@
     e.preventDefault();
     let d; try { d = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (err) { return; }
     if (!d || !d.text) return;
-    const date = slot.closest('.tl-box').dataset.date, added = addScheduleItem({ text: d.text, date, time: slot.dataset.time, mins: d.mins || 30 });
+    const date = slot.closest('.tl-box').dataset.date;
+    if (d.taskId && F.dropTaskOnSlot && F.dropTaskOnSlot(d.taskId, date, slot.dataset.time)) { commit(); toast(`Time-blocked for ${fmtTime(slot.dataset.time)}`, { label: 'Undo', fn: undo }); return; }
+    const added = addScheduleItem({ text: d.text, date, time: slot.dataset.time, mins: d.mins || 30 });
     commit();
     toast(added ? `Scheduled for ${fmtTime(slot.dataset.time)}` : 'Already on your calendar');
   });
@@ -3777,6 +3835,12 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   setInterval(syncNow, 5 * 60 * 1000);
   document.getElementById('syncDlg').addEventListener('click', (e) => { const b = e.target.closest('[data-sync-pick]'); if (!b) return; document.getElementById('syncDlg').close(); resolveSync(b.dataset.syncPick); });
+  const ctx = {
+    get state() { return state; }, S, U, P, F, ROUTES, ACTS, DEFAULTS, esc, today, todayISO, ws, get, commit, render, toast, opts, chk, ta, inp, page, goalOpts, lifeOpts, schedBtn, dragAttr,
+    fmtTime, hhmm24, openScheduleDialog, addScheduleItem, suggestSlot, nextStep, focusGoals, cycleGoals, currentCycle, areaName, roleName, showText, getWeek, quarterKey, weekSel,
+    undo, redo, trashItem, trashLabel, sendNotification, progressBar, weekText, monthText, balanceStrip, goalDomain, history: hist,
+  };
+  if (window.LifeFeatures) window.LifeFeatures(ctx);
   render();
   checkNotifications();
   syncNow();
