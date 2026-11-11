@@ -1,7 +1,8 @@
 import express from 'express';
 import multer from 'multer';
 import Anthropic from '@anthropic-ai/sdk';
-import parse from './parse.js';
+import parse from '../lib/ocr-normalize.js';
+import { ocrQuota } from '../middleware/security.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -67,7 +68,7 @@ async function analyzeImage(base64Image, mediaType, type = 'auto', ctx = {}) {
   }
 }
 
-router.post('/analyze', upload.single('image'), async (req, res) => {
+router.post('/analyze', ocrQuota, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image provided' });
 
   const { type = 'auto', today } = req.body;
@@ -86,7 +87,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
   }
 });
 
-router.post('/batch', upload.array('images', 5), async (req, res) => {
+router.post('/batch', ocrQuota, upload.array('images', 5), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No images provided' });
 
   const { types = [] } = req.body;

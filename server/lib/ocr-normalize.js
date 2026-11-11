@@ -1,21 +1,4 @@
-export function parseOCRResult(ocrData, type = 'auto') {
-  if (type === 'auto') {
-    return {
-      detected: ocrData.type,
-      parsed: ocrData.data,
-      confidence: 'high',
-      suggestions: getRoutingSuggestions(ocrData.type, ocrData.data),
-    };
-  }
-
-  const parsed = normalizeByType(type, ocrData);
-  return {
-    type,
-    parsed,
-    suggestions: getRoutingSuggestions(type, parsed),
-  };
-}
-
+/* Cleans and routes what the vision model read from a photo. Pure functions, no I/O. */
 function normalizeByType(type, data) {
   switch (type) {
     case 'calendar': {
@@ -152,4 +135,5 @@ function getRoutingSuggestions(type, data) {
   return suggestions;
 }
 
-export default { parseOCRResult, normalizeByType, getRoutingSuggestions };
+export { normalizeByType, getRoutingSuggestions };
+export default { normalizeByType, getRoutingSuggestions };

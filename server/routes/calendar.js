@@ -4,6 +4,8 @@ import axios from 'axios';
 const router = express.Router();
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
+/* Google tokens travel in the Authorization header, never in a URL (URLs end up in logs). */
+const tokenOf = (req) => { const m = /^Bearer (.+)$/i.exec(req.headers.authorization || ''); return m ? m[1] : ''; };
 
 async function getCalendarEvents(accessToken, timeMin, timeMax, calendarId = 'primary') {
   try {
@@ -38,23 +40,9 @@ async function createCalendarEvent(accessToken, event, calendarId = 'primary') {
   }
 }
 
-async function updateCalendarEvent(accessToken, eventId, event) {
-  try {
-    const response = await axios.put(
-      `${CALENDAR_API}/calendars/primary/events/${eventId}`,
-      event,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    return response.data;
-  } catch (err) {
-    console.error('Event update error:', err.response?.data || err.message);
-    throw err;
-  }
-}
-
 router.get('/list', async (req, res) => {
-  const { accessToken } = req.query;
-  if (!accessToken) return res.status(400).json({ error: 'Missing access token' });
+  const accessToken = tokenOf(req);
+  if (!accessToken) return res.status(401).json({ error: 'Missing access token' });
   try {
     const response = await axios.get(`${CALENDAR_API}/users/me/calendarList`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -72,8 +60,8 @@ router.get('/list', async (req, res) => {
 });
 
 router.get('/events', async (req, res) => {
-  const { accessToken, from, to, calendarId } = req.query;
-  if (!accessToken) return res.status(400).json({ error: 'Missing access token' });
+  const { from, to, calendarId } = req.query, accessToken = tokenOf(req);
+  if (!accessToken) return res.status(401).json({ error: 'Missing access token' });
 
   try {
     const events = await getCalendarEvents(accessToken, from, to, calendarId || 'primary');
@@ -84,8 +72,9 @@ router.get('/events', async (req, res) => {
 });
 
 router.post('/events', async (req, res) => {
-  const { accessToken, event, calendarId } = req.body;
-  if (!accessToken || !event) return res.status(400).json({ error: 'Missing parameters' });
+  const { event, calendarId } = req.body, accessToken = tokenOf(req);
+  if (!accessToken) return res.status(401).json({ error: 'Missing access token' });
+  if (!event) return res.status(400).json({ error: 'Missing parameters' });
 
   try {
     const created = await createCalendarEvent(accessToken, {
@@ -100,19 +89,6 @@ router.post('/events', async (req, res) => {
     res.json({ event: created });
   } catch (err) {
     res.status(400).json({ error: err.response?.data?.error?.message || err.message });
-  }
-});
-
-router.put('/events/:eventId', async (req, res) => {
-  const { accessToken, event } = req.body;
-  const { eventId } = req.params;
-  if (!accessToken || !event) return res.status(400).json({ error: 'Missing parameters' });
-
-  try {
-    const updated = await updateCalendarEvent(accessToken, eventId, event);
-    res.json({ event: updated });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
   }
 });
 

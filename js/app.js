@@ -413,8 +413,8 @@
   const gcalOn = (iso) => gcal.events.filter((g) => g.date === iso).sort((a, b) => ((a.time || '') < (b.time || '') ? -1 : 1));
 
   async function gcalApi(path, params, retried) {
-    const qs = new URLSearchParams({ accessToken: localStorage.getItem('google_access_token') || '', ...params });
-    const res = await fetch(`${API_BASE}${path}?${qs}`);
+    const qs = new URLSearchParams(params || {});
+    const res = await fetch(`${API_BASE}${path}${qs.toString() ? `?${qs}` : ''}`, { headers: { Authorization: `Bearer ${localStorage.getItem('google_access_token') || ''}` } });
     if (res.status === 401 && !retried) {
       const rt = localStorage.getItem('google_refresh_token');
       if (rt) {
@@ -531,7 +531,7 @@
         if (!isNaN(start)) { event.start = start.toISOString(); event.end = new Date(start.getTime() + (Number(e.mins) || 60) * 60000).toISOString(); }
       }
       try {
-        const r = await fetch(`${API_BASE}/api/calendar/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token, calendarId: target, event }) });
+        const r = await fetch(`${API_BASE}/api/calendar/events`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ calendarId: target, event }) });
         results.push(r.ok);
       } catch (err) { console.warn('Calendar create failed', err); results.push(false); }
     }
