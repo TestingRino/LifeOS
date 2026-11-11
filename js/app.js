@@ -12,10 +12,15 @@
   const F = {};            // features.js plugs tasks, search, templates, summaries and print layouts in here
   const rawSave = S.save;
   /* Undo history: a snapshot of the plan before each change (rapid typing counts as one change). */
-  const hist = { undo: [], redo: [], last: '', at: 0, bytes: 0 };
+  const hist = { undo: [], redo: [], last: '', at: 0, bytes: 0, ids: null };
   hist.last = JSON.stringify(state);
+  /* Deletions leave tombstones so a sync never brings deleted items back from another device. */
+  const trackIds = () => { const cur = P.idsOf(state); if (!state.tomb) state.tomb = {}; if (hist.ids) P.recordDeletions(state.tomb, hist.ids, cur, U.toISO(new Date())); hist.ids = cur; };
+  const rebaseIds = () => { hist.ids = P.idsOf(state); };     // after replacing the whole plan (import, restore, sign-out): not deletions
+  rebaseIds();
   S.save = (st) => {
     if (st === state) {
+      trackIds();
       const now = JSON.stringify(st);
       if (now !== hist.last) {
         if (Date.now() - hist.at > 1500 || !hist.undo.length) {
@@ -29,7 +34,7 @@
   };
   function applySnapshot(snap) {
     const keep = { lastNotifications: state.lastNotifications, gcalCalendars: state.gcalCalendars, syncMeta: state.syncMeta };
-    state = S.migrate(JSON.parse(snap)); Object.assign(state, keep); hist.last = JSON.stringify(state); hist.at = 0;
+    state = S.migrate(JSON.parse(snap)); Object.assign(state, keep); trackIds(); hist.last = JSON.stringify(state); hist.at = 0;
     rawSave(state); scheduleSync(); render();
   }
   function undo() {
@@ -2178,7 +2183,7 @@
     reset() {
       if (!confirm('Erase ALL Life.OS data in this browser? A backup file will be downloaded first.')) return;
       ACTS.export();
-      state = S.defaultState(); commit();
+      state = S.defaultState(); rebaseIds(); commit();
     },
     clearShopping() { state.shopping = state.shopping.filter((x) => !x.done); commit(); },
     copyDlg() {
@@ -2624,7 +2629,7 @@
         const data = JSON.parse(r.result);
         if (!data || typeof data !== 'object' || !('foundation' in data || 'goals' in data)) throw new Error('Not a Life.OS backup');
         if (!confirm('Replace all current data with this backup?')) return;
-        state = S.migrate(data); commit(); toast('Imported');
+        state = S.migrate(data); rebaseIds(); commit(); toast('Imported');
       } catch (err) { alert(`Import failed: ${err.message}`); }
     };
     r.readAsText(file);
@@ -3467,7 +3472,7 @@
   const gScope = () => localStorage.getItem('google_scope') || '';
   const syncHasScope = () => !!localStorage.getItem('google_access_token') && /auth\/drive\.appdata/.test(gScope());
   const syncEnabled = () => !!state.settings.syncOn && syncHasScope();
-  const sync = { busy: false, status: 'off', msg: '', pending: null, timer: null, backups: null, epoch: 0 };
+  const sync = { busy: false, status: 'off', msg: '', timer: null, backups: null, epoch: 0 };
   const fmtClock = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const syncVersion = (f) => (f ? f.md5Checksum || f.modifiedTime : '');
   const deviceId = () => { let d = localStorage.getItem('lifeos.device'); if (!d) { d = S.uid(); localStorage.setItem('lifeos.device', d); } return d; };
@@ -3492,19 +3497,7 @@
     Object.assign(next, keep); Object.assign(next.settings, dev);
     return next;
   }
-  function mergeStates(a, b) {      // union by id, local (a) wins on clashes, blanks are filled from b
-    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
-    const withIds = (arr) => arr.every((x) => isObj(x) && 'id' in x);
-    const merge = (x, y) => {
-      if (Array.isArray(x) && Array.isArray(y)) {
-        if (withIds(x) && withIds(y)) { const seen = new Set(x.map((i) => i.id)); return [...x, ...y.filter((i) => !seen.has(i.id))]; }
-        return x.length ? x : y;
-      }
-      if (isObj(x) && isObj(y)) { const out = { ...y }; Object.keys(x).forEach((k) => { out[k] = k in y ? merge(x[k], y[k]) : x[k]; }); return out; }
-      return x === undefined || x === '' || x === null ? y : x;
-    };
-    return merge(a, b);
-  }
+  const mergeStates = P.mergeStates;
 
   async function googleRefresh() {
     const rt = localStorage.getItem('google_refresh_token');
@@ -3547,11 +3540,10 @@
       await syncNow();
       if (sync.status !== 'ok') { toast('Could not confirm your plan is saved to Drive, so nothing was cleared.'); return; }
     }
-    clearTimeout(sync.timer); sync.epoch++; sync.busy = false; sync.pending = null;      // stop anything still syncing
-    const sdlg = document.getElementById('syncDlg'); if (sdlg && sdlg.open) sdlg.close();
+    clearTimeout(sync.timer); sync.epoch++; sync.busy = false;      // stop anything still syncing
     ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email', 'google_intent', 'google_cal_off', 'account_mode', 'login_prompt_seen'].forEach((k) => localStorage.removeItem(k));
     state.settings.syncOn = false; state.syncMeta = {}; gcalReset(); gcal.listTried = false; sync.status = 'off'; sync.backups = null;
-    if (wipe) state = S.defaultState();
+    if (wipe) { state = S.defaultState(); rebaseIds(); }
     rawSave(state);
     try { sessionStorage.setItem('lifeos.toast', wipe ? 'Signed out. This device is cleared; your plan is safe in Google Drive.' : 'Signed out. Your plan stays on this device.'); } catch (e) { /* storage unavailable */ }
     // reload so nothing from the signed-in session lingers in memory
@@ -3583,7 +3575,7 @@
     if (!el) return;
     const m = state.syncMeta || {};
     el.textContent = !syncEnabled() ? '' : sync.status === 'syncing' ? '☁ Syncing…' : sync.status === 'error' ? `⚠ Sync problem: ${sync.msg}`
-      : sync.status === 'conflict' ? '⚠ Sync needs your decision' : m.at ? `☁ Backed up ${fmtClock(m.at)}` : '☁ Sync on';
+      : m.at ? `☁ Backed up ${fmtClock(m.at)}` : '☁ Sync on';
   }
   function setSync(status, msg) {
     sync.status = status; sync.msg = msg || '';
@@ -3608,31 +3600,24 @@
   }
   function applyRemote(data, remote) {
     const prevMeta = state.syncMeta || {};
-    state = adoptData(data);
+    state = adoptData(data); rebaseIds();
     state.syncMeta = { ...prevMeta, fileId: remote.id, remoteVersion: syncVersion(remote), at: new Date().toISOString() };
     state.syncMeta.hash = hashStr(JSON.stringify(syncPayload()));
     rawSave(state); render();
   }
-  function askSync(remote, data) {
-    sync.pending = { remote, data };
-    setSync('conflict');
-    document.getElementById('syncDlg').showModal();
+  /* Both sides changed (or this device already had a plan when it met your Drive copy): combine them automatically.
+     Deleted items stay deleted (tombstones) and a copy of both versions is saved to Drive first, so nothing can be lost. */
+  async function reconcile(remote, data) {
+    const day = todayISO();
+    await driveWrite(null, `lifeos-backup-${day}-before-merge-this-device.json`, wrapData(syncPayload())).catch(() => {});
+    await driveWrite(null, `lifeos-backup-${day}-before-merge-drive-copy.json`, wrapData(data)).catch(() => {});
+    applyRemote(mergeStates(syncPayload(), data), remote);
+    await pushLocal(remote.id);
+    setSync('ok'); toast('Combined the changes from your other device');
   }
-  async function resolveSync(pick) {
-    const { remote, data } = sync.pending || {};
-    if (!remote) return;
-    sync.pending = null; sync.busy = true; setSync('syncing');
-    try {
-      const day = todayISO();
-      if (pick === 'remote') { await driveWrite(null, `lifeos-backup-${day}-this-device.json`, wrapData(syncPayload())).catch(() => {}); applyRemote(data, remote); }
-      else if (pick === 'local') { await driveWrite(null, `lifeos-backup-${day}-drive-copy.json`, wrapData(data)).catch(() => {}); await pushLocal(remote.id); }
-      else { applyRemote(mergeStates(syncPayload(), data), remote); await pushLocal(remote.id); }
-      setSync('ok'); toast(pick === 'merge' ? 'Merged both versions' : pick === 'remote' ? 'Using your Drive copy' : 'Kept this device');
-    } catch (e) { console.error('Sync failed:', e); setSync('error', e.message); }
-    finally { sync.busy = false; showSyncStatus(); }
-  }
+
   async function syncNow() {
-    if (!syncEnabled() || sync.busy || sync.pending) return;
+    if (!syncEnabled() || sync.busy) return;
     sync.busy = true; setSync('syncing');
     const ep = sync.epoch, stale = () => ep !== sync.epoch || !syncEnabled();   // signing out cancels anything still in flight
     try {
@@ -3644,12 +3629,12 @@
         const w = await driveRead(remote.id);
         if (stale()) return;
         if (isBlank()) { applyRemote(w.data, remote); setSync('ok'); toast('Your plan was restored from Google Drive'); }
-        else askSync(remote, w.data);
+        else await reconcile(remote, w.data);
       } else if (syncVersion(remote) === meta.remoteVersion) { if (dirty) await pushLocal(remote.id); setSync('ok'); }
       else {
         const w = await driveRead(remote.id);
         if (stale()) return;
-        if (!dirty) { applyRemote(w.data, remote); setSync('ok'); } else askSync(remote, w.data);
+        if (!dirty) { applyRemote(w.data, remote); setSync('ok'); } else await reconcile(remote, w.data);
       }
     } catch (e) { if (!stale()) { console.error('Sync failed:', e); setSync('error', e.message); } }
     finally { if (ep === sync.epoch) sync.busy = false; showSyncStatus(); }
@@ -3667,7 +3652,7 @@
     try {
       const w = await driveRead(id);
       await driveWrite(null, `lifeos-backup-${todayISO()}-before-restore.json`, wrapData(syncPayload())).catch(() => {});   // never lose the current plan
-      state = adoptData(w.data);
+      state = adoptData(w.data); rebaseIds();
       state.syncMeta = { ...(state.syncMeta || {}), hash: '' };      // mark as changed so it is uploaded as the new current copy
       rawSave(state); render(); scheduleSync(); toast('Restored from the backup');
     } catch (e) { toast(e.message); }
@@ -3806,7 +3791,7 @@
     loginDlg.showModal();
   }
   window.addEventListener('hashchange', render);
-  window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); render(); } });
+  window.addEventListener('storage', (e) => { if (e.key === S.KEY) { state = S.load(); rebaseIds(); render(); } });
   document.getElementById('copyBtn').addEventListener('click', () => ACTS.copyDlg());
   /* The logo goes to the landing page until you are signed in, and to Today after. */
   document.querySelector('.brand').addEventListener('click', (e) => {
@@ -4058,7 +4043,6 @@
   if (navigator.storage && navigator.storage.persist && !isBlank()) navigator.storage.persist().catch(() => {});
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   setInterval(syncNow, 5 * 60 * 1000);
-  document.getElementById('syncDlg').addEventListener('click', (e) => { const b = e.target.closest('[data-sync-pick]'); if (!b) return; document.getElementById('syncDlg').close(); resolveSync(b.dataset.syncPick); });
   try { const sc = [...document.scripts].find((x) => /js\/app\.js/.test(x.src)), m = sc && /v=(\d{8})(\d{4})/.exec(sc.src), el = document.getElementById('appVer'); if (el && m) el.textContent = `Version ${m[1].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')} ${m[2].replace(/(\d{2})(\d{2})/, '$1:$2')}`; } catch (e) { /* cosmetic */ }
   try { const m = sessionStorage.getItem('lifeos.toast'); if (m) { sessionStorage.removeItem('lifeos.toast'); setTimeout(() => toast(m), 300); } } catch (e) { /* storage unavailable */ }
   const ctx = {

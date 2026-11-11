@@ -324,7 +324,51 @@
     }));
   }
 
-  const api = { LIFE, LIFE_IDS, lifeName, lifeArea, plannerArea, WHEEL_KEYS, nextDue, recurLabel, ordinal, parseQuick, nextWeekday, rollable, rollTasks, buildIndex, search, snippet, period, shiftPeriod, summarize, summaryMarkdown, TEMPLATES, expandTemplate };
+
+  /* ---------- sync: merging two copies of a plan without resurrecting deletions ----------
+     Every deleted item leaves a tombstone ({id: 'YYYY-MM-DD'}). A merge unions both copies (local wins when the
+     same item exists on both sides), then removes anything either side has deleted. */
+  const SKIP_KEYS = { trash: 1, tomb: 1, syncMeta: 1, gcalCalendars: 1, lastNotifications: 1 };
+  function idsOf(st) {
+    const set = new Set();
+    const walk = (v) => {
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (v && typeof v === 'object') { if (typeof v.id === 'string') set.add(v.id); for (const k in v) if (!SKIP_KEYS[k]) walk(v[k]); }
+    };
+    Object.keys(st || {}).forEach((k) => { if (!SKIP_KEYS[k]) walk(st[k]); });
+    return set;
+  }
+  /* Compare ids before and after a change. Mutates tomb: gone ids are added, returned ids are removed. */
+  function recordDeletions(tomb, prevIds, curIds, nowISO, keepDays) {
+    if (prevIds) prevIds.forEach((id) => { if (!curIds.has(id)) tomb[id] = nowISO; });
+    curIds.forEach((id) => { if (id in tomb) delete tomb[id]; });
+    const cut = iso(U.addDays(parse(nowISO), -(keepDays || 120)));
+    Object.keys(tomb).forEach((id) => { if (tomb[id] < cut) delete tomb[id]; });
+    return tomb;
+  }
+  function mergeStates(a, b) {
+    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+    const withIds = (arr) => arr.every((x) => isObj(x) && 'id' in x);
+    const merge = (x, y) => {
+      if (Array.isArray(x) && Array.isArray(y)) {
+        if (withIds(x) && withIds(y)) { const seen = new Set(x.map((i) => i.id)); return [...x, ...y.filter((i) => !seen.has(i.id))]; }
+        return x.length ? x : y;
+      }
+      if (isObj(x) && isObj(y)) { const out = { ...y }; Object.keys(x).forEach((k) => { out[k] = k in y ? merge(x[k], y[k]) : x[k]; }); return out; }
+      return x === undefined || x === '' || x === null ? y : x;
+    };
+    const tomb = Object.assign({}, (b && b.tomb) || {}, (a && a.tomb) || {});
+    const out = merge(a, b);
+    const prune = (v) => {
+      if (Array.isArray(v)) return v.filter((x) => !(x && typeof x === 'object' && typeof x.id === 'string' && x.id in tomb)).map(prune);
+      if (isObj(v)) { const o = {}; Object.keys(v).forEach((k) => { o[k] = SKIP_KEYS[k] ? v[k] : prune(v[k]); }); return o; }
+      return v;
+    };
+    const pruned = prune(out);
+    pruned.tomb = tomb;
+    return pruned;
+  }
+  const api = { idsOf, recordDeletions, mergeStates, LIFE, LIFE_IDS, lifeName, lifeArea, plannerArea, WHEEL_KEYS, nextDue, recurLabel, ordinal, parseQuick, nextWeekday, rollable, rollTasks, buildIndex, search, snippet, period, shiftPeriod, summarize, summaryMarkdown, TEMPLATES, expandTemplate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== 'undefined' ? window : globalThis);

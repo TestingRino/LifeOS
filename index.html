@@ -14,7 +14,7 @@
   <meta name="description" content="Purpose-based life planning that works alongside a physical planner.">
   <meta name="theme-color" content="#2f3352">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261111150650">
+  <link rel="stylesheet" href="css/style.css?v=20261111154145">
 </head>
 <body>
   <header class="topbar">
@@ -124,19 +124,6 @@
     </form>
   </dialog>
 
-  <dialog id="syncDlg">
-    <form method="dialog">
-      <h2>Two versions of your plan</h2>
-      <p class="muted">This device and your Google Drive copy have both changed. Which should Life.OS keep?</p>
-      <div class="sync-choices">
-        <button type="button" class="btn primary" data-sync-pick="merge">Merge both (keeps everything)</button>
-        <button type="button" class="btn" data-sync-pick="remote">Use the Drive copy</button>
-        <button type="button" class="btn" data-sync-pick="local">Keep this device</button>
-      </div>
-      <p class="muted small">Merging combines both. Anything you deleted on one side may come back. Whichever you pick, yesterday's Drive backup stays available.</p>
-      <div class="row end"><button class="btn ghost">Decide later</button></div>
-    </form>
-  </dialog>
 
   <dialog id="scheduleDlg">
     <form id="scheduleForm" method="dialog">
@@ -168,10 +155,10 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/util.js?v=20261111150650"></script>
-  <script src="js/plan.js?v=20261111150650"></script>
-  <script src="js/store.js?v=20261111150650"></script>
-  <script src="js/features.js?v=20261111150650"></script>
-  <script src="js/app.js?v=20261111150650"></script>
+  <script src="js/util.js?v=20261111154145"></script>
+  <script src="js/plan.js?v=20261111154145"></script>
+  <script src="js/store.js?v=20261111154145"></script>
+  <script src="js/features.js?v=20261111154145"></script>
+  <script src="js/app.js?v=20261111154145"></script>
 </body>
 </html>

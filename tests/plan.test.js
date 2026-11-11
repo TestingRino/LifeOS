@@ -91,3 +91,24 @@ test('store.migrate moves inbox to-dos into tasks and maps old areas', () => {
   const again = S.migrate(JSON.parse(JSON.stringify(m)));
   assert.strictEqual(again.goals[1].area, 'fitness');
 });
+
+test('merge keeps additions from both devices and does not resurrect deletions', () => {
+  const local = { goals: [{ id: 'a', title: 'A' }, { id: 'c', title: 'only local' }], tasks: [], tomb: { b: '2026-03-02' } };       // deleted b here
+  const remote = { goals: [{ id: 'a', title: 'A remote' }, { id: 'b', title: 'B' }, { id: 'd', title: 'only remote' }], tasks: [{ id: 't', title: 'x' }], tomb: { t: '2026-03-01' } }; // t deleted there
+  const m = P.mergeStates(local, remote);
+  assert.deepStrictEqual(m.goals.map((g) => g.id).sort(), ['a', 'c', 'd']);
+  assert.strictEqual(m.goals.find((g) => g.id === 'a').title, 'A');          // local wins on a clash
+  assert.strictEqual(m.tasks.length, 0);                                      // remote deletion respected
+  assert.deepStrictEqual(Object.keys(m.tomb).sort(), ['b', 't']);
+});
+test('recordDeletions tombstones removed ids and clears returned ones', () => {
+  const tomb = { old: '2020-01-01', back: '2026-03-01' };
+  P.recordDeletions(tomb, new Set(['x', 'y', 'back']), new Set(['x', 'back']), '2026-03-10');
+  assert.strictEqual(tomb.y, '2026-03-10');
+  assert.ok(!('back' in tomb));
+  assert.ok(!('old' in tomb));                                                // expired
+});
+test('idsOf finds nested ids and ignores trash and tombstones', () => {
+  const ids = P.idsOf({ goals: [{ id: 'g', milestones: [{ id: 'm' }] }], weeks: { w1: { actions: [{ id: 'a1' }] } }, trash: [{ id: 'gone', item: { id: 'gone' } }], tomb: { z: 1 } });
+  assert.deepStrictEqual([...ids].sort(), ['a1', 'g', 'm']);
+});

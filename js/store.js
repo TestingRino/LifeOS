@@ -50,6 +50,7 @@
                           //  created, doneAt, archived} — the one task type used on Today, Week, Goals and Calendar
       trash: [],          // {id, path, item, at, label} — deleted items, restorable for 60 days
       templates: [],      // {id, name, desc, anchor 'start'|'end', project, tasks[{title, offset, subtasks[], priority, tags[]}]} — your own templates
+      tomb: {},           // {id: 'YYYY-MM-DD'} — ids deleted on this plan, so a sync cannot bring them back
       areasV: 2,          // 2 = goals use the shared life areas
       memories: [],       // {id, date, kind 'memory'|'quote'|'event', who, text}
       sessions: {},       // 'cadence:period' -> {steps:{id:true}, done:'YYYY-MM-DD'} — guided planning sessions
@@ -69,6 +70,7 @@
     out.foundation = Object.assign(defaultState().foundation, (s && s.foundation) || {});
     out.version = VERSION;
     if (!out.tasks) out.tasks = [];
+    if (!out.tomb || typeof out.tomb !== 'object') out.tomb = {};
     // to-dos used to live in the inbox; they are tasks now
     const todos = (out.inbox || []).filter((x) => x && x.kind === 'todo');
     if (todos.length) {
