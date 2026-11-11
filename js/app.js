@@ -3168,7 +3168,9 @@
     const stepper = `<ol class="setup-steps">${labels.map((l, i) => `<li class="${i + 1 === n ? 'cur' : ''}${i + 1 < n ? ' ok' : ''}"><a href="#/welcome/${i + 1}"><b>${i + 1 < n ? '✓' : i + 1}</b><span>${l}</span></a></li>`).join('')}</ol>`;
     const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/welcome/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 4 ? `<a class="btn primary" href="#/welcome/${n + 1}">Next →</a>` : ''}</div>`;
     const fg = demo.focus.map(dg);
-    let body = stepper;
+    const signInStrip = signedIn() ? '' : `<section class="box sync-nudge signin-strip"><div class="grow"><strong>Already have an account, or want your plan saved?</strong> <span class="muted">Sign in with Google to keep it in your own Drive and open it on any device. New here? Your first sign-in creates your account.</span></div>
+        <button type="button" class="btn primary" data-act="signIn">Continue with Google</button></section>`;
+    let body = signInStrip + stepper;
 
     if (n === 1) {
       body += `<section class="box"><h2>Turn your purpose into your calendar</h2>
@@ -3208,7 +3210,7 @@
     } else {
       body += `<section class="box demo-hero"><h2>4 · Make it yours</h2>
           <p class="lead">Purpose, focus goals, a weekly plan, and a daily calendar, with a short review to keep it honest.</p>
-          <div class="row"><a class="btn primary" href="#/quick/1">Quick start (about 1 minute)</a><a class="btn ghost" href="#/setup/1">Full guide (about 5 minutes)</a><a class="btn ghost" href="#/today">Skip, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
+          <div class="row"><a class="btn primary" href="#/quick/1">Quick start (about 1 minute)</a>${signedIn() ? '' : '<button type="button" class="btn" data-act="signIn">Sign in with Google</button>'}<a class="btn ghost" href="#/setup/1">Full guide (about 5 minutes)</a><a class="btn ghost" href="#/today">Skip, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
     }
     return page('Welcome to Life.OS', `Interactive demo · step ${n} of 4 · sample data only`, body + nav);
   }
