@@ -21,16 +21,19 @@
 <table>
 <tr><th>What</th><th>Where</th><th>Who can see it</th></tr>
 <tr><td>Your plan: goals, tasks, habits, notes, journal, settings</td><td>In your browser, on your device</td><td>You</td></tr>
-<tr><td>A synced copy and up to 14 daily backups, if you sign in with Google and sync is on</td><td>The hidden “app data” folder of your own Google Drive</td><td>You and the Life.OS app acting for you. It does not appear in your normal Drive files, and other apps cannot open it.</td></tr>
-<tr><td>Google sign-in tokens</td><td>In your browser, on your device</td><td>You</td></tr>
+<tr><td>Your account (email address, sign-in method) and a copy of your plan, if you create an account</td><td>Our database and sign-in provider, Supabase. The database is protected by row-level security, so one account can never read another's plan.</td><td>You. We do not read plans. Access to the database is limited to the person who operates Life.OS, for running the service and for support you ask for.</td></tr>
+<tr><td>In the older Google Drive mode: a synced copy and up to 14 daily backups</td><td>The hidden “app data” folder of your own Google Drive</td><td>You and the Life.OS app acting for you. It does not appear in your normal Drive files, and other apps cannot open it.</td></tr>
+<tr><td>Sign-in session and, if you connect Google Calendar, a calendar access token</td><td>In your browser, on your device</td><td>You</td></tr>
 <tr><td>Anonymous usage events (see “Analytics” below)</td><td>Our hosting logs and, optionally, an analytics service</td><td>The Life.OS operator</td></tr>
 </table>
-<p>The Life.OS server does not keep a database of users or plans. It never stores your plan.</p>
+<p>The small Life.OS web server (used for Google Calendar, photo import and anonymous events) does not store your plan.</p>
 
-<h2>What we ask Google for, and why</h2>
+<h2>Signing in, and what we ask Google for</h2>
+<p>You can sign in with Google, Apple or an email address and password, or use Life.OS with no account. Signing in with Google or Apple gives us your email address and name as that provider shares them, and nothing else. We do not receive your password for Google or Apple, and an email password is stored only as a salted hash by Supabase.</p>
+<p>Google permissions Life.OS can ask for:</p>
 <ul>
-<li><strong>Your email address and basic sign-in (openid, email).</strong> To show which account is signed in and to identify you for approved features.</li>
-<li><strong>Google Drive “app data” (drive.appdata).</strong> To keep your plan and backups in a private folder in your own Drive, so you can use another device and recover from a lost phone. Life.OS cannot see any other file in your Drive.</li>
+<li><strong>Your email address and basic profile (openid, email, profile).</strong> To create your account and show which account is signed in.</li>
+<li><strong>Google Drive “app data” (drive.appdata), older mode only.</strong> To keep your plan and backups in a private folder in your own Drive. Life.OS cannot see any other file in your Drive.</li>
 <li><strong>Google Calendar, read only (calendar.readonly).</strong> Optional. To show your events next to your plan. Asked only if you connect your calendar.</li>
 <li><strong>Google Calendar, creating events (calendar.events).</strong> Optional and asked separately, only when you use a feature that adds events to your calendar (photo imports, scheduled tasks, your ideal week). If you never use those, Life.OS never asks for it.</li>
 </ul>
@@ -41,15 +44,17 @@
 
 <h2>Who processes data on our behalf</h2>
 <ul>
-<li><strong>Google</strong> (sign-in, Drive, Calendar) under your Google account's terms.</li>
-<li><strong>Vercel</strong> hosts the small Life.OS server that exchanges Google sign-in codes, passes calendar requests through, and relays photos. Like any host, it keeps routine request logs (time, address, route).</li>
+<li><strong>Supabase</strong> hosts accounts and the stored copy of your plan.</li>
+<li><strong>Google and Apple</strong> (sign-in, and Calendar if you connect it) under their own terms.</li>
+<li><strong>Vercel</strong> hosts the small Life.OS server that passes calendar requests through, relays photos, and receives anonymous events. Like any host, it keeps routine request logs (time, address, route).</li>
+<li><strong>PostHog</strong> (if enabled) receives the anonymous events described under Analytics.</li>
 <li><strong>GitHub Pages</strong> serves the website itself.</li>
 <li><strong>Anthropic</strong> reads photos you choose to import.</li>
 </ul>
 <p>We do not sell personal information, and we do not share it with advertisers.</p>
 
 <h2>Analytics</h2>
-<p>To learn whether the app is useful, Life.OS records a few anonymous milestones, such as “opened the landing page”, “finished setup” or “completed a first weekly review”. Each event carries only its name, the app version, and a random install ID that is not linked to your name, email or Google account. It never includes the contents of your plan. Life.OS honors your browser's Do Not Track and Global Privacy Control signals, and you can switch analytics off in Settings at any time.</p>
+<p>To learn whether the app is useful, Life.OS records a few anonymous milestones, such as “opened the landing page”, “finished setup” or “completed a first weekly review”. Each event carries only its name, the app version, and an identifier (a random install ID, or your account ID once you sign in). It never includes the contents of your plan, and your email address is not sent unless the operator has explicitly turned that on and said so here. Life.OS honors your browser's Do Not Track and Global Privacy Control signals, and you can switch analytics off in Settings at any time.</p>
 
 <h2>Cookies and storage</h2>
 <p>Life.OS does not use advertising or tracking cookies. It uses your browser's local storage to keep your plan and sign-in on your device, and a service worker so the app can open offline.</p>
@@ -57,7 +62,7 @@
 <h2>Your choices and deleting your data</h2>
 <ul>
 <li><strong>Export</strong> everything any time from Settings → Your data → Export backup.</li>
-<li><strong>Delete everything</strong> from Settings → Your data → “Delete everything, everywhere”. This erases your plan on the device, deletes the copy and backups in your Google Drive, and revokes Life.OS's access to your Google account.</li>
+<li><strong>Delete everything</strong> from Settings → Your data → “Delete everything, everywhere”. This erases your plan on the device, permanently deletes your account and the copy in our database (and any older Google Drive copy), and revokes Life.OS's access to your Google account.</li>
 <li><strong>Revoke access</strong> yourself at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, and remove any leftover app data under Google Drive → Settings → Manage apps.</li>
 <li><strong>Without an account</strong>, your plan exists only in your browser. Clearing the site's data in your browser deletes it.</li>
 </ul>

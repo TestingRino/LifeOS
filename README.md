@@ -37,7 +37,7 @@ Weeks follow the planner's convention: a week belongs to the month its last day 
 
 **Open Life.OS:** https://testingrino.github.io/LifeOS/
 
-Everything works offline. No login, no signup, no accounts needed.
+It works with no account at all: your plan stays in your browser and works offline. Sign in with Google, Apple or email (when accounts are switched on) and your plan follows you to any device.
 
 Optionally: Calendar sync + photo OCR (if your admin set it up). See [USER_GUIDE.md](USER_GUIDE.md).
 
@@ -47,7 +47,7 @@ Optionally: Calendar sync + photo OCR (if your admin set it up). See [USER_GUIDE
 
 Want to provide Calendar sync and photo OCR to your friends/family?
 
-**[→ BACKEND_SETUP.md](BACKEND_SETUP.md)** — Deploy ONE shared backend (10 min)
+**[→ DEPLOY.md](DEPLOY.md)** — accounts (Supabase), the Calendar / photo-import backend, analytics and a launch checklist
 
 No friction for users — they just open the link and use it:
 - 📅 **Google Calendar sync** (events show up in their Week view)
@@ -84,7 +84,7 @@ separate from Safari, so pick one place to use it and move data between devices 
 
 ## Your data
 
-Everything is stored in your browser's `localStorage`; nothing is sent anywhere.
+Your plan is stored in your browser's `localStorage`. If you sign in, a copy is kept in your account so it follows you to other devices. See the [privacy policy](privacy.html).
 Use **⚙ Settings → Export backup** regularly, and **Import backup** to restore or move to another device.
 
 ## Development

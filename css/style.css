@@ -819,3 +819,6 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .first-day { border-left: 4px solid var(--gold); } .first-day h2 { margin-top: 0; } .fd-steps { padding-left: 1.2rem; display: grid; gap: .9rem; } .fd-steps li > strong { display: inline-block; margin-bottom: .2rem; } .fd-steps textarea { width: 100%; margin-top: .3rem; }
 .areas .area-h { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .8rem 0 .2rem; }
 .more-week > summary, details.box > summary { cursor: pointer; }
+
+.login-or { text-align: center; margin: .6rem 0 .3rem; } #loginMore .btn { width: 100%; }
+.login-email { display: grid; gap: .5rem; margin-top: .8rem; } .login-email label { display: flex; flex-direction: column; font-size: .85rem; color: var(--muted); gap: .15rem; } .login-email input { width: 100%; box-sizing: border-box; }

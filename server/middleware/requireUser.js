@@ -15,8 +15,13 @@ export async function identify(req) {
   const token = m[1], hit = cache.get(token);
   if (hit && hit.exp > Date.now()) return { email: hit.email };
   try {
-    const { data } = await axios.get(USERINFO_URL(), { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 });
-    if (!data.email || data.email_verified === false) return { status: 403, error: 'Your Google account has no verified email address.' };
+    // A Supabase session token (accounts mode) is checked with Supabase; anything else is a Google access token.
+    const supa = process.env.SUPABASE_URL && /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(token);
+    const { data } = supa
+      ? await axios.get(`${process.env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, { headers: { Authorization: `Bearer ${token}`, apikey: process.env.SUPABASE_ANON_KEY || '' }, timeout: 8000 })
+      : await axios.get(USERINFO_URL(), { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 });
+    const verified = supa ? !!(data.email_confirmed_at || data.confirmed_at) : data.email_verified !== false;
+    if (!data.email || !verified) return { status: 403, error: 'Your account has no verified email address.' };
     if (cache.size > 500) cache.clear();
     const email = String(data.email).toLowerCase();
     cache.set(token, { email, exp: Date.now() + TTL });

@@ -5,7 +5,7 @@ Welcome! This guide explains how to use Life.OS.
 ## Getting Started (30 seconds)
 
 1. **Open this link:** https://testingrino.github.io/LifeOS/
-2. **Start using it** — no login, no signup, no accounts needed
+2. **Start using it** — an account is optional. Sign in with Google (Apple or email when enabled) to keep your plan safe and use it on any device
 3. **Everything stays private** — your data never leaves your browser
 
 That's it. You're good to go.
@@ -144,7 +144,7 @@ Goals, the balance view and the Wheel of Life share ten areas: Career, Finances,
 ## Privacy & Data
 
 **Your data is yours:**
-- Everything stored in your browser (localStorage)
+- Your plan is stored in your browser, and in your account if you sign in
 - Nothing sent to servers (except optional Calendar + photo OCR)
 - No ads, no tracking, no data selling
 - You control export/import

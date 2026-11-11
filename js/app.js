@@ -21,8 +21,8 @@
     if (st === state) {
       trackIds();
       if (st.tasks.length) track('first_task');
-      if (st.big3.length) track('first_big3');
-      if (Object.keys(st.sessions || {}).some((k) => /^weekly:/.test(k) && st.sessions[k].done)) track('first_weekly_review');
+      if (st.big3.length) track('big3_set');
+      if (Object.keys(st.sessions || {}).some((k) => /^weekly:/.test(k) && st.sessions[k].done)) track('weekly_review_done');
       const now = JSON.stringify(st);
       if (now !== hist.last) {
         if (Date.now() - hist.at > 1500 || !hist.undo.length) {
@@ -51,7 +51,7 @@
 
   /* ---------- basics ---------- */
   const DEFAULT_API_BASE = 'https://life-os-bice-xi.vercel.app';
-  const API_BASE = localStorage.getItem('api_base') || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : DEFAULT_API_BASE);
+  const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : DEFAULT_API_BASE;   // not user-configurable
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const qsToday = new URLSearchParams(location.search).get('today');
@@ -83,11 +83,21 @@
   function track(event) {
     try {
       if (!analyticsOn()) return;
+      const cfg = window.LIFEOS_CONFIG || {};
+      if (location.hostname === 'localhost' && !cfg.posthogKey) return;
       const sent = JSON.parse(localStorage.getItem('lifeos.sent') || '{}');
       if (sent[event]) return;
       sent[event] = 1; localStorage.setItem('lifeos.sent', JSON.stringify(sent));
+      if (event === 'setup_completed') localStorage.setItem('lifeos.setupDoneAt', U.toISO(new Date()));
       let id = localStorage.getItem('lifeos.install'); if (!id) { id = S.uid() + S.uid(); localStorage.setItem('lifeos.install', id); }
-      fetch(`${API_BASE}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ e: event, id, v: BUILD }), keepalive: true }).catch(() => {});
+      const who = window.LifeAuth && window.LifeAuth.user();
+      if (cfg.posthogKey) {       // PostHog's capture endpoint directly: no script to load
+        const props = { app_version: BUILD, auth_provider: who ? window.LifeAuth.provider() : 'none' };
+        if (who && cfg.identifyEmail) props.$set = { email: who.email };
+        fetch(`${cfg.posthogHost || 'https://us.i.posthog.com'}/capture/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: cfg.posthogKey, event, distinct_id: who ? who.id : id, properties: props }), keepalive: true }).catch(() => {});
+      } else {
+        fetch(`${API_BASE}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ e: event, id, v: BUILD }), keepalive: true }).catch(() => {});
+      }
     } catch (e) { /* analytics must never break the app */ }
   }
   const areaName = (id) => (P.LIFE.find((a) => a.id === id) || { name: 'Other' }).name;
@@ -432,7 +442,7 @@
 
   async function gcalApi(path, params, retried) {
     const qs = new URLSearchParams(params || {});
-    const res = await fetch(`${API_BASE}${path}${qs.toString() ? `?${qs}` : ''}`, { headers: { Authorization: `Bearer ${localStorage.getItem('google_access_token') || ''}` } });
+    const res = await fetch(`${API_BASE}${path}${qs.toString() ? `?${qs}` : ''}`, { headers: { Authorization: `Bearer ${authToken()}` } });
     if (res.status === 401 && !retried) {
       const rt = localStorage.getItem('google_refresh_token');
       if (rt) {
@@ -516,7 +526,7 @@
     fd.append('image', await shrinkImage(file, type === 'calendar' ? 2400 : 1800, type === 'calendar' ? 0.9 : 0.85), 'photo.jpg');
     fd.append('type', type);
     fd.append('today', todayISO());
-    const send = () => fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${localStorage.getItem('google_access_token') || ''}` } });
+    const send = () => fetch(`${API_BASE}/api/ocr/analyze`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${authToken()}` } });
     let res = await send();
     if (res.status === 401 && await googleRefresh()) res = await send();
     if (!res.ok) {
@@ -1999,7 +2009,6 @@
     const canNotify = typeof Notification !== 'undefined';
     const notifPerm = canNotify ? Notification.permission : null;
     const hasCalendar = gcalConnected();
-    const currentApiBase = localStorage.getItem('api_base') || API_BASE;
     if (hasCalendar && !state.gcalCalendars.length && !gcal.listTried) setTimeout(loadCalendarList, 0);
     const calPicker = hasCalendar ? `<div class="gcal-picker"><h3>Calendars to show <small class="muted">· view only, nothing is ever changed in Google</small></h3>
       ${state.gcalCalendars.length ? `<ul class="checks compact">${state.gcalCalendars.map((c) => `<li><input type="checkbox" data-act="gcalToggle" data-id="${esc(c.id)}" ${gcalIsSelected(c) ? 'checked' : ''} aria-label="Show ${esc(c.name)}">
@@ -2017,8 +2026,6 @@
           <button class="btn" data-act="uploadPhoto">Upload photo (OCR)</button>
         </div>
         ${calPicker}
-        <label>Backend URL <input type="text" id="apiBaseInput" value="${esc(currentApiBase)}" placeholder="https://..." style="flex:1;"></label>
-        <p class="muted small">Connected to backend for Calendar sync and photo OCR. Ask your admin for the URL.</p>
       </section>
       <section class="box"><h2>Planner</h2>
         <div class="row wrap">
@@ -2263,6 +2270,7 @@
       rebuildDemo(); render();
     },
     demoStart(el) {   // carry the tour's "about you" answers into the real setup
+      track('setup_started');
       if (demo.personas.length) { state.settings.personas = demo.personas.slice(); quick.touched = false; quickPreselect(); S.save(state); }
       location.hash = el.dataset.to === 'setup' ? '#/setup/1' : '#/quick/1';
     },
@@ -2362,14 +2370,14 @@
       habits.forEach((h) => addSuggestedGoal(h, 'habit', true));
       personaRoles().forEach((r) => roleIdFor(r.name, true));
       if (quick.rhythm) applyIdealStarter();
-      quick = quickFresh(); track('setup_finished'); commit(); toast('Your plan is ready'); location.hash = '#/today';
+      quick = quickFresh(); track('setup_completed'); commit(); toast('Your plan is ready'); location.hash = '#/today';
     },
     analyticsToggle(el) { try { localStorage.setItem('lifeos.analytics', el.checked ? 'on' : 'off'); } catch (e) { /* storage unavailable */ } toast(el.checked ? 'Anonymous usage events are on' : 'Anonymous usage events are off'); render(); },
     takePhoto() { document.getElementById('uploadCamera').click(); },
     pickPhotos() { document.getElementById('uploadInput').click(); },
-    signIn() { startGoogleOAuth('signin'); },
+    signIn() { if (sbOn()) openLogin(); else startGoogleOAuth('signin'); },
     landingSkip() { setAccountMode('local'); location.hash = '#/start'; },
-    account() { if (signedIn()) location.hash = '#/settings'; else startGoogleOAuth('signin'); },
+    account() { if (signedIn()) location.hash = '#/settings'; else if (sbOn()) openLogin(); else startGoogleOAuth('signin'); },
     signOut(el) {
       const wipe = el.dataset.wipe === '1';
       if (confirm(wipe ? 'Sign out and remove your plan from this device? It stays safe in your Google Drive.' : 'Sign out? Your plan stays on this device.')) doSignOut(wipe);
@@ -2382,9 +2390,10 @@
       toast('Deleting…');
       clearTimeout(sync.timer); sync.epoch++;
       try {
-        if (syncHasScope()) for (const f of [...await driveList(`name='${SYNC_FILE}' and trashed=false`), ...await driveList("name contains 'lifeos-backup-' and trashed=false")]) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
+        if (sbOn() && signedIn()) await window.LifeAuth.deleteAccount();
+        else if (syncHasScope()) for (const f of [...await driveList(`name='${SYNC_FILE}' and trashed=false`), ...await driveList("name contains 'lifeos-backup-' and trashed=false")]) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
       } catch (e) { toast(`Could not delete your Google Drive copy (${e.message}). Nothing was changed. Try again, or remove Life.OS in your Google account settings.`); return; }
-      const rt = localStorage.getItem('google_refresh_token') || localStorage.getItem('google_access_token');
+      const rt = localStorage.getItem('google_refresh_token') || localStorage.getItem('google_access_token');   // calendar access, if connected
       if (rt) { try { await fetch('https://oauth2.googleapis.com/revoke', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `token=${encodeURIComponent(rt)}` }); } catch (e) { /* the token also expires on its own */ } }
       try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* storage unavailable */ }
       try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) { /* no cache API */ }
@@ -2491,7 +2500,7 @@
       commit();
     },
     idealStarter() { applyIdealStarter(); commit(); },
-    finishSetup() { state.settings.setupDone = true; track('setup_finished'); commit(); location.hash = '#/today'; },
+    finishSetup() { state.settings.setupDone = true; track('setup_completed'); commit(); location.hash = '#/today'; },
     dismissSetup() { state.settings.setupDismissed = true; commit(); },
     removeSamples() {
       if (!confirm('Remove the sample roles and goals? Your own goals are kept.')) return;
@@ -3375,7 +3384,11 @@
   const DRIVE = 'https://www.googleapis.com/drive/v3/files', UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files', DRIVE_FIELDS = 'id,name,md5Checksum,modifiedTime';
   const gScope = () => localStorage.getItem('google_scope') || '';
   const syncHasScope = () => !!localStorage.getItem('google_access_token') && /auth\/drive\.appdata/.test(gScope());
-  const syncEnabled = () => !!state.settings.syncOn && syncHasScope();
+  /* Accounts: Supabase when js/config.js is filled in, otherwise the older Google + Drive sign-in. */
+  const sbOn = () => !!(window.LifeAuth && window.LifeAuth.enabled);
+  const authToken = () => (sbOn() ? window.LifeAuth.accessToken() : localStorage.getItem('google_access_token') || '');
+  const accountEmail = () => (sbOn() ? ((window.LifeAuth.user() || {}).email || '') : localStorage.getItem('google_email') || '');
+  const syncEnabled = () => (sbOn() ? !!window.LifeAuth.session() : !!state.settings.syncOn && syncHasScope());
   const sync = { busy: false, status: 'off', msg: '', timer: null, backups: null, epoch: 0 };
   const fmtClock = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const syncVersion = (f) => (f ? f.md5Checksum || f.modifiedTime : '');
@@ -3431,11 +3444,11 @@
     return (await driveFetch(`${UPLOAD}?uploadType=multipart&fields=${DRIVE_FIELDS}`, { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${b}` }, body: multipart })).json();
   }
 
-  const signedIn = () => !!localStorage.getItem('google_access_token') && /userinfo\.email|(^|\s)email(\s|$)/.test(gScope());
+  const signedIn = () => (sbOn() ? !!window.LifeAuth.session() : !!localStorage.getItem('google_access_token') && /userinfo\.email|(^|\s)email(\s|$)/.test(gScope()));
   function renderAccountChip() {
     const b = document.getElementById('navAccount');
     if (!b) return;
-    if (signedIn()) { const e = localStorage.getItem('google_email') || '?'; b.textContent = e[0].toUpperCase(); b.title = `Signed in as ${e}`; b.className = 'nav-acct on'; b.setAttribute('aria-label', `Account: ${e}`); }
+    if (signedIn()) { const e = accountEmail() || '?'; b.textContent = e[0].toUpperCase(); b.title = `Signed in as ${e}`; b.className = 'nav-acct on'; b.setAttribute('aria-label', `Account: ${e}`); }
     else { b.textContent = 'Sign in'; b.title = 'Sign in with Google'; b.className = 'nav-acct'; b.setAttribute('aria-label', 'Sign in with Google'); }
   }
   async function doSignOut(wipe) {
@@ -3448,6 +3461,7 @@
     ['google_access_token', 'google_refresh_token', 'google_scope', 'google_email', 'google_intent', 'google_cal_off', 'account_mode', 'login_prompt_seen'].forEach((k) => localStorage.removeItem(k));
     state.settings.syncOn = false; state.syncMeta = {}; gcalReset(); gcal.listTried = false; sync.status = 'off'; sync.backups = null;
     if (wipe) { state = S.defaultState(); rebaseIds(); }
+    if (sbOn() && window.LifeAuth.session()) { try { await window.LifeAuth.signOut(); } catch (e) { /* signing out locally anyway */ } }
     rawSave(state);
     try { sessionStorage.setItem('lifeos.toast', wipe ? 'Signed out. This device is cleared; your plan is safe in Google Drive.' : 'Signed out. Your plan stays on this device.'); } catch (e) { /* storage unavailable */ }
     // reload so nothing from the signed-in session lingers in memory
@@ -3455,7 +3469,7 @@
   }
   function accountCard() {
     if (signedIn()) return `<section class="box account-card"><h2>Account</h2>
-      <p>Signed in with Google as <strong>${esc(localStorage.getItem('google_email') || 'your account')}</strong>. Your plan is saved to your own Google Drive and follows you to any device you sign in on.</p>
+      <p>Signed in as <strong>${esc(accountEmail() || 'your account')}</strong>${sbOn() && window.LifeAuth.provider() ? ` with ${esc(window.LifeAuth.provider())}` : ''}. ${sbOn() ? 'Your plan is saved to your account and follows you to any device you sign in on.' : 'Your plan is saved to your own Google Drive and follows you to any device you sign in on.'}</p>
       <div class="row wrap"><button class="btn ghost" data-act="signOut" data-wipe="0">Sign out</button><button class="btn ghost danger" data-act="signOut" data-wipe="1">Sign out and clear this device</button></div></section>`;
     return `<section class="box account-card"><h2>Account</h2>
       <p class="prompt">Sign in with Google to keep your plan safe in your own Drive and open it on any device. New here? Your first sign-in creates your account; there is nothing else to fill in.</p>
@@ -3465,7 +3479,7 @@
   async function ocrAllowed() {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const r = await fetch(`${API_BASE}/api/ocr/access`, { headers: { Authorization: `Bearer ${localStorage.getItem('google_access_token') || ''}` } });
+        const r = await fetch(`${API_BASE}/api/ocr/access`, { headers: { Authorization: `Bearer ${authToken()}` } });
         const a = await r.json();
         if (a.signedIn === false && attempt === 0 && await googleRefresh()) continue;
         return a;
@@ -3520,7 +3534,52 @@
     setSync('ok'); toast('Combined the changes from your other device');
   }
 
+  /* Cloud copy in Supabase. One row per account. We only overwrite the version we last saw (optimistic concurrency); if
+     someone else wrote first we pull, merge (deleted items stay deleted) and try again, so changes are never lost. */
+  const markPushed = (version) => { state.syncMeta = { ...(state.syncMeta || {}), remoteVersion: version, hash: hashStr(JSON.stringify(syncPayload())), at: new Date().toISOString() }; rawSave(state); };
+  function applyPlan(data, version) {
+    const prev = state.syncMeta || {};
+    state = adoptData(data); rebaseIds();
+    state.syncMeta = { ...prev, remoteVersion: version, at: new Date().toISOString() };
+    state.syncMeta.hash = hashStr(JSON.stringify(syncPayload()));
+    rawSave(state); render();
+  }
+  async function sbSync() {
+    if (sync.busy) return;
+    sync.busy = true; setSync('syncing');
+    const ep = sync.epoch, stale = () => ep !== sync.epoch || !signedIn(), A = window.LifeAuth;
+    try {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const meta = state.syncMeta || {}, dirty = hashStr(JSON.stringify(syncPayload())) !== meta.hash;
+        const row = await A.pull();
+        if (stale()) return;
+        if (!row) {                                                  // nothing in the account yet
+          if (isBlank()) break;
+          const v = await A.push(syncPayload(), null);
+          if (stale()) return;
+          if (v === null) continue;                                  // another device created it first: loop and merge
+          markPushed(v); toast('Your plan is now backed up to your account.'); break;
+        }
+        if (row.updated_at === meta.remoteVersion) {                 // we are up to date
+          if (!dirty) break;
+          const v = await A.push(syncPayload(), row.updated_at);
+          if (stale()) return;
+          if (v === null) continue;
+          markPushed(v); break;
+        }
+        if (isBlank() || !dirty) { const was = isBlank(); applyPlan(row.data || {}, row.updated_at); if (was) toast('Your plan was restored from your account'); break; }
+        applyPlan(mergeStates(syncPayload(), row.data || {}), row.updated_at);   // both changed: combine
+        const v = await A.push(syncPayload(), row.updated_at);
+        if (stale()) return;
+        if (v === null) continue;
+        markPushed(v); toast('Combined the changes from your other device'); break;
+      }
+      setSync('ok');
+    } catch (e) { if (!stale()) { console.error('Sync failed:', e); setSync('error', e.message || 'Could not reach your account'); } }
+    finally { if (ep === sync.epoch) sync.busy = false; showSyncStatus(); }
+  }
   async function syncNow() {
+    if (sbOn()) { if (signedIn()) return sbSync(); return; }
     if (!syncEnabled() || sync.busy) return;
     sync.busy = true; setSync('syncing');
     const ep = sync.epoch, stale = () => ep !== sync.epoch || !syncEnabled();   // signing out cancels anything still in flight
@@ -3545,7 +3604,7 @@
   }
   function scheduleSync() {
     if (!syncEnabled()) return;
-    clearTimeout(sync.timer); sync.timer = setTimeout(syncNow, 3000);
+    clearTimeout(sync.timer); sync.timer = setTimeout(syncNow, sbOn() ? 800 : 3000);
   }
   async function loadBackups() {
     try { sync.backups = (await driveList("name contains 'lifeos-backup-' and trashed=false")).sort((a, b) => (a.name < b.name ? 1 : -1)); }
@@ -3562,7 +3621,7 @@
     } catch (e) { toast(e.message); }
   }
   function syncCard() {
-    const on = syncEnabled(), email = localStorage.getItem('google_email') || '', m = state.syncMeta || {};
+    const on = syncEnabled(), email = accountEmail(), m = state.syncMeta || {};
     const backups = sync.backups ? (sync.backups.length ? `<ul class="backups">${sync.backups.map((f) => `<li><strong>${esc(f.name.replace(/^lifeos-backup-|\.json$/g, ''))}</strong><button type="button" class="btn ghost small" data-act="syncRestore" data-id="${esc(f.id)}">Restore</button></li>`).join('')}</ul>` : '<p class="muted small">No backup copies yet. One is saved each day you change your plan.</p>') : '';
     return `<section class="box sync-card"><h2>Protect my plan <small class="muted">· sync across devices</small></h2>
       <p class="prompt">Your plan is saved in this browser. Turn on sync and it is also kept as one private file in <strong>your own Google Drive</strong> (a hidden app folder that only Life.OS can open), so a cleared browser or a lost phone can't erase it, and every device stays the same. A dated backup is saved daily.</p>
@@ -3597,6 +3656,7 @@
     document.body.classList.toggle('printing-view', name === 'print');
     document.body.classList.toggle('landing-view', name === 'landing' || name === 'landing-v1');
     if (name === 'landing') track('landed');
+    if (name === 'quick' || name === 'setup') track('setup_started');
     gcalKick(name, arg);
     maybePromptLogin(name);
     app.querySelectorAll('details[data-keep]').forEach((d) => { if (d.dataset.keep in keepOpen) d.open = keepOpen[d.dataset.keep]; });
@@ -3647,7 +3707,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMore(false); });
   (async function finishGoogleLogin() {
     const code = new URLSearchParams(location.search).get('code');
-    if (!code) return;
+    if (!code || !localStorage.getItem('google_intent')) return;      // a code without our marker belongs to Supabase's sign-in
     const intentNow = localStorage.getItem('google_intent');
     history.replaceState(null, '', location.pathname + (location.hash || (intentNow === 'signin' ? '#/today' : '#/settings')));
     try {
@@ -3680,9 +3740,29 @@
     } catch (e) { console.error('Google login failed:', e); toast('Google login failed'); }
   })();
   const loginDlg = document.getElementById('loginDlg');
+  const openLogin = () => { const d = document.getElementById('loginDlg'); if (d && !d.open) d.showModal(); };
   const setAccountMode = (m) => { try { localStorage.setItem('account_mode', m); } catch (e) { /* storage unavailable */ } };
   if (loginDlg) {
-    document.getElementById('loginGoogleBtn').addEventListener('click', () => startGoogleOAuth('signin'));
+    const msg = (t) => { const m = document.getElementById('loginMsg'); if (m) m.textContent = t || ''; };
+    document.getElementById('loginMore').hidden = !sbOn();
+    document.getElementById('loginGoogleBtn').addEventListener('click', (e) => {
+      if (!sbOn()) { startGoogleOAuth('signin'); return; }
+      e.preventDefault(); window.LifeAuth.signInWithGoogle().catch((err) => msg(err.message));
+    });
+    document.getElementById('loginAppleBtn').addEventListener('click', (e) => { e.preventDefault(); window.LifeAuth.signInWithApple().catch((err) => msg(err.message)); });
+    const emailAuth = async (create) => {
+      const email = document.getElementById('loginEmail').value.trim(), pw = document.getElementById('loginPw').value;
+      if (!email || pw.length < 8) { msg('Enter your email and a password of at least 8 characters.'); return; }
+      msg(create ? 'Creating your account…' : 'Signing in…');
+      try {
+        const r = create ? await window.LifeAuth.signUpWithEmail(email, pw) : await window.LifeAuth.signInWithEmail(email, pw);
+        if (create && !(r && r.session)) { msg('Check your email and tap the confirmation link, then come back and sign in.'); return; }
+        msg(''); loginDlg.close();
+      } catch (err) { msg(err.message || 'That did not work. Please try again.'); }
+    };
+    document.getElementById('loginEmailBtn').addEventListener('click', (e) => { e.preventDefault(); emailAuth(false); });
+    document.getElementById('loginSignUpBtn').addEventListener('click', (e) => { e.preventDefault(); emailAuth(true); });
+    document.getElementById('loginPw').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); emailAuth(false); } });
     document.getElementById('loginSkipBtn').addEventListener('click', () => setAccountMode('local'));
     loginDlg.addEventListener('cancel', () => setAccountMode('local'));
     document.getElementById('loginDemo').addEventListener('click', () => loginDlg.close());
@@ -3709,16 +3789,6 @@
   const uploadDlg = document.getElementById('uploadDlg');
   const ocrResultDlg = document.getElementById('ocrResultDlg');
 
-  const apiBaseInput = document.getElementById('apiBaseInput');
-  if (apiBaseInput) {
-    apiBaseInput.addEventListener('blur', (e) => {
-      const url = e.target.value.trim();
-      if (url && url.startsWith('http')) {
-        localStorage.setItem('api_base', url);
-        toast('Backend URL updated');
-      }
-    });
-  }
 
   let ocrSuggestions = [];
   let calReviewName = '';
@@ -3952,10 +4022,23 @@
   setInterval(syncNow, 5 * 60 * 1000);
   try { const sc = [...document.scripts].find((x) => /js\/app\.js/.test(x.src)), m = sc && /v=(\d{8})(\d{4})/.exec(sc.src), el = document.getElementById('appVer'); if (el && m) el.textContent = `Version ${m[1].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')} ${m[2].replace(/(\d{2})(\d{2})/, '$1:$2')}`; } catch (e) { /* cosmetic */ }
   try { const m = sessionStorage.getItem('lifeos.toast'); if (m) { sessionStorage.removeItem('lifeos.toast'); setTimeout(() => toast(m), 300); } } catch (e) { /* storage unavailable */ }
-  try {   // day-7 return: the first visit a week or more after the first one
-    const fs = localStorage.getItem('lifeos.firstSeen') || todayISO(); localStorage.setItem('lifeos.firstSeen', fs);
-    if (U.daysBetween(U.parseISO(fs), today()) >= 7) track('day7_return');
+  try {   // day-7 return: first visit a week or more after setup was completed
+    const done = localStorage.getItem('lifeos.setupDoneAt');
+    if (done && U.daysBetween(U.parseISO(done), today()) >= 7) track('day7_return');
   } catch (e) { /* storage unavailable */ }
+  if (sbOn()) {
+    window.LifeAuth.onChange((ev) => {
+      renderAccountChip();
+      if (!window.LifeAuth.session()) { render(); return; }
+      setAccountMode('google');
+      if (ev === 'SIGNED_IN') track('signed_in');
+      syncNow().then(() => {
+        if (ev === 'SIGNED_IN' && isBlank() && !/^#\/(setup|quick|start)/.test(location.hash)) location.hash = '#/start';
+        else if (/^#\/(welcome|demo|landing)/.test(location.hash)) location.hash = '#/today';
+        render();
+      });
+    });
+  }
   const ctx = {
     get state() { return state; }, S, U, P, F, ROUTES, ACTS, DEFAULTS, esc, today, todayISO, ws, get, commit, render, toast, opts, chk, ta, inp, page, goalOpts, lifeOpts, schedBtn, dragAttr,
     fmtTime, hhmm24, openScheduleDialog, addScheduleItem, suggestSlot, nextStep, focusGoals, cycleGoals, currentCycle, areaName, roleName, showText, getWeek, quarterKey, weekSel,
