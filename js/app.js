@@ -3918,6 +3918,7 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   setInterval(syncNow, 5 * 60 * 1000);
   document.getElementById('syncDlg').addEventListener('click', (e) => { const b = e.target.closest('[data-sync-pick]'); if (!b) return; document.getElementById('syncDlg').close(); resolveSync(b.dataset.syncPick); });
+  try { const sc = [...document.scripts].find((x) => /js\/app\.js/.test(x.src)), m = sc && /v=(\d{8})(\d{4})/.exec(sc.src), el = document.getElementById('appVer'); if (el && m) el.textContent = `Version ${m[1].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')} ${m[2].replace(/(\d{2})(\d{2})/, '$1:$2')}`; } catch (e) { /* cosmetic */ }
   const ctx = {
     get state() { return state; }, S, U, P, F, ROUTES, ACTS, DEFAULTS, esc, today, todayISO, ws, get, commit, render, toast, opts, chk, ta, inp, page, goalOpts, lifeOpts, schedBtn, dragAttr,
     fmtTime, hhmm24, openScheduleDialog, addScheduleItem, suggestSlot, nextStep, focusGoals, cycleGoals, currentCycle, areaName, roleName, showText, getWeek, quarterKey, weekSel,
