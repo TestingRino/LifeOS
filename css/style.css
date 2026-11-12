@@ -925,3 +925,10 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 @media (max-width: 640px) { .invite-form { grid-template-columns: 1fr; } .invite-form .invite-other { grid-column: auto; } }
 #inviteDlg { width: min(560px, calc(100vw - 24px)); } #inviteDlg .invite { margin: 0 0 .8rem; }
 .empty-import { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--gold) 12%, var(--card)); border: 1px dashed var(--gold); border-radius: 10px; padding: .7rem .9rem; margin: .4rem 0 .8rem; font-size: .92rem; }
+
+/* admin */
+.admin .adm-table { font-size: .88rem; } .admin .adm-act { white-space: nowrap; } .admin .adm-tools { gap: .6rem; margin-bottom: .6rem; flex-wrap: wrap; align-items: center; } .admin .adm-tools input[type=search] { flex: 1; min-width: 12rem; } .admin .adm-add { display: flex; gap: .4rem; }
+.adm-bar { display: grid; grid-template-columns: 11rem 1fr 2rem; gap: .6rem; align-items: center; margin: .3rem 0; font-size: .88rem; } .adm-bar div { background: var(--rule, #e1d6bd); border-radius: 99px; height: .6rem; overflow: hidden; } .adm-bar i { display: block; height: 100%; background: var(--ok); }
+.adm-badge { display: inline-block; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; border-radius: 99px; padding: 0 .45rem; margin-left: .3rem; background: color-mix(in srgb, var(--navy) 10%, var(--paper)); color: var(--muted); } .adm-badge.warn { background: color-mix(in srgb, var(--red) 18%, var(--paper)); color: var(--red); }
+.adm-tabs { margin-bottom: .8rem; } .adm-dlg { width: min(560px, calc(100vw - 24px)); z-index: 20; position: fixed; top: 10vh; } .adm-dlg .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .5rem; } .adm-dlg label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); gap: .15rem; }
+@media (max-width: 640px) { .adm-bar { grid-template-columns: 7rem 1fr 2rem; } }

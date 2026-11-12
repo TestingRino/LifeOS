@@ -86,7 +86,7 @@ separate from Safari, so pick one place to use it and move data between devices 
 
 ## Your data
 
-Your plan is stored in your browser's `localStorage`. If you sign in, a copy is kept in your account so it follows you to other devices. See the [privacy policy](privacy.html).
+Your plan is stored in your browser's `localStorage`. If you sign in, a copy is kept in your account so it follows you to other devices. See the [privacy policy](privacy.html). Admins manage people, the photo-import waitlist, plans and limits from **More → Admin**; see [DEPLOY.md](DEPLOY.md).
 Use **⚙ Settings → Export backup** regularly, and **Import backup** to restore or move to another device.
 
 ## Development

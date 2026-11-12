@@ -15,7 +15,7 @@
   <meta name="description" content="Plan analog, execute digitally. Life.OS is the companion to your paper planner: snap a photo instead of retyping, and get reminders so the plan happens.">
   <meta name="theme-color" content="#2f3352">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261112044444">
+  <link rel="stylesheet" href="css/style.css?v=20261112150416">
 </head>
 <body>
   <header class="topbar">
@@ -27,7 +27,7 @@
       <a href="#/tasks" data-route="tasks">Tasks</a>
       <a href="#/goals" data-route="goals">Goals</a>
       <div class="nav-group">
-        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="session month year ideal summary print foundation wheel track lists archive">More <span aria-hidden="true">▾</span></button>
+        <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="session month year ideal summary print foundation wheel track lists archive admin">More <span aria-hidden="true">▾</span></button>
         <div class="nav-menu" hidden>
           <a href="#/session" data-route="session"><strong>Planning sessions</strong><small>yearly to daily checklists</small></a>
           <a href="#/month" data-route="month"><strong>Month</strong><small>events and monthly priorities</small></a>
@@ -39,6 +39,7 @@
           <a href="#/lists" data-route="lists"><strong>Lists</strong><small>bucket, reading, shopping, journal</small></a>
           <a href="#/summary" data-route="summary"><strong>What I finished</strong><small>weekly to yearly summary</small></a>
           <a href="#/archive" data-route="archive"><strong>Archive</strong><small>deleted items, finished work</small></a>
+          <a href="#/admin" data-route="admin" data-admin-link hidden><strong>Admin</strong><small>people, waitlist, plans, settings</small></a>
         </div>
       </div>
       <button type="button" class="nav-search" data-act="search" aria-label="Search (press /)" title="Search (press /)">🔍</button>
@@ -61,6 +62,7 @@
     <a href="#/month" data-route="month">Month <small>events and monthly priorities</small></a>
     <a href="#/summary" data-route="summary">What I finished <small>weekly to yearly summary</small></a>
     <a href="#/archive" data-route="archive">Archive <small>deleted items, finished work</small></a>
+    <a href="#/admin" data-route="admin" data-admin-link hidden>Admin <small>people, waitlist, plans</small></a>
     <a href="#/foundation" data-route="foundation">Foundation <small>vision, eulogy, values</small></a>
     <a href="#/year" data-route="year">Year <small>key dates & annual notes</small></a>
     <a href="#/calendar" data-route="calendar">Calendar <small>day, week, month</small></a>
@@ -171,14 +173,14 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/config.js?v=20261112044444"></script>
-  <script src="js/util.js?v=20261112044444"></script>
-  <script src="js/plan.js?v=20261112044444"></script>
-  <script src="js/library.js?v=20261112044444"></script>
-  <script src="js/store.js?v=20261112044444"></script>
-  <script src="js/features.js?v=20261112044444"></script>
-  <script src="js/vendor/supabase.js?v=20261112044444"></script>
-  <script src="js/auth.js?v=20261112044444"></script>
-  <script src="js/app.js?v=20261112044444"></script>
+  <script src="js/config.js?v=20261112150416"></script>
+  <script src="js/util.js?v=20261112150416"></script>
+  <script src="js/plan.js?v=20261112150416"></script>
+  <script src="js/library.js?v=20261112150416"></script>
+  <script src="js/store.js?v=20261112150416"></script>
+  <script src="js/features.js?v=20261112150416"></script>
+  <script src="js/vendor/supabase.js?v=20261112150416"></script>
+  <script src="js/auth.js?v=20261112150416"></script>
+  <script src="js/app.js?v=20261112150416"></script>
 </body>
 </html>

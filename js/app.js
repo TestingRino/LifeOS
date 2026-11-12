@@ -879,6 +879,25 @@
       `<a class="btn ghost" href="${dayHref(U.toISO(U.addDays(t, -1)))}" aria-label="Previous day" title="Previous day">←</a>${isToday ? '' : '<a class="btn ghost" href="#/today">Today</a>'}<a class="btn ghost" href="${dayHref(U.toISO(U.addDays(t, 1)))}" aria-label="Next day" title="Next day">→</a><a class="btn ghost" href="#/print/day/${iso}">Print</a>`);
   }
 
+  /* Admin screen: a separate script (js/admin.js), fetched only when an admin opens #/admin. The server checks every call. */
+  function viewAdmin() {
+    if (!sbOn() || !signedIn()) return page('Admin', '', '<section class="box"><p class="muted">Sign in with an admin account to use this page.</p></section>');
+    return page('Admin', 'People, waitlist, plans and settings', '<div id="adminRoot" class="admin"></div>');
+  }
+  function mountAdmin() {
+    const el = document.getElementById('adminRoot'); if (!el) return;
+    const go = () => window.LifeAdmin.mount(el, { apiBase: API_BASE, token: authToken, toast, siteUrl: location.origin + location.pathname, analyticsUrl: (window.LIFEOS_CONFIG || {}).posthogDashboard || '' });
+    if (window.LifeAdmin) { go(); return; }
+    const sc = document.createElement('script'); sc.src = `js/admin.js${BUILD ? `?v=${BUILD}` : ''}`; sc.onload = go; sc.onerror = () => { el.innerHTML = '<p class="nudge">Could not load the admin screen.</p>'; };
+    document.head.appendChild(sc);
+  }
+  let isAdmin = false;
+  function refreshAdmin() {      // show the Admin menu item to admins only (the server still checks every request)
+    const show = (v) => { isAdmin = v; document.querySelectorAll('[data-admin-link]').forEach((a) => { a.hidden = !v; }); };
+    if (!sbOn() || !signedIn()) { show(false); return; }
+    fetch(`${API_BASE}/api/admin/me`, { headers: { Authorization: `Bearer ${authToken()}` } }).then((r) => show(r.ok)).catch(() => show(false));
+  }
+
   function viewFoundation() {
     const f = 'foundation';
     const body = `
@@ -2110,6 +2129,7 @@
         </div>
         <p class="muted small">Changing the week start after you've planned weeks will hide those weeks (they're stored by start date).</p>
       </section>
+      ${planCard()}
       ${F.settingsExtra ? F.settingsExtra() : ''}
       ${canNotify ? `<section class="box"><h2>Daily ritual reminders</h2>
         <label class="row"><input type="checkbox" data-bind="settings.notificationsEnabled" data-rerender> Browser notifications for rituals and goals</label>
@@ -2466,6 +2486,8 @@
     closeDialog(el) { const d = el.closest('dialog'); if (d) d.close(); },
     inviteOpen() { const d = document.getElementById('inviteDlg'); document.getElementById('inviteBody').innerHTML = inviteBlock('today'); d.showModal(); },
     pickPhotos() { document.getElementById('uploadInput').click(); },
+    upgrade() { billingRedirect('checkout'); },
+    billingPortal() { billingRedirect('portal'); },
     signIn() { if (sbOn()) openLogin(); else startGoogleOAuth('signin'); },
     landingSkip() { setAccountMode('local'); location.hash = '#/start'; },
     account() { if (signedIn()) location.hash = '#/settings'; else if (sbOn()) openLogin(); else startGoogleOAuth('signin'); },
@@ -3639,6 +3661,31 @@
     // reload so nothing from the signed-in session lingers in memory
     location.hash = wipe ? '#/landing' : '#/settings'; location.reload();
   }
+  /* Plan and billing (only when Stripe is set up on the server and billing:true in js/config.js) */
+  const planState = { loaded: false, row: null, error: '' };
+  const billingOn = () => sbOn() && signedIn() && !!(window.LIFEOS_CONFIG || {}).billing;
+  function loadPlan() {
+    if (!billingOn() || planState.loaded) return;
+    planState.loaded = true;
+    window.LifeAuth.myEntitlement().then((r) => { planState.row = r; render(); }).catch((e) => { planState.error = e.message; });
+  }
+  function planCard() {
+    if (!billingOn()) return '';
+    loadPlan();
+    const r = planState.row, plus = r && r.tier === 'plus' && r.status !== 'canceled', price = (window.LIFEOS_CONFIG || {}).plusPrice || '';
+    return `<section class="box"><h2>Your plan</h2>
+      <p>${plus ? `<strong>Life.OS Plus</strong>${r.status === 'past_due' ? ' · payment needs attention' : ''}${r.current_period_end ? ` · renews ${esc(new Date(r.current_period_end).toLocaleDateString())}` : ''}` : '<strong>Free</strong>'}</p>
+      <p class="muted small">${plus ? 'Includes photo import for your planner pages.' : 'Plus adds photo import, so you can snap a page from your paper planner instead of retyping it.'}</p>
+      <div class="row wrap">${plus || (r && r.stripe_customer_id) ? '<button type="button" class="btn" data-act="billingPortal">Manage billing</button>' : `<button type="button" class="btn primary" data-act="upgrade">Upgrade to Plus${price ? ` · ${esc(price)}` : ''}</button>`}</div></section>`;
+  }
+  async function billingRedirect(path) {
+    try {
+      const r = await fetch(`${API_BASE}/api/billing/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${authToken()}` } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.url) throw new Error(j.error || 'Could not open billing.');
+      window.location = j.url;
+    } catch (e) { toast(e.message); }
+  }
   function accountCard() {
     if (signedIn()) return `<section class="box account-card"><h2>Account</h2>
       <p>Signed in as <strong>${esc(accountEmail() || 'your account')}</strong>${sbOn() && window.LifeAuth.provider() ? ` with ${esc(window.LifeAuth.provider())}` : ''}. ${sbOn() ? 'Your plan is saved to your account and follows you to any device you sign in on.' : 'Your plan is saved to your own Google Drive and follows you to any device you sign in on.'}</p>
@@ -3822,7 +3869,7 @@
   const keepOpen = {};
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
-    today: viewToday, landing: viewLanding, 'landing-v1': viewLandingV1, foundation: viewFoundation, goals: viewGoals, year: viewYear,
+    today: viewToday, admin: viewAdmin, landing: viewLanding, 'landing-v1': viewLandingV1, foundation: viewFoundation, goals: viewGoals, year: viewYear,
     month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewStart, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
@@ -3833,6 +3880,7 @@
     app.innerHTML = view(arg, arg2);
     document.body.classList.toggle('printing-view', name === 'print');
     document.body.classList.toggle('landing-view', name === 'landing' || name === 'landing-v1');
+    if (name === 'admin') setTimeout(mountAdmin, 0);
     if (name === 'landing') track('landed');
     if (name === 'quick' || name === 'setup') track('setup_started');
     gcalKick(name, arg);
@@ -4220,11 +4268,12 @@
     const done = localStorage.getItem('lifeos.setupDoneAt');
     if (done && U.daysBetween(U.parseISO(done), today()) >= 7) track('day7_return');
   } catch (e) { /* storage unavailable */ }
-  function refreshOcrAccess() {      // remember whether this account can use photo import, so Today can offer it or the invite
+  function refreshOcrAccess() {
+    refreshAdmin();      // remember whether this account can use photo import, so Today can offer it or the invite
     if (!signedIn()) { try { if (localStorage.getItem('lifeos.ocr') === '1') { localStorage.removeItem('lifeos.ocr'); render(); } } catch (e) { /* storage unavailable */ } return; }
     ocrAllowed().then((r) => { try { const v = r && r.allowed && !r.unknown ? '1' : '0'; if (localStorage.getItem('lifeos.ocr') !== v) { localStorage.setItem('lifeos.ocr', v); render(); } } catch (e) { /* storage unavailable */ } });
   }
-  if (!sbOn()) refreshOcrAccess();
+  refreshOcrAccess();      // also in accounts mode: the first auth event can fire before this script runs, so ask once now
   if (sbOn()) {
     window.LifeAuth.onChange((ev) => {
       refreshOcrAccess();

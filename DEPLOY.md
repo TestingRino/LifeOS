@@ -61,6 +61,31 @@ Google Cloud Console (APIs & Services): enable the **Google Calendar API** (and 
 
 Local backend: `cd server && cp .env.example .env && npm install && npm start` (port 3001; the site uses it automatically on `localhost`).
 
+## Admin, licensing and subscriptions
+
+One admin screen (**More → Admin**, visible only to admins) shows people, the photo-import waitlist, plans and settings. Approvals take effect immediately, with no redeploy.
+
+**Set it up (accounts mode)**
+1. In Supabase run `supabase/migrations/002_waitlist.sql` and `003_admin_entitlements.sql`.
+2. Vercel environment variables (server only): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, **`SUPABASE_SERVICE_ROLE_KEY`** (Supabase → Settings → API; it bypasses row-level security, so it must never go in `js/config.js` or the browser) and `ADMIN_EMAILS` (your login email, comma separated). Redeploy once.
+3. Optional, so admins live in the database instead of the environment: `insert into admins (user_id) select id from auth.users where email = 'you@example.com';`
+4. Sign in on the site. **More → Admin** appears for admin accounts.
+
+**What the admin screen does**
+- **Overview:** people, new this week, paid, waitlist, photo imports, and which planners people asked for.
+- **Waitlist:** Approve or Decline. Approving creates an entitlement (photo import on). "Copy invite note" gives you a message to send.
+- **People:** search, then Edit a person's plan (Free or Plus), status (active or suspended), a photo-import override (follow the plan, always allow, block), per-person hourly and daily limits and notes. "Grant photo import" adds an email directly.
+- **Settings:** a kill switch for photo import, an on/off for the waitlist, and what each plan includes (photo import yes/no, hourly and daily limits).
+
+**How access is decided:** `OCR_ALLOWED_EMAILS` still always allows (use it for yourself). Otherwise a person's override wins, then their plan's setting, then the global switch. A suspended person, or a Stripe subscription more than 3 days past due, loses photo import.
+
+**Subscriptions (Stripe)**
+1. In Stripe create a product and a recurring price for "Life.OS Plus" (you choose the price) and a webhook endpoint `https://<your-vercel-domain>/api/billing/webhook` for: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
+2. Vercel environment variables: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PLUS` (the price id), `STRIPE_WEBHOOK_SECRET`, `SITE_URL` (the website URL).
+3. In `js/config.js` set `billing: true` and `plusPrice: '$X/month'`, run `npm run stamp`, push. **Settings → Your plan** now offers Upgrade (Stripe's hosted checkout) and Manage billing (Stripe's portal). The webhook updates the person's plan, and the admin screen shows it.
+4. Stripe's Customer Portal must be enabled in Stripe (Settings → Billing → Customer portal). Refunds and invoices are handled in the Stripe dashboard.
+5. Vercel's Hobby plan is for non-commercial use: move to Pro before charging.
+
 ## Photo import waitlist
 
 The landing page, the demo and Today (when the schedule is empty) offer "Request an invite", which collects an email and the planner brand. Where it lands:

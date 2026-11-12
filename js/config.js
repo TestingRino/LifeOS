@@ -6,5 +6,8 @@ window.LIFEOS_CONFIG = {
   supabaseAnonKey: '',      // the project's anon (public) key
   posthogKey: '',           // optional: PostHog project API key for the five funnel events
   posthogHost: 'https://us.i.posthog.com',
+  billing: false,           // true once Stripe is set up on the server: shows Upgrade / Manage billing in Settings
+  plusPrice: '',            // shown on the upgrade button, e.g. '$8/month' (you decide)
+  posthogDashboard: '',     // optional link the admin page shows as "Open analytics"
   identifyEmail: false,     // send the account email to analytics? Off by default; the user id is enough
 };

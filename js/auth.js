@@ -57,6 +57,12 @@
       const { error } = await need().from('waitlist').insert(row);
       if (error && error.code !== '23505') throw error;
     },
+    /* This person's own entitlement row (tier, status, renewal), readable through Row Level Security. */
+    async myEntitlement() {
+      const { data, error } = await need().from('entitlements').select('tier, status, ocr, current_period_end, stripe_customer_id').eq('email', String(session.user.email).toLowerCase()).limit(1);
+      if (error) throw error;
+      return data && data[0] ? data[0] : null;
+    },
     /* Removes the plan row, then the account itself through the delete-user Edge Function. */
     async deleteAccount() {
       const c = need();

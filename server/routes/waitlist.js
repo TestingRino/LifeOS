@@ -1,6 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { PLANNERS } from '../lib/planner-hints.js';
+import { getSettings } from '../lib/entitlements.js';
 
 /* Photo import waitlist. Stores nothing itself: each request is written to the log as one JSON line and, if
    WAITLIST_WEBHOOK_URL is set (a Google Sheet script, Zapier, Slack, PostHog...), forwarded there.
@@ -8,7 +9,8 @@ import { PLANNERS } from '../lib/planner-hints.js';
 const router = express.Router();
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 
-router.post('/', express.json({ limit: '4kb' }), (req, res) => {
+router.post('/', express.json({ limit: '4kb' }), async (req, res) => {
+  if ((await getSettings()).flags.waitlist_open === false) return res.status(403).json({ error: 'The waitlist is closed right now. Please check back soon.' });
   const b = req.body || {};
   const email = String(b.email || '').trim().toLowerCase();
   const planner = Object.prototype.hasOwnProperty.call(PLANNERS, b.planner) ? b.planner : '';
