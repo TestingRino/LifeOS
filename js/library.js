@@ -172,7 +172,47 @@
   const AREA_FIX = { 'Finish a hobby project I keep putting off': 'personal', 'Host friends or family for a gathering': 'personal', 'Make a new friend or join a community': 'personal', 'Take up a hobby together': 'personal', 'Call or text a friend or family member': 'personal', 'Protect my own health while I care': 'mental', 'Take the trip that has been on my list': 'personal' };
   [...SUGGEST.goals, ...SUGGEST.habits].forEach((x) => { x.area = AREA_FIX[x.title] || P.lifeArea(x.area, x.role, x.title, true); });
 
-  const api = { PERSONAS, SUGGEST };
+
+  /* ---------- fill in a goal for someone: first steps and a reason, from its words and its life area ---------- */
+  const STEP_RULES = [
+    [/\b(run|marathon|5k|10k|half marathon|jog|swim|bike|cycle|triathlon|walk)\b/i, ['Pick a training plan and a start date', 'Complete the first full week of sessions', 'Reach the halfway distance', 'Finish the event or hit the target']],
+    [/\b(lose|weight|strength|lift|gym|workout|exercise|fitness|healthy|sleep)\b/i, ['Pick a simple weekly plan you can keep', 'Do it three times in the first two weeks', 'Review how it feels and adjust', 'Keep it going for a full month']],
+    [/\b(save|saving|budget|debt|invest|retire|retirement|emergency fund|tax|taxes|net worth)\b/i, ['Write down where things stand today', 'Set the target number and the date', 'Automate the first transfer or payment', 'Review progress on the first of each month']],
+    [/\b(learn|course|study|class|language|degree|certificate|certification|exam|lesson|skill)\b/i, ['Choose the course or resource', 'Block weekly study time on the calendar', 'Finish the first third', 'Finish and use it on something real']],
+    [/\b(write|writing|book|novel|blog|essay|article|podcast|video|album|paint|draw|art|song|music|instrument)\b/i, ['Define what finished looks like', 'Outline the main pieces', 'Make the first piece', 'Share it with one person']],
+    [/\b(trip|travel|vacation|holiday|getaway|weekend away)\b/i, ['Pick the destination and dates', 'Set the budget', 'Book travel and lodging', 'Plan what to do there']],
+    [/\b(declutter|organi[sz]e|clean|garage|closet|house|home|garden|repair|renovat|move|paperwork)\b/i, ['Pick the first space or job to tackle', 'Set aside one block of time for it', 'Finish the first space and note the result', 'Do the next one']],
+    [/\b(launch|business|customer|client|sales|marketing|revenue|startup|product|promotion|raise|interview|resume|job|career|network)\b/i, ['Write down the one result that counts', 'List the three actions that move it most', 'Do the first action this week', 'Check results in a month and adjust']],
+    [/\b(call|visit|reconnect|friend|friends|mom|dad|mother|father|sister|brother|grandparent|grandchild|relationship|marriage|spouse|date night|kids?|child|children|family)\b/i, ['Decide who and how often', 'Put the first one on the calendar', 'Do it, then note how it went', 'Make it a regular rhythm']],
+    [/\b(pray|prayer|scripture|bible|church|worship|faith|meditat|gratitude|volunteer|serve|give|donate)\b/i, ['Choose a time and place that works', 'Do it every day for one week', 'Find someone to do it with or tell', 'Review what it is changing']],
+  ];
+  const AREA_STEPS = {
+    career: ['Write down what success looks like', 'List the three actions that move it most', 'Do the first action this week', 'Review in a month'],
+    finances: ['Write down where things stand today', 'Set a target and a date', 'Automate the first step', 'Review monthly'],
+    family: ['Decide what would make a difference', 'Put the first time on the calendar', 'Do it, then note how it went', 'Make it a rhythm'],
+    faith: ['Choose a time and place', 'Do it daily for a week', 'Add one person to share it with', 'Review what it is changing'],
+    fitness: ['Pick a simple plan you can keep', 'Do the first week', 'Check how it feels and adjust', 'Keep going for a month'],
+    mental: ['Name what drains and what restores you', 'Schedule one restorative block this week', 'Notice the difference', 'Keep what helps'],
+    learning: ['Choose what to learn and how', 'Block weekly time for it', 'Finish the first part', 'Use it on something real'],
+    community: ['Pick the cause or group', 'Make the first contact', 'Show up the first time', 'Set a regular commitment'],
+    personal: ['Decide what done looks like', 'Gather what you need', 'Do the first piece', 'Finish and enjoy it'],
+    home: ['Pick the first thing to tackle', 'Set aside a block of time', 'Finish it and note the result', 'Do the next one'],
+  };
+  const AREA_WHY = {
+    career: 'Work I am proud of is how I provide and grow.', finances: 'Calm finances protect the people and plans I care about.', family: 'The people closest to me are what matter most.',
+    faith: 'My faith is the root everything else grows from.', fitness: 'Energy and health let me show up well for everything else.', mental: 'Rest and peace of mind make everything else possible.',
+    learning: 'Staying curious keeps me growing.', community: 'The place I live is better when I show up for it.', personal: 'Time for what I love keeps life full.', home: 'A well-kept home gives everyone room to breathe.',
+  };
+  /* First steps for a goal. The wording of the title wins; the life area is the fallback. */
+  function suggestSteps(title, area, n) {
+    const t = String(title || '');
+    const hit = STEP_RULES.find(([re]) => re.test(t));
+    const steps = hit ? hit[1] : (AREA_STEPS[area] || ['Define what "done" looks like', 'Break it into three steps', 'Schedule the first work block', 'Check progress in a month']);
+    return steps.slice(0, n || 3);
+  }
+  const suggestWhy = (area) => AREA_WHY[area] || '';
+
+  const api = { PERSONAS, SUGGEST, suggestSteps, suggestWhy, STEP_RULES, AREA_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LifeLibrary = api;
 })(typeof window !== 'undefined' ? window : globalThis);

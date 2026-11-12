@@ -319,7 +319,7 @@
       out.push({ t: 'Hold a planning session', d: 'No goal cycle covers today. Set your next 10–12 goals.', h: '#/goals' });
     } else {
       const n = cycleGoals(cyc.id, true).length;
-      if (n < 10) out.push({ t: `Set goals for ${esc(cyc.name)}`, d: `${n} so far. Aim for 10–12 across your roles.`, h: '#/goals' });
+      if (n < 3) out.push({ t: `Set goals for ${esc(cyc.name)}`, d: `${n} so far. Start with 3; add more any time.`, h: '#/goals' });
       const left = U.daysBetween(t, U.parseISO(cyc.end));
       if (left <= 14) out.push({ t: 'Cycle review & next planning session', d: `${left} day${left === 1 ? '' : 's'} left in this cycle.`, h: '#/goals', hot: true });
       else {
@@ -928,7 +928,7 @@
     const cp = `cycles.@${cyc.id}`;
     const all = cycleGoals(cyc.id, true);
     const n = all.filter((g) => g.kind !== 'habit').length;
-    const meterCls = n >= 10 && n <= 12 ? 'ok' : n > 12 ? 'over' : '';
+    const meterCls = n >= 3 && n <= 12 ? 'ok' : n > 12 ? 'over' : '';
     const groups = state.roles.map((r) => ({ role: r, goals: all.filter((g) => g.roleId === r.id) }));
     const orphan = all.filter((g) => !state.roles.some((r) => r.id === g.roleId));
 
@@ -973,7 +973,7 @@
         <div class="goal-meta">${habitPerWeek(p, g.perWeek || 5)}</div>
         <p class="muted small">Tick it off each day on <a href="#/today">Today</a>. Progress appears on <a href="#/track/habits">Track → Habits</a>.</p></details>`;
       return `<details class="plan" open><summary>Plan: why → milestones → objectives → routines</summary>${why}
-        <h4>1. Key milestones</h4>${list('milestones', 'Add a milestone…')}
+        <h4>1. Key milestones ${(g.milestones || []).length ? '' : `<button type="button" class="btn ghost small" data-act="suggestSteps" data-id="${g.id}">Suggest first steps</button>`}</h4>${list('milestones', 'Add a milestone…')}
         <h4>2. Quarterly objectives <small class="muted">what must be true by the end of this cycle</small></h4>${list('objectives', 'Add an objective…')}
         <h4>3. Weekly &amp; daily routines <small class="muted">tracked on Today</small></h4>${routines}</details>`;
     };
@@ -1017,7 +1017,7 @@
         <label>Name ${inp(cp + '.name')}</label>
         <label>Start ${inp(cp + '.start', '', 'date')}</label>
         <label>End ${inp(cp + '.end', '', 'date')}</label>
-        <div class="meter ${meterCls}" title="Aim for 10–12 goals per cycle (habit goals are tracked separately)"><strong>${n}</strong> goals<br><small>aim 10–12</small></div>
+        <div class="meter ${meterCls}" title="Three to twelve goals per cycle works well (habit goals are tracked separately)"><strong>${n}</strong> goals<br><small>3–12 is plenty</small></div>
       </section>
       ${state.foundation.vision ? `<blockquote class="vision small"><span>Who I'm becoming</span>${esc(state.foundation.vision.split('\n')[0])}</blockquote>` : `<p class="nudge">Tip: <a href="#/foundation">write your vision & eulogy</a> first. Goals should flow from them.</p>`}
       <section class="box"><h2>Your balance</h2>${balanceStrip(all.filter((g) => g.status === 'active').map(goalDomain), 'Active goals and habits by area. Aim for something in each.')}</section>
@@ -2323,7 +2323,7 @@
     inboxToGoal(el) {
       const it = state.inbox.find((x) => x.id === el.dataset.id);
       if (!it) return;
-      addSuggestedGoal({ title: it.text, area: 'career' }, 'achievement');
+      addSuggestedGoal({ title: it.text, area: P.lifeArea('', '', it.text, true) }, 'achievement');
       it.done = true; toast('Added as a goal. Plan it under Roles & Goals.'); commit();
     },
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
@@ -2336,6 +2336,8 @@
     demoDay(el) { demo.day = Number(el.dataset.day); render(); },
     demoHabit(el) { demo.habit[el.dataset.id] = !demo.habit[el.dataset.id]; render(); },
     demoReset() { demo = demoFresh(); location.hash = '#/welcome/1'; },
+    demoImport(el) { demo.imp = el.dataset.id; demo.impAdded = false; render(); },
+    demoImportAdd() { demo.impAdded = !demo.impAdded; render(); },
     demoPersona(el) {
       const id = el.dataset.id, i = demo.personas.indexOf(id);
       if (i >= 0) demo.personas.splice(i, 1); else demo.personas.push(id);
@@ -2394,6 +2396,14 @@
       personaRoles().forEach((r) => { if (!state.roles.some((x) => x.name.toLowerCase() === r.name.toLowerCase())) state.roles.push({ id: S.uid(), name: r.name, why: r.why }); });
       commit();
     },
+    suggestSteps(el) {
+      const g = state.goals.find((x) => x.id === el.dataset.id); if (!g) return;
+      const have = new Set((g.milestones || []).map((m) => m.text.toLowerCase()));
+      const add = L.suggestSteps(g.title, g.area, 3).filter((t) => !have.has(t.toLowerCase()));
+      g.milestones = (g.milestones || []).concat(add.map((text, i) => ({ id: S.uid(), text, due: U.toISO(U.addDays(today(), 21 * (i + 1))), done: false })));
+      if (!g.why) g.why = L.suggestWhy(g.area);
+      commit(); toast(add.length ? `Added ${add.length} suggested steps` : 'Those steps are already there');
+    },
     todayStyle(el) { state.settings.todayStyle = el.dataset.v === 'planner' ? 'planner' : 'timeline'; commit(); },
     legacySeed(el) {
       const seeds = ['The people I helped…', 'What I want my children to carry forward…', 'The cause or community I invested in…', 'The work I want to leave behind…'];
@@ -2414,7 +2424,7 @@
       quick.touched = true;
       const id = el.dataset.id, i = quick.goals.indexOf(id);
       if (i >= 0) quick.goals.splice(i, 1);
-      else if (quick.goals.length >= 5) { toast('Five is plenty to start. You can add more later.'); return; }
+      else if (quick.goals.length >= 3) { toast('Three is plenty to start. You can add more any time.'); return; }
       else quick.goals.push(id);
       render();
     },
@@ -2422,7 +2432,7 @@
       quick.touched = true;
       const id = el.dataset.id, i = quick.habits.indexOf(id);
       if (i >= 0) quick.habits.splice(i, 1);
-      else if (quick.habits.length >= 5) { toast('Five habits is a good start. You can add more later.'); return; }
+      else if (quick.habits.length >= 4) { toast('Four habits is a good start. You can add more any time.'); return; }
       else quick.habits.push(id);
       render();
     },
@@ -2430,7 +2440,7 @@
     quickAddCustom() {
       const inp = document.getElementById('quickCustom'), t = inp ? inp.value.trim() : '';
       if (!t) return;
-      if (quick.goals.length >= 5) { toast('Five is plenty to start. You can add more later.'); return; }
+      if (quick.goals.length >= 3) { toast('Three is plenty to start. You can add more any time.'); return; }
       quick.touched = true; quick.custom.push(t); quick.goals.push(`c${quick.custom.length - 1}`); render();
     },
     quickBuild() {
@@ -2439,7 +2449,7 @@
       if (quick.purpose.trim()) state.foundation.mission = quick.purpose.trim();
       const qk = quarterKey(todayISO());
       state.focus[qk] = state.focus[qk] || [];
-      goals.forEach((sg) => { const g = addSuggestedGoal(sg, 'achievement', true); if (g && !state.focus[qk].includes(g.id) && state.focus[qk].length < 4) state.focus[qk].push(g.id); });
+      goals.forEach((sg) => { const g = addSuggestedGoal({ ...sg, steps: (sg.steps || []).slice(0, 2) }, 'achievement', true); if (g && !state.focus[qk].includes(g.id) && state.focus[qk].length < 4) state.focus[qk].push(g.id); });
       habits.forEach((h) => addSuggestedGoal(h, 'habit', true));
       personaRoles().forEach((r) => roleIdFor(r.name, true));
       if (quick.rhythm) applyIdealStarter();
@@ -2741,6 +2751,12 @@
       else if (el.type === 'number') item[el.name] = el.value === '' ? (item[el.name] != null ? item[el.name] : '') : Number(el.value);
       else item[el.name] = el.value.trim();
     }
+    if (path === 'goals' && item.kind === 'achievement' && !(item.milestones || []).length) {      // fill in a reason and first steps for the goal they typed
+      const steps = L.suggestSteps(item.title, item.area || 'career', 3);
+      item.milestones = steps.map((text, i) => ({ id: S.uid(), text, due: U.toISO(U.addDays(today(), 21 * (i + 1))), done: false }));
+      if (!item.why) item.why = L.suggestWhy(item.area || 'career');
+      toast('Added with 3 suggested first steps. Edit or delete any of them.');
+    }
     if (/\.actions$/.test(path) && !item.area) { const g = state.goals.find((x) => x.id === item.goalId); item.area = g ? g.area : 'personal'; }
     list.push(item);
     commit();
@@ -2778,7 +2794,8 @@
 
   /* ---------- guided setup (onboarding) ---------- */
   /* "I am…" personas tailor the suggestion library. Items with no `for` suit everyone. */
-  const { PERSONAS, SUGGEST } = window.LifeLibrary;   // the roles, goals and habits we suggest (js/library.js)
+  const { PERSONAS, SUGGEST } = window.LifeLibrary;
+  const L = window.LifeLibrary;   // the roles, goals and habits we suggest (js/library.js)
   const personas = () => (state.settings.personas || []).filter((id) => PERSONAS.some((p) => p.id === id));
   // 0 = not for you, 1 = suits anyone, 3+ = matches what you told us
   const relScore = (item) => {
@@ -2842,9 +2859,9 @@
     const cyc = ensureCycle();
     const have = state.goals.find((g) => g.title.toLowerCase() === sg.title.toLowerCase());
     if (have) return have;
-    const g = { id: S.uid(), cycleId: cyc.id, roleId: roleIdFor(sg.role, force), title: sg.title, why: sg.why || '', area: sg.area || 'career', tier: sg.purpose ? 'purpose' : 'pursuit',
+    const g = { id: S.uid(), cycleId: cyc.id, roleId: roleIdFor(sg.role, force), title: sg.title, why: sg.why || (kind === 'habit' ? '' : L.suggestWhy(sg.area || '')), area: sg.area || 'career', tier: sg.purpose ? 'purpose' : 'pursuit',
       progress: 0, status: 'active', target: cyc.end, doneBy: cyc.end, measure: '', kind, perWeek: sg.perWeek || 5, log: {},
-      milestones: (sg.steps || []).map((text, i) => ({ id: S.uid(), text, due: U.toISO(U.addDays(today(), 21 * (i + 1))), done: false })), objectives: [],
+      milestones: (sg.steps || (kind === 'habit' ? [] : L.suggestSteps(sg.title, sg.area || 'career', 3))).map((text, i) => ({ id: S.uid(), text, due: U.toISO(U.addDays(today(), 21 * (i + 1))), done: false })), objectives: [],
       routines: sg.routine ? [{ id: S.uid(), text: sg.routine.text, perWeek: sg.routine.perWeek, log: {} }] : [] };
     state.goals.push(g);
     return g;
@@ -2863,7 +2880,7 @@
   const quickFresh = () => ({ purpose: '', goals: [], habits: [], rhythm: true, custom: [], touched: false });
   let quick = quickFresh();
   const QUICK_PURPOSES = ['To love my family well and serve my community.', 'To grow in faith, health and purpose.', 'To build a calm, intentional life.', 'To leave things better than I found them.'];
-  const quickGoalList = () => SUGGEST.goals.map((g, i) => ({ ...g, id: `g${i}` })).concat(quick.custom.map((t, i) => ({ id: `c${i}`, title: t, role: 'Me', area: 'career', why: '', steps: [] })));
+  const quickGoalList = () => SUGGEST.goals.map((g, i) => ({ ...g, id: `g${i}` })).concat(quick.custom.map((t, i) => { const area = P.lifeArea('', 'Me', t, true); return { id: `c${i}`, area, why: L.suggestWhy(area), steps: L.suggestSteps(t, area, 2), title: t, role: 'Me' }; }));
   const quickHabitList = () => SUGGEST.habits.map((h, i) => ({ ...h, id: `h${i}` }));
   // What step 3 and 4 show: best matches first, a short list until "Show more"
   const quickShown = (list, pre, selected, k, limit) => {
@@ -2874,8 +2891,8 @@
   function quickPreselect(force) {
     if (quick.touched && !force) return;
     if (!force && !personas().length) { quick.goals = []; quick.habits = []; return; }
-    quick.goals = quick.goals.filter((id) => id[0] === 'c').concat(diversePick(quickGoalList(), 'g', 5 - quick.goals.filter((id) => id[0] === 'c').length));
-    quick.habits = diversePick(quickHabitList(), 'h', 5);
+    quick.goals = quick.goals.filter((id) => id[0] === 'c').concat(diversePick(quickGoalList(), 'g', 3 - quick.goals.filter((id) => id[0] === 'c').length));
+    quick.habits = diversePick(quickHabitList(), 'h', 3);
   }
   const purposeIdeas = () => personas().map((id) => PERSONAS.find((p) => p.id === id).purpose).concat(QUICK_PURPOSES).slice(0, 5);
 
@@ -2906,41 +2923,39 @@
   }
 
   function viewQuick(arg) {
-    const n = Math.min(4, Math.max(1, Number(arg) || 1));
-    const labels = ['About you', 'Your why', 'Focus goals', 'Daily rhythm'];
+    const n = Math.min(3, Math.max(1, Number(arg) || 1));
+    const labels = ['You & your why', 'Your goals', 'Habits'];
     const bar = `<ol class="setup-steps">${labels.map((l, i) => `<li class="${i + 1 === n ? 'cur' : ''}${i + 1 < n ? ' ok' : ''}"><a href="#/quick/${i + 1}"><b>${i + 1 < n ? '✓' : i + 1}</b><span>${l}</span></a></li>`).join('')}</ol>`;
-    const card = (act, id, on, title, sub, tag) => `<button type="button" class="pick-card${on ? ' on' : ''}" data-act="${act}" data-id="${id}" aria-pressed="${on}"><strong>${esc(title)}</strong>${sub ? `<small class="muted">${esc(sub)}</small>` : ''}${tag ? `<span class="pick-tag">${esc(tag)}</span>` : ''}</button>`;
-    const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/quick/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 4
+    const card = (act, id, on, title, sub, tag, extra) => `<button type="button" class="pick-card${on ? ' on' : ''}" data-act="${act}" data-id="${id}" aria-pressed="${on}"><strong>${esc(title)}</strong>${sub ? `<small class="muted">${esc(sub)}</small>` : ''}${extra || ''}${tag ? `<span class="pick-tag">${esc(tag)}</span>` : ''}</button>`;
+    const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/quick/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 3
       ? `<a class="btn ghost" href="#/quick/${n + 1}">Skip</a><a class="btn primary" href="#/quick/${n + 1}">Next →</a>`
       : '<button type="button" class="btn primary" data-act="quickBuild">Build my plan →</button>'}</div>`;
     let body = bar;
     if (n === 1) {
-      body += personaPicker('Which of these sound like you?');
-    } else if (n === 2) {
-      body += `<section class="box"><h2>What matters most to you?</h2>
+      body += `${personaPicker('Which of these sound like you?')}
+        <section class="box"><h2>What matters most to you? <span class="muted">optional</span></h2>
         <p class="prompt">A sentence is plenty. You will see it each morning in your daily review.</p>
         <textarea data-quick="purpose" rows="2" placeholder="My purpose is to…">${esc(quick.purpose)}</textarea>
-        <div class="chips">${purposeIdeas().map((t, i) => `<button type="button" class="chip" data-act="quickPurpose" data-idx="${i}">${esc(t)}</button>`).join('')}</div></section>`;
-    } else if (n === 3) {
-      const sh = quickShown(quickGoalList(), 'g', quick.goals, 'goals', 12);
-      body += `<section class="box"><h2>Pick up to 5 goals for this quarter <span class="muted">· ${quick.goals.length} of 5</span></h2>
-        <p class="prompt">${personas().length ? 'Chosen to fit you. Untap any that are not right.' : 'Tap what you want to move forward.'} A balanced life has some career, personal, family, faith and fitness in it.</p>
-        ${balanceStrip(quickGoalList().filter((g) => quick.goals.includes(g.id)).map((g) => domainOf(g.role, g.area, g.title)))}
-        <p><button type="button" class="btn ghost small" data-act="quickBalance">Balance my picks</button></p>
-        <div class="pick-grid">${sh.items.map((g) => card('quickGoal', g.id, quick.goals.includes(g.id), g.title, g.why, g.role)).join('')}</div>
+        <div class="chips">${purposeIdeas().slice(0, 3).map((t, i) => `<button type="button" class="chip" data-act="quickPurpose" data-idx="${i}">${esc(t)}</button>`).join('')}</div></section>`;
+    } else if (n === 2) {
+      const sh = quickShown(quickGoalList(), 'g', quick.goals, 'goals', 8), picked = quickGoalList().filter((g) => quick.goals.includes(g.id));
+      body += `<section class="box"><h2>Start with up to 3 goals <span class="muted">· ${quick.goals.length} of 3</span></h2>
+        <p class="prompt">${personas().length ? 'Chosen to fit you. Untap any that are not right.' : 'Tap what you want to move forward.'} We fill in a reason and the first two steps for each. Add more any time.</p>
+        ${picked.length ? balanceStrip(picked.map((g) => domainOf(g.role, g.area, g.title))) : ''}
+        <p><button type="button" class="btn ghost small" data-act="quickBalance">Pick for me</button></p>
+        <div class="pick-grid">${sh.items.map((g) => card('quickGoal', g.id, quick.goals.includes(g.id), g.title, g.why, g.role, quick.goals.includes(g.id) && (g.steps || []).length ? `<small class="steps">First steps: ${esc((g.steps || []).slice(0, 2).join(' → '))}</small>` : '')).join('')}</div>
         ${showMoreBtn('goals', sh.hidden)}
-        <div class="add"><input id="quickCustom" placeholder="Or write your own goal…" aria-label="Your own goal"><button type="button" data-act="quickAddCustom" aria-label="Add">+</button></div></section>`;
+        <div class="add"><input id="quickCustom" placeholder="Or write your own goal…" aria-label="Your own goal"><button type="button" data-act="quickAddCustom" aria-label="Add">+</button></div>
+        ${picked.length ? `<p class="muted small">You will get ${picked.length} goal${picked.length === 1 ? '' : 's'} and ${picked.reduce((a, g) => a + Math.min(2, (g.steps || []).length), 0)} first steps.</p>` : ''}</section>`;
     } else {
-      const sh = quickShown(quickHabitList(), 'h', quick.habits, 'habits', 10);
-      body += `<section class="box"><h2>Choose your daily rhythm <span class="muted">· ${quick.habits.length} habit${quick.habits.length === 1 ? '' : 's'}</span></h2>
-        <p class="prompt">Habits appear on Today as a checkbox, with a picture of how you are doing.</p>
-        ${balanceStrip(quickHabitList().filter((h) => quick.habits.includes(h.id)).map((h) => domainOf(h.role, h.area, h.title)))}
+      const sh = quickShown(quickHabitList(), 'h', quick.habits, 'habits', 8);
+      body += `<section class="box"><h2>Pick a few habits <span class="muted">· ${quick.habits.length} chosen</span></h2>
+        <p class="prompt">Habits appear on Today as a checkbox. Three or four is plenty.</p>
         <div class="pick-grid">${sh.items.map((h) => card('quickHabit', h.id, quick.habits.includes(h.id), h.title, h.perWeek === 7 ? 'every day' : h.perWeek === 1 ? 'once a week' : `${h.perWeek}× a week`, '')).join('')}</div>
         ${showMoreBtn('habits', sh.hidden)}
-        <h3>A starter week</h3>
-        ${card('quickRhythm', 'rhythm', quick.rhythm, 'Give my week a starter rhythm', 'Workouts Monday to Friday, plus a theme for each weekday. It shows on your calendar and you can change it later.', '')}</section>`;
+        ${card('quickRhythm', 'rhythm', quick.rhythm, 'Add a starter week', 'Workouts and a theme for each weekday on your calendar. Change it later.', '')}</section>`;
     }
-    return page('Quick start', `Step ${n} of 4 · about a minute. Skip anything.`, body + nav);
+    return page('Quick start', `Step ${n} of 3 · about a minute. Skip anything.`, body + nav);
   }
   document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.quick === 'purpose') quick.purpose = e.target.value; });
 
@@ -2981,8 +2996,8 @@
     } else if (n === 3) {
       const gl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind !== 'habit' && g.status === 'active');
       const have = new Set(state.goals.map((g) => g.title.toLowerCase()));
-      body += `<section class="box"><h2>Your annual goals <span class="muted">· ${gl.length} so far · aim for about 10</span></h2>
-        <p class="prompt">Big things you want to accomplish. Habits come in step 5, so keep this list to goals you can finish.</p>
+      body += `<section class="box"><h2>Your annual goals <span class="muted">· ${gl.length} so far · start with 3 to 5</span></h2>
+        <p class="prompt">Big things you want to accomplish. Start with a few; you can add more any time. Each one gets a reason and first steps automatically.</p>
         <ul class="checks compact">${gl.map((g) => `<li><input class="inline grow" data-bind="goals.@${g.id}.title" value="${esc(g.title)}" aria-label="Goal"><small class="muted">${esc(roleName(g.roleId))}</small>
           <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
         <h3>Suggestions <small class="muted">tap to add</small></h3>
@@ -3218,6 +3233,42 @@
     </div>`;
   }
 
+
+  /* ---------- importing what you already have: examples shown on the landing page and in the demo ---------- */
+  const IMPORT_EXAMPLES = [
+    { id: 'fullfocus', label: 'Full Focus daily page', paper: ['<b>Mon · Mar 2</b>', 'BIG 3', '☐ Finish the proposal', '☑ Call Dad', '☐ 5K run', '9:30  Team standup', 'TO-DO', '☐ Pay rent', '☐ Book dentist'],
+      read: { Priorities: ['Finish the proposal', 'Call Dad ✓', '5K run'], Schedule: ['9:30a  Team standup'], 'To-dos': ['Pay rent', 'Book dentist'] } },
+    { id: 'bujo', label: 'Bullet journal page', paper: ['<b>March 2</b>', '• Buy milk', '× Pay rent', '○ Concert 7pm', '&gt; Call dentist', '– Idea: weekend hike'],
+      read: { 'To-dos': ['Buy milk', 'Pay rent ✓', 'Call dentist (moved forward)'], Schedule: ['7:00p  Concert'], Notes: ['Idea: weekend hike'] } },
+    { id: 'weekly', label: 'Weekly spread', paper: ['<b>Week of Mar 2</b>', 'Mon  Gym 6:30', 'Tue  Client call 11', 'Thu  ☐ Book flights', 'Fri  Dinner w/ Mom 6pm'],
+      read: { Schedule: ['Mon 6:30a  Gym', 'Tue 11:00a  Client call', 'Fri 6:00p  Dinner with Mom'], 'To-dos': ['Thu · Book flights'] } },
+  ];
+  const importPaper = (ex) => `<figure class="imp-paper"><figcaption>${esc(ex.label)}</figcaption><div class="hand">${ex.paper.map((l) => `<div>${l}</div>`).join('')}</div></figure>`;
+  const importRead = (ex) => `<div class="imp-read"><p class="imp-tag">Life.OS reads it in a few seconds</p>${Object.entries(ex.read).map(([h, items]) => `<h4>${esc(h)} <span>${items.length}</span></h4><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`).join('')}</div>`;
+  function importDemo() {
+    const ex = IMPORT_EXAMPLES.find((x) => x.id === demo.imp) || IMPORT_EXAMPLES[0], n = Object.values(ex.read).reduce((a, l) => a + l.length, 0);
+    return `<section class="box"><h2>Bring in what you already have</h2>
+      <p class="prompt">Take a photo of a page from the planner you use today. You check it, then it lands in your plan. Try an example:</p>
+      <div class="chips">${IMPORT_EXAMPLES.map((x) => `<button type="button" class="chip${x.id === ex.id ? ' on' : ''}" data-act="demoImport" data-id="${x.id}" aria-pressed="${x.id === ex.id}">${esc(x.label)}</button>`).join('')}</div>
+      <div class="imp-pair">${importPaper(ex)}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(ex)}</div>
+      ${demo.impAdded ? `<p class="imp-done">✓ ${n} items added to your sample plan. On Today they show up as priorities, schedule items and tasks, ready to check off. <button type="button" class="linklike" data-act="demoImportAdd">Undo</button></p>`
+        : `<p><button type="button" class="btn primary" data-act="demoImportAdd">Add these ${n} items to my plan</button></p>`}
+      <p class="muted small">Works with Full Focus, Panda, Passion, Day Designer, Franklin Covey, bullet journals, Happy Planner, Erin Condren, Moleskine and more. You can also import a calendar screenshot, connect Google Calendar, or bring a file. Photo import is invite-only while we tune accuracy.</p></section>`;
+  }
+  const importLanding = () => `<section class="land-import">
+        <h2>Already have a planner? Bring it with you.</h2>
+        <p class="land-lead">No retyping. Take a photo of a page from the planner you use today. Life.OS reads it, you check it, and it lands in your plan: priorities, schedule, to-dos, even habit ticks.</p>
+        <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[0])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[0])}</div>
+        <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[1])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[1])}</div>
+        <div class="land-chips">${['Full Focus', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Franklin Covey', 'Bullet Journal', 'Happy Planner', 'Erin Condren', 'Moleskine', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
+        <div class="land-three">
+          <div class="land-card"><span class="ico" aria-hidden="true">📸</span><h3>A photo of a page</h3><p>Daily pages, weekly spreads and rapid logs. Take several at once, such as a whole week.</p></div>
+          <div class="land-card"><span class="ico" aria-hidden="true">🗓</span><h3>Your calendars</h3><p>Connect Google Calendar to see your events beside your plan, or screenshot an Outlook or Apple week and import it after a quick review.</p></div>
+          <div class="land-card"><span class="ico" aria-hidden="true">⬆</span><h3>Files and backups</h3><p>Bring workout plans from a spreadsheet or calendar file, or restore a backup of your plan.</p></div>
+        </div>
+        <p class="land-note">Photo import is invite-only while we tune accuracy. Calendar and file imports are open to everyone. You always review before anything is added.</p>
+      </section>`;
+
   function viewLanding() {
     const cta = (primaryLabel) => `<div class="land-cta">
       <button type="button" class="btn primary big" data-act="signIn">${primaryLabel || 'Continue with Google'}</button>
@@ -3277,6 +3328,8 @@
         </ol>
       </section>
 
+      ${importLanding()}
+
       <section class="land-balance">
         <h2>A balanced life, in plain sight</h2>
         <p>Goals, habits and the Wheel of Life share the same ten areas, so you can see what is getting your time and what is being neglected. Work and money are the foundation. The rest is what they make possible.</p>
@@ -3323,7 +3376,7 @@
     purpose: 'To raise confident kids, stay healthy, and serve my community.',
     focus: ['dad', 'kids', 'run'], day: 2, scheduled: {}, habit: {},
     assigned: { 'dad:0': 2, 'kids:0': 3, 'run:0': 1 },
-    personas: [], goals: DEMO_DEFAULT_GOALS,
+    personas: [], goals: DEMO_DEFAULT_GOALS, imp: 'fullfocus', impAdded: false,
   });
   let demo = demoFresh();
   const dg = (id) => demo.goals.find((g) => g.id === id);
@@ -3356,7 +3409,7 @@
 
   function viewWelcome(arg) {
     const n = Math.min(5, Math.max(1, Number(arg) || 1));
-    const labels = ['About you', 'Purpose & goals', 'Weekly plan', 'Daily calendar', 'Make it yours'];
+    const labels = ['About you', 'Bring it in', 'Weekly plan', 'Daily calendar', 'Make it yours'];
     const stepper = `<ol class="setup-steps">${labels.map((l, i) => `<li class="${i + 1 === n ? 'cur' : ''}${i + 1 < n ? ' ok' : ''}"><a href="#/welcome/${i + 1}"><b>${i + 1 < n ? '✓' : i + 1}</b><span>${l}</span></a></li>`).join('')}</ol>`;
     const nav = `<div class="row setup-nav">${n > 1 ? `<a class="btn ghost" href="#/welcome/${n - 1}">← Back</a>` : ''}<span class="grow"></span>${n < 5 ? `<a class="btn primary" href="#/welcome/${n + 1}">Next →</a>` : ''}</div>`;
     const fg = demo.focus.map(dg);
@@ -3369,14 +3422,15 @@
       body += `<section class="box"><h2>First, which of these sound like you?</h2>
         <p class="prompt">Tap everything that fits and the sample plan on the next steps will match your life. Nothing here is saved, and you can skip it.</p>
         <div class="pick-grid">${PERSONAS.map((p) => `<button type="button" class="pick-card${on.includes(p.id) ? ' on' : ''}" data-act="demoPersona" data-id="${p.id}" aria-pressed="${on.includes(p.id)}"><strong>${esc(p.label)}</strong><small class="muted">${esc(p.sub)}</small></button>`).join('')}</div></section>`;
-    } else if (n === 2) {
-      body += `<section class="box"><h2>Turn your purpose into your calendar</h2>
+      body += `<section class="box"><h2>Your purpose and your focus goals</h2>
           <p class="prompt">A two-minute tour with sample data. Nothing here is saved.</p>
           <h3>Your purpose</h3><textarea data-demo="purpose" rows="2">${esc(demo.purpose)}</textarea>
           <h3>Choose this quarter's focus <span class="muted">· ${fg.length} of 4</span></h3>
           <div class="chips">${demo.goals.map((g) => { const on = demo.focus.includes(g.id); return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${g.color}" data-act="demoFocus" data-id="${g.id}" aria-pressed="${on}">${esc(g.title)}</button>`; }).join('')}</div>
           ${fg.length ? `<ul class="plain-list">${fg.map((g) => `<li>${gtag(g)}<small class="muted">${esc(g.why)}</small></li>`).join('')}</ul>` : '<p class="muted">Pick at least one to continue.</p>'}
         </section>`;
+    } else if (n === 2) {
+      body += importDemo();
     } else if (n === 3) {
       const tasks = demoTasks();
       body += `<section class="box"><h2>3 · Each focus goal becomes an action</h2>

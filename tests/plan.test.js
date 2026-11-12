@@ -163,3 +163,14 @@ test('OCR scoring understands planner pages', () => {
   const s = score('page', want, got);
   assert.equal(s.expected, 4); assert.equal(s.matched, 3); assert.equal(s.extra.length, 1); assert.equal(s.missed[0].text, 'Pay rent');
 });
+
+test('suggestSteps fills in sensible first steps from a goal and its area', () => {
+  const L = require('../js/library.js');
+  assert.match(L.suggestSteps('Run a half marathon', 'fitness')[0], /training plan/i);
+  assert.match(L.suggestSteps('Pay off my credit card debt', 'finances')[0], /where things stand/i);
+  assert.match(L.suggestSteps('Call grandma more often', 'family').join(' '), /calendar/i);
+  assert.equal(L.suggestSteps('Something unusual', 'home').length, 3);          // falls back to the area
+  assert.equal(L.suggestSteps('Something unusual', 'nowhere', 2).length, 2);    // and then to a generic list
+  assert.ok(P.LIFE_IDS.every((a) => L.suggestWhy(a) && L.AREA_STEPS[a].length >= 3));
+  assert.ok(L.suggestSteps('Learn Spanish', 'learning').every((x) => x.length > 5));
+});

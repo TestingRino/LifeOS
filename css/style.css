@@ -883,3 +883,22 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .pd-compact .pd-row .pl { flex-wrap: wrap; } .pd-compact .pd-row .pl-x { white-space: normal; }
 .pd-compact .pl-box { width: .95rem; height: .95rem; }
 .pd-row .pl .pl-box, .pd-any .pl .pl-box, .pw-list .pl .pl-box { margin-right: .5rem; }
+
+.pick-card .steps { display: block; margin-top: .3rem; color: var(--ok); font-size: .74rem; line-height: 1.35; }
+
+/* importing: handwritten page -> what Life.OS read */
+.land-import h2 { font-size: clamp(1.5rem, 3vw, 2rem); color: var(--navy); margin: 0 0 1rem; text-align: center; font-family: Georgia, serif; }
+.imp-pair { display: grid; grid-template-columns: minmax(0, 1fr) 2.2rem minmax(0, 1fr); gap: .6rem; align-items: center; margin: 1rem 0; }
+.imp-arrow { text-align: center; font-size: 1.6rem; color: var(--ok); }
+.imp-paper { margin: 0; background: #fffdf3; border: 1px solid var(--line); border-radius: 4px; padding: .6rem .9rem .8rem; transform: rotate(-1deg); box-shadow: 0 6px 16px rgba(80, 60, 20, .12); background-image: repeating-linear-gradient(transparent 0 1.5rem, #cfdcec 1.5rem 1.55rem); background-position: 0 2rem; position: relative; }
+.imp-paper::before { content: ''; position: absolute; top: -.5rem; left: 1.4rem; width: 4rem; height: 1rem; background: repeating-linear-gradient(45deg, rgba(168, 85, 50, .3) 0 6px, rgba(255, 255, 255, .55) 6px 12px); transform: rotate(-3deg); }
+.imp-paper figcaption { font: 600 .68rem Inter, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: .3rem; }
+.imp-paper .hand { font-family: 'Segoe Print', 'Bradley Hand', 'Chalkboard SE', 'Comic Sans MS', cursive; color: #2c3e66; font-size: .95rem; line-height: 1.5rem; }
+.imp-read { background: var(--card); border: 1px solid var(--ok); border-radius: 10px; padding: .7rem .9rem; font-size: .88rem; }
+.imp-read h4 { margin: .5rem 0 .1rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); } .imp-read h4 span { color: var(--ok); }
+.imp-read ul { list-style: none; margin: 0; padding: 0; } .imp-read li { padding: .12rem 0; border-bottom: 1px dashed var(--line); }
+.imp-tag { margin: 0 0 .2rem; color: var(--ok); font-weight: 600; font-size: .78rem; }
+.imp-done { background: color-mix(in srgb, var(--ok) 12%, var(--card)); border-radius: 8px; padding: .5rem .8rem; }
+.land-import { margin-bottom: 3.2rem; } .land-import .land-chips { margin: 1rem 0 1.4rem; }
+@media (max-width: 700px) { .imp-pair { grid-template-columns: 1fr; } .imp-arrow { transform: rotate(90deg); } }
+.imp-paper figcaption { margin-top: .4rem; }
