@@ -11,7 +11,7 @@
   function defaultState() {
     return {
       version: VERSION,
-      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, syncOn: false, syncNudgeUntil: '', personas: [], notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00', remindersOn: true, remindLead: 10, remindAt: '08:30', tasksTab: 'today' },
+      settings: { plannerStartMonth: 9, weekStart: 0, cycleMonths: 6, weightUnit: 'lbs', weightGoal: '', workoutTarget: 5, notificationsEnabled: false, gcalSelected: [], gcalMaster: '', calZoom: 1, syncOn: false, syncNudgeUntil: '', personas: [], notificationTime: '09:00', quietStart: '20:00', quietEnd: '08:00', remindersOn: true, remindLead: 10, remindAt: '08:30', tasksTab: 'today', todayStyle: 'timeline' },
       foundation: { vision: '', eulogy: '', mission: '', values: '', legacy: '' },
       roles: [],          // {id, name, why}
       cycles: [],         // {id, name, start, end, review:{wins,lessons,adjust}, roleActions:{roleId:{monthly,weekly,daily}}}

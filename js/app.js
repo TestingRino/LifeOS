@@ -777,7 +777,8 @@
       <section class="box">
         <h2>${isToday ? "Today's" : `${U.DAYS[t.getDay()]}'s`} schedule <a class="more" href="#/calendar/day:${iso}">Full calendar →</a></h2>
         ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
-        ${dayTimeline(iso, { height: 560 })}
+        <div class="chips style-toggle" role="group" aria-label="Schedule style"><button type="button" class="chip${state.settings.todayStyle === 'planner' ? '' : ' on'}" data-act="todayStyle" data-v="timeline" aria-pressed="${state.settings.todayStyle !== 'planner'}">Timeline</button><button type="button" class="chip${state.settings.todayStyle === 'planner' ? ' on' : ''}" data-act="todayStyle" data-v="planner" aria-pressed="${state.settings.todayStyle === 'planner'}">Planner</button></div>
+        ${state.settings.todayStyle === 'planner' ? `<div class="pd-scroll" data-now="${isToday ? 'y' : ''}">${plannerHours(iso, { compact: true })}</div>` : dayTimeline(iso, { height: 560 })}
       </section>
       </div><div class="today-right">
       <section class="box review${rvCount === 3 ? ' done' : ''}">
@@ -1382,24 +1383,30 @@
         <input name="text" placeholder="Add to the page: appointment, meeting, time block…" required><button aria-label="Add">+</button></form>` : ''}`;
   }
 
-  function plannerDay(iso) {
-    const list = plannerEntries(iso), d = U.parseISO(iso), isT = iso === todayISO();
+  /* The hour-by-hour page: add form, an all-day strip and hour rows with the day's items written on them. */
+  function plannerHours(iso, o) {
+    const list = plannerEntries(iso);
     const toH = (t) => Number(String(t).split(':')[0]);
     const anytime = list.filter((e) => e.allDay || !e.time), timed = list.filter((e) => !e.allDay && e.time);
     const hours = Array.from({ length: 17 }, (_, i) => i + 6);          // 6am to 10pm
     const rowFor = (h) => timed.filter((e) => Math.min(22, Math.max(6, toH(e.time))) === h);
-    const wk = U.weekKey(d, ws()), big = state.big3.filter((b) => b.date === iso);
+    return `<div class="pd-main pd-box${o && o.compact ? ' pd-compact' : ''}" data-date="${iso}">
+        <form class="add wrap pd-form" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" step="900" required aria-label="Start time">
+          <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : `${n} min` })), 30)}</select>
+          <input name="text" placeholder="Tap an hour, or write it here…" required><button aria-label="Add">+</button></form>
+        ${anytime.length ? `<div class="pd-any"><span class="pd-lbl">All day · anytime</span><ul>${anytime.map((e) => plannerLine(e, { iso })).join('')}</ul></div>` : ''}
+        <div class="pd-hours">${hours.map((h) => `<div class="pd-row" data-time="${U.pad(h)}:00"><span class="pd-h">${h === 12 ? 'noon' : esc(fmtTime(`${U.pad(h)}:00`))}</span><ul>${rowFor(h).map((e) => plannerLine(e, { iso })).join('')}</ul></div>`).join('')}</div>`;
+  }
+
+  function plannerDay(iso) {
+    const d = U.parseISO(iso), isT = iso === todayISO();
+    const big = state.big3.filter((b) => b.date === iso);
     const side = `<aside class="pd-side">
       <h3>Top priorities</h3><ul class="pl-plain">${big.length ? big.map((b) => `<li class="${b.done ? 'done' : ''}">${chk(`big3.@${b.id}.done`, 'Done')} <span>${esc(b.text)}</span></li>`).join('') : '<li class="muted">Nothing set. <a href="#/today">Pick your Big 3 →</a></li>'}</ul>
       <h3>To do</h3>${F.dayTasks ? F.dayTasks(iso, true) : ''}${F.quickAdd ? F.quickAdd(iso, 'Add a to-do…') : ''}
       ${planTray()}</aside>`;
     return `<div class="pd-head"><span class="pd-dow">${plannerDow(d)}</span><span class="pd-date${isT ? ' is-today' : ''}"><span>${d.getDate()}</span></span><span class="pd-my">${U.MONTHS[d.getMonth()]} ${d.getFullYear()}</span></div>
-      <div class="pd-cols"><div class="pd-main pd-box" data-date="${iso}">
-        <form class="add wrap pd-form" data-add="schedule"><input type="hidden" name="date" value="${iso}"><input type="time" name="time" step="900" required aria-label="Start time">
-          <select name="mins" aria-label="Length">${opts([15, 30, 45, 60, 90, 120, 180].map((n) => ({ v: n, l: n >= 60 ? `${n / 60} hr` : `${n} min` })), 30)}</select>
-          <input name="text" placeholder="Tap an hour, or write it here…" required><button aria-label="Add">+</button></form>
-        ${anytime.length ? `<div class="pd-any"><span class="pd-lbl">All day · anytime</span><ul>${anytime.map((e) => plannerLine(e, { iso })).join('')}</ul></div>` : ''}
-        <div class="pd-hours">${hours.map((h) => `<div class="pd-row" data-time="${U.pad(h)}:00"><span class="pd-h">${h === 12 ? 'noon' : esc(fmtTime(`${U.pad(h)}:00`))}</span><ul>${rowFor(h).map((e) => plannerLine(e, { iso })).join('')}</ul></div>`).join('')}</div></div>${side}</div>`;
+      <div class="pd-cols">${plannerHours(iso)}${side}</div>`;
   }
 
   function viewCalendar(arg) {
@@ -2387,6 +2394,7 @@
       personaRoles().forEach((r) => { if (!state.roles.some((x) => x.name.toLowerCase() === r.name.toLowerCase())) state.roles.push({ id: S.uid(), name: r.name, why: r.why }); });
       commit();
     },
+    todayStyle(el) { state.settings.todayStyle = el.dataset.v === 'planner' ? 'planner' : 'timeline'; commit(); },
     legacySeed(el) {
       const seeds = ['The people I helped…', 'What I want my children to carry forward…', 'The cause or community I invested in…', 'The work I want to leave behind…'];
       const cur = (state.foundation.legacy || '').trim();
@@ -3740,6 +3748,8 @@
     setMore(false);
     closeNavMenus();
     document.querySelectorAll('[data-routes]').forEach((el) => el.classList.toggle('sel', el.dataset.routes.split(' ').includes(active)));
+    const pds = app.querySelector('.pd-scroll');
+    if (pds) { const row = pds.dataset.now ? pds.querySelector(`.pd-row[data-time="${U.pad(Math.min(22, Math.max(6, new Date().getHours())))}:00"]`) : null; pds.scrollTop = row ? Math.max(0, row.offsetTop - 48) : 7 * 0 + (pds.querySelector('.pd-row[data-time="08:00"]') || { offsetTop: 0 }).offsetTop - 8; }
     const tlw = app.querySelector('.tl-wrap');
     if (tlw) tlw.scrollTop = render.last === location.hash && tlScroll != null ? tlScroll : (Number(tlw.dataset.start) || 0) * (Number(tlw.dataset.zoom) || 1);
     if (render.last === location.hash) window.scrollTo(0, y); else window.scrollTo(0, 0);
