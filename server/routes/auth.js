@@ -53,7 +53,7 @@ router.get('/google/url', (req, res) => {
   const CALENDAR_WRITE = [...CALENDAR, 'https://www.googleapis.com/auth/calendar.events']; // also add events (photo imports, ideal week, scheduled tasks)
   const SYNC = [
     'openid', 'email',                                    // who is signed in (shown in Settings)
-    'https://www.googleapis.com/auth/drive.appdata',      // Life.OS's own hidden app folder in the user's Drive
+    'https://www.googleapis.com/auth/drive.appdata',      // Telos's own hidden app folder in the user's Drive
   ];
   const kind = req.query.scopes;
   const scope = (kind === 'sync' || kind === 'signin' ? SYNC : kind === 'all' ? [...CALENDAR, ...SYNC] : kind === 'calendarwrite' ? CALENDAR_WRITE : CALENDAR).join(' ');

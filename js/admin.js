@@ -1,4 +1,4 @@
-/* Life.OS — admin screen. Loaded only when an admin opens #/admin (see app.js).
+/* Telos — admin screen. Loaded only when an admin opens #/admin (see app.js).
    It is a thin view over /api/admin/*: the server checks every request, so this file can be public. */
 (function () {
   'use strict';
@@ -95,7 +95,7 @@
     else if (k === 'approve') act(() => call(`/waitlist/${encodeURIComponent(id)}`, { method: 'POST', body: { action: 'approve' } }), 'Approved. Photo import is on for them.');
     else if (k === 'decline') act(() => call(`/waitlist/${encodeURIComponent(id)}`, { method: 'POST', body: { action: 'decline' } }), 'Declined');
     else if (k === 'reset') act(() => call(`/waitlist/${encodeURIComponent(id)}`, { method: 'POST', body: { action: 'reset' } }), 'Back to new');
-    else if (k === 'copy') { const t = `You're in! Sign in to Life.OS (${ctx.siteUrl}) with ${b.dataset.email}, then open Today and tap “Import today's page”. Reply with anything that reads wrong.`; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => ctx.toast('Invite note copied'), () => ctx.toast(t)); }
+    else if (k === 'copy') { const t = `You're in! Sign in to Telos (${ctx.siteUrl}) with ${b.dataset.email}, then open Today and tap “Import today's page”. Reply with anything that reads wrong.`; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => ctx.toast('Invite note copied'), () => ctx.toast(t)); }
     else if (k === 'edit') { editing = b.dataset.email; draw(); }
     else if (k === 'closeEdit') { editing = null; draw(); }
     else if (k === 'saveSettings') {

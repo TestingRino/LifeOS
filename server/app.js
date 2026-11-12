@@ -46,7 +46,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`Life.OS server running on port ${PORT}`);
+    console.log(`Telos server running on port ${PORT}`);
     console.log(`  Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? '✓' : '✗'}`);
     console.log(`  Claude API: ${process.env.ANTHROPIC_API_KEY ? '✓' : '✗'}`);
   });

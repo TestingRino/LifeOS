@@ -7,38 +7,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Life.OS">
+  <meta name="apple-mobile-web-app-title" content="Telos">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <title>Life.OS</title>
-  <meta name="description" content="Plan analog, execute digitally. Life.OS is the companion to your paper planner: snap a photo instead of retyping, and get reminders so the plan happens.">
+  <title>Telos — Planning for what matters</title>
+  <meta name="description" content="Telos is the companion for your paper planner. Snap a photo of your weekly spread; keep your direction close.">
   <meta name="theme-color" content="#2f3352">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261112150416">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Telos">
+  <meta property="og:title" content="Telos — Planning for what matters">
+  <meta property="og:description" content="Telos is the companion for your paper planner. Snap a photo of your weekly spread; keep your direction close.">
+  <meta property="og:image" content="https://testingrino.github.io/LifeOS/icons/social.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://testingrino.github.io/LifeOS/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Telos — Planning for what matters">
+  <meta name="twitter:description" content="The companion for your paper planner.">
+  <meta name="twitter:image" content="https://testingrino.github.io/LifeOS/icons/social.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+  <link rel="stylesheet" href="css/style.css?v=20261112173946">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#/today">Life<span>.</span>OS</a>
+    <a class="brand" href="#/today">Telos</a>
     <nav class="nav" aria-label="Main">
       <a href="#/today" data-route="today">Today</a>
-      <a href="#/week" data-route="week">Week</a>
+      <a href="#/week" data-route="week" data-lbl="week">This Week</a>
       <a href="#/calendar" data-route="calendar">Calendar</a>
-      <a href="#/tasks" data-route="tasks">Tasks</a>
-      <a href="#/goals" data-route="goals">Goals</a>
+      <a href="#/tasks" data-route="tasks" data-lbl="tasks">What’s Next</a>
+      <a href="#/goals" data-route="goals" data-lbl="goals">Your Telos</a>
       <div class="nav-group">
         <button type="button" class="nav-btn" aria-haspopup="true" aria-expanded="false" data-routes="session month year ideal summary print foundation wheel track lists archive admin">More <span aria-hidden="true">▾</span></button>
         <div class="nav-menu" hidden>
-          <a href="#/session" data-route="session"><strong>Planning sessions</strong><small>yearly to daily checklists</small></a>
+          <a href="#/session" data-route="session"><strong data-lbl="plan">Pointing Toward</strong><small>yearly to daily checklists</small></a>
           <a href="#/month" data-route="month"><strong>Month</strong><small>events and monthly priorities</small></a>
           <a href="#/year" data-route="year"><strong>Year</strong><small>key dates and annual notes</small></a>
           <a href="#/ideal" data-route="ideal"><strong>Ideal week</strong><small>your weekly rhythm</small></a>
           <a href="#/foundation" data-route="foundation"><strong>Foundation</strong><small>purpose, vision, values, legacy</small></a>
           <a href="#/wheel" data-route="wheel"><strong>Wheel of Life</strong><small>score ten areas of life</small></a>
-          <a href="#/track" data-route="track"><strong>Track</strong><small>weight, workouts, habits, goals</small></a>
-          <a href="#/lists" data-route="lists"><strong>Lists</strong><small>bucket, reading, shopping, journal</small></a>
+          <a href="#/track" data-route="track"><strong data-lbl="track">Record</strong><small>weight, workouts, habits, goals</small></a>
+          <a href="#/lists" data-route="lists"><strong data-lbl="lists">Collections</strong><small>bucket, reading, shopping, journal</small></a>
           <a href="#/summary" data-route="summary"><strong>What I finished</strong><small>weekly to yearly summary</small></a>
           <a href="#/archive" data-route="archive"><strong>Archive</strong><small>deleted items, finished work</small></a>
+          <a href="#/why-telos" data-route="why-telos"><strong data-lbl="about">Why Telos</strong><small>what the name means</small></a>
           <a href="#/admin" data-route="admin" data-admin-link hidden><strong>Admin</strong><small>people, waitlist, plans, settings</small></a>
         </div>
       </div>
@@ -47,18 +61,30 @@
       <button type="button" id="navAccount" class="nav-acct" data-act="account">Sign in</button>
     </nav>
   </header>
-  <main id="app" class="wrap"></main>
+  <main id="app" class="wrap"><!--prerender:start--><div class="landing" id="staticLanding">
+      <section class="land-hero"><div class="land-copy">
+        <h1>Telos</h1>
+        <p class="land-tag">Planning for what matters.</p>
+        <p class="land-sub">Your paper planner holds your days. Telos holds your direction — so the small decisions on Tuesday still answer to the larger ones you set on Sunday.</p>
+        <div class="land-cta"><a class="btn primary big" href="#/start">Get started</a> <a class="btn big" href="#/welcome/1">See how it works</a></div>
+      </div></section>
+      <section class="land-start"><h2>Start at the end.</h2><p>Telos is Greek for the end a thing is made for. Aristotle used it to ask a question most planning tools never quite get to: not what you’ll do this week, but what all of it is finally for.</p><p>Most productivity apps start at the task. Telos starts at the end — the roles, goals, and purposes you built your planner around in the first place. It reads your paper pages, remembers what matters, and quietly makes sure your week still points there.</p></section>
+      <section class="land-how"><h2>Three things, done well.</h2><ol class="comp-flow"><li><span class="comp-n">1</span><h3>Snap your planner.</h3><p>Take a photo of this week’s spread. Telos reads it — tasks, appointments, roles, goals — and turns it into a searchable record you carry in your pocket.</p></li><li><span class="comp-n">2</span><h3>Keep your direction close.</h3><p>Your roles and goals live one tap away. When you add a task, Telos asks the quiet question: which of these does it serve?</p></li><li><span class="comp-n">3</span><h3>Sync without friction.</h3><p>Calendar events flow to Google and Apple. Reminders reach you when they should. Your paper stays paper. Your digital stays current. Neither one fights the other.</p></li></ol></section>
+      <section class="land-who"><h2>For people who already plan on paper.</h2><p>If you use a Full Focus, Franklin, Roterunner, Monk Manual, or bullet journal — Telos is built for you. We don’t want to replace your planner. We want to make it reachable.</p></section>
+      <section class="land-why"><h2>Why Telos.</h2><p>Telos (τέλος) is an ancient Greek word for end, purpose, or the goal toward which something aims. An acorn’s telos is to become an oak. A knife’s telos is to cut well. A person’s telos — Aristotle thought — is to live a flourishing life.</p><p>We built this app because a paper planner already holds the best version of your answer to that question. The roles you chose. The goals you set when you were being honest with yourself. Telos’s only job is to keep that answer close, and to make sure your Tuesday still remembers it.</p></section>
+      <footer class="land-foot"><p>Planning for what matters.</p><p><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="contact.html">Contact</a> · <a href="https://github.com/TestingRino/LifeOS">GitHub</a></p></footer>
+    </div><!--prerender:end--></main>
 
   <nav class="tabbar" aria-label="Main">
     <a href="#/today" data-route="today"><span class="ico" aria-hidden="true">☀</span>Today</a>
-    <a href="#/week" data-route="week"><span class="ico" aria-hidden="true">☰</span>Week</a>
-    <a href="#/tasks" data-route="tasks"><span class="ico" aria-hidden="true">✓</span>Tasks</a>
-    <a href="#/goals" data-route="goals"><span class="ico" aria-hidden="true">★</span>Goals</a>
-    <a href="#/track" data-route="track"><span class="ico" aria-hidden="true">↗</span>Track</a>
-    <button type="button" id="moreBtn" aria-expanded="false" aria-controls="moreSheet" data-more-routes="foundation year calendar month session ideal wheel lists summary archive settings"><span class="ico" aria-hidden="true">⋯</span>More</button>
+    <a href="#/week" data-route="week"><span class="ico" aria-hidden="true">☰</span><span data-lbl="week">This Week</span></a>
+    <a href="#/tasks" data-route="tasks"><span class="ico" aria-hidden="true">✓</span><span data-lbl="tasks">What’s Next</span></a>
+    <a href="#/goals" data-route="goals"><span class="ico" aria-hidden="true">★</span><span data-lbl="goals">Your Telos</span></a>
+    <a href="#/track" data-route="track"><span class="ico" aria-hidden="true">↗</span><span data-lbl="track">Record</span></a>
+    <button type="button" id="moreBtn" aria-expanded="false" aria-controls="moreSheet" data-more-routes="why-telos foundation year calendar month session ideal wheel lists summary archive settings"><span class="ico" aria-hidden="true">⋯</span>More</button>
   </nav>
   <div id="moreSheet" class="more-sheet" hidden>
-    <a href="#" data-act="search">Search <small>everything in Life.OS</small></a>
+    <a href="#" data-act="search">Search <small>everything in Telos</small></a>
     <a href="#/month" data-route="month">Month <small>events and monthly priorities</small></a>
     <a href="#/summary" data-route="summary">What I finished <small>weekly to yearly summary</small></a>
     <a href="#/archive" data-route="archive">Archive <small>deleted items, finished work</small></a>
@@ -66,14 +92,15 @@
     <a href="#/foundation" data-route="foundation">Foundation <small>vision, eulogy, values</small></a>
     <a href="#/year" data-route="year">Year <small>key dates & annual notes</small></a>
     <a href="#/calendar" data-route="calendar">Calendar <small>day, week, month</small></a>
-    <a href="#/session" data-route="session">Planning sessions <small>yearly, quarterly, monthly, weekly, daily</small></a>
+    <a href="#/session" data-route="session"><span data-lbl="plan">Pointing Toward</span> <small>yearly, quarterly, monthly, weekly, daily</small></a>
     <a href="#/ideal" data-route="ideal">Ideal week <small>your weekly rhythm</small></a>
     <a href="#/wheel" data-route="wheel">Wheel of Life <small>score 7 areas, track balance</small></a>
-    <a href="#/lists" data-route="lists">Lists <small>bucket, hobbies, shopping, reading</small></a>
+    <a href="#/lists" data-route="lists"><span data-lbl="lists">Collections</span> <small>bucket, hobbies, shopping, reading</small></a>
+    <a href="#/why-telos" data-route="why-telos"><span data-lbl="about">Why Telos</span> <small>what the name means</small></a>
     <a href="#/welcome/1" data-route="welcome">Take the tour <small>interactive demo</small></a>
     <a href="#/settings" data-route="settings">Settings <small>planner, backup</small></a>
   </div>
-  <footer class="foot wrap"><span id="syncStatus" class="sync-status"></span><br><span id="quoteText"></span> <button type="button" class="quote-next" data-act="nextQuote" aria-label="Show another quote" title="Another quote">↻</button><br><a href="#/welcome/1">Take the tour</a> · <a href="#/landing">About Life.OS</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="#/setup/1">Setup guide</a> · <button type="button" class="linklike" data-act="shortcuts">Shortcuts</button><br><small class="muted" id="appVer"></small></footer>
+  <footer class="foot wrap"><span id="syncStatus" class="sync-status"></span><br><span id="quoteText"></span> <button type="button" class="quote-next" data-act="nextQuote" aria-label="Show another quote" title="Another quote">↻</button><br><a href="#/welcome/1">Take the tour</a> · <a href="#/why-telos" data-lbl="about">Why Telos</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="contact.html">Contact</a> · <a href="#/setup/1">Setup guide</a> · <button type="button" class="linklike" data-act="shortcuts">Shortcuts</button><br><small class="muted" id="appVer"></small></footer>
 
   <dialog id="dlg">
     <form method="dialog">
@@ -87,7 +114,7 @@
   <dialog id="uploadDlg">
     <form method="dialog">
       <h2>Upload photo</h2>
-      <p class="muted small">Take a photo or screenshot of a calendar or planner page and Life.OS will read it. Choose several photos to read a whole week at once.</p>
+      <p class="muted small">Take a photo or screenshot of a calendar or planner page and Telos will read it. Choose several photos to read a whole week at once.</p>
       <label class="field">What is it?
         <select id="uploadType">
           <option value="auto">Auto-detect</option>
@@ -106,7 +133,7 @@
           <option value="journal">Journal or notes</option>
         </select></label>
       <label class="field" id="uploadPlannerWrap">Which planner? <small class="muted">(optional, helps it read the layout)</small>
-        <select id="uploadPlanner"><option value="">Not sure / auto-detect</option><option value="fullfocus">Full Focus Planner</option><option value="panda">Panda Planner</option><option value="passion">Passion Planner</option><option value="daydesigner">Day Designer</option><option value="franklin">Franklin Covey</option><option value="bujo">Bullet Journal (rapid logging)</option><option value="happyplanner">Happy Planner</option><option value="erincondren">Erin Condren LifePlanner</option><option value="moleskine">Moleskine / Leuchtturm1917 / weekly diary</option><option value="hobonichi">Hobonichi Techo</option><option value="cultivate">Cultivate What Matters (Powersheets)</option><option value="simplified">Simplified Planner / Ink+Volt / Clever Fox</option><option value="other">Another planner or notebook</option></select></label>
+        <select id="uploadPlanner"><option value="">Not sure / auto-detect</option><option value="fullfocus">Full Focus Planner</option><option value="panda">Panda Planner</option><option value="passion">Passion Planner</option><option value="daydesigner">Day Designer</option><option value="franklin">Franklin Covey</option><option value="bujo">Bullet Journal (rapid logging)</option><option value="happyplanner">Happy Planner</option><option value="erincondren">Erin Condren LifePlanner</option><option value="moleskine">Moleskine / Leuchtturm1917 / weekly diary</option><option value="roterunner">Roterunner</option><option value="monkmanual">Monk Manual</option><option value="hobonichi">Hobonichi Techo</option><option value="cultivate">Cultivate What Matters (Powersheets)</option><option value="simplified">Simplified Planner / Ink+Volt / Clever Fox</option><option value="other">Another planner or notebook</option></select></label>
       <label class="field" id="uploadCalWrap" hidden>Calendar name <small class="muted">(optional, e.g. Work or Family)</small>
         <input id="uploadCal" placeholder="Work"></label>
       <p class="muted small" id="uploadCalTip" hidden>Tip: include the hour labels down the left side so times are exact. You can choose several screenshots at once.</p>
@@ -145,8 +172,8 @@
 
   <dialog id="loginDlg">
     <form method="dialog">
-      <h2>Welcome to Life.OS</h2>
-      <p class="muted">Sign in with Google to keep your plan safe in your own Google Drive and open it on any device. New here? Your first sign-in creates your account. There is nothing else to fill in.</p>
+      <h2>Welcome to Telos.</h2>
+      <p class="muted">Telos would like to access your Google Drive. Telos uses your Drive to store your planner data privately in your own account. We don’t see it. We don’t keep a copy. Your telos is yours.</p>
       <div class="sync-choices">
         <button type="button" class="btn primary" id="loginGoogleBtn">Continue with Google</button>
         <button class="btn ghost" id="loginSkipBtn">Continue without an account</button>
@@ -173,14 +200,15 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/config.js?v=20261112150416"></script>
-  <script src="js/util.js?v=20261112150416"></script>
-  <script src="js/plan.js?v=20261112150416"></script>
-  <script src="js/library.js?v=20261112150416"></script>
-  <script src="js/store.js?v=20261112150416"></script>
-  <script src="js/features.js?v=20261112150416"></script>
-  <script src="js/vendor/supabase.js?v=20261112150416"></script>
-  <script src="js/auth.js?v=20261112150416"></script>
-  <script src="js/app.js?v=20261112150416"></script>
+  <script src="js/config.js?v=20261112173946"></script>
+  <script src="js/copy.js?v=20261112173946"></script>
+  <script src="js/util.js?v=20261112173946"></script>
+  <script src="js/plan.js?v=20261112173946"></script>
+  <script src="js/library.js?v=20261112173946"></script>
+  <script src="js/store.js?v=20261112173946"></script>
+  <script src="js/features.js?v=20261112173946"></script>
+  <script src="js/vendor/supabase.js?v=20261112173946"></script>
+  <script src="js/auth.js?v=20261112173946"></script>
+  <script src="js/app.js?v=20261112173946"></script>
 </body>
 </html>
