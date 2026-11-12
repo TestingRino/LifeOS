@@ -902,3 +902,17 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .land-import { margin-bottom: 3.2rem; } .land-import .land-chips { margin: 1rem 0 1.4rem; }
 @media (max-width: 700px) { .imp-pair { grid-template-columns: 1fr; } .imp-arrow { transform: rotate(90deg); } }
 .imp-paper figcaption { margin-top: .4rem; }
+
+/* companion messaging */
+.land-tag { font-family: Georgia, serif; font-style: italic; font-size: clamp(1.15rem, 2.4vw, 1.5rem); color: var(--ok); margin: -.2rem 0 .9rem; }
+.land-companion { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 2rem 1.4rem 1.4rem; }
+.land-companion h2 { font-size: clamp(1.5rem, 3vw, 2rem); color: var(--navy); margin: 0 0 .6rem; text-align: center; font-family: Georgia, serif; }
+.comp-flow { list-style: none; margin: 1.2rem 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; counter-reset: none; }
+.comp-flow li { position: relative; padding: 1rem 1rem 1rem 1rem; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+.comp-flow li:not(:last-child)::after { content: '→'; position: absolute; right: -.95rem; top: 50%; transform: translateY(-50%); color: var(--ok); font-size: 1.4rem; background: var(--card); border-radius: 50%; width: 1.6rem; text-align: center; z-index: 1; }
+.comp-n { display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--navy); color: #fff; font-size: .9rem; margin-bottom: .4rem; }
+.comp-flow h3 { margin: 0 0 .3rem; font-family: Georgia, serif; font-size: 1.1rem; } .comp-flow p { margin: 0; font-size: .92rem; color: var(--muted); line-height: 1.5; }
+.comp-notes { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: center; margin: 1.2rem 0 .6rem; }
+.notif { width: min(21rem, 100%); background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: .6rem .8rem; box-shadow: 0 8px 20px rgba(60, 45, 20, .12); display: grid; grid-template-columns: 1fr auto; column-gap: .6rem; font-size: .9rem; }
+.notif b { font-size: .78rem; color: var(--navy); } .notif span { font-size: .75rem; color: var(--muted); } .notif p { grid-column: 1 / -1; margin: .15rem 0 0; }
+@media (max-width: 760px) { .comp-flow { grid-template-columns: 1fr; } .comp-flow li:not(:last-child)::after { content: '↓'; right: auto; left: 50%; top: auto; bottom: -1.1rem; transform: translateX(-50%); } }

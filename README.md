@@ -1,8 +1,10 @@
 # Life.OS
 
-A purpose-based life planning tool built to work **alongside a physical planner**.
-Start with who you want to become, set 10–12 goals per planning cycle, then revisit them
-every quarter, month and week. The app keeps it all connected so every weekly action traces
+**Plan analog. Execute digitally.** Life.OS is a purpose-based life planning tool built as the
+**companion to your paper planner**: keep planning on paper, snap a photo instead of retyping it
+(priorities, schedule and to-dos arrive after a quick review), and get built-in reminders so the plan
+happens. Start with who you want to become, pick a few goals (3 to 5 is plenty to begin), then revisit
+them every quarter, month and week. The app keeps it all connected so every weekly action traces
 back to a goal, every goal to a role, and every role to your vision.
 
 ## How it fits together

@@ -3248,7 +3248,7 @@
   function importDemo() {
     const ex = IMPORT_EXAMPLES.find((x) => x.id === demo.imp) || IMPORT_EXAMPLES[0], n = Object.values(ex.read).reduce((a, l) => a + l.length, 0);
     return `<section class="box"><h2>Bring in what you already have</h2>
-      <p class="prompt">Take a photo of a page from the planner you use today. You check it, then it lands in your plan. Try an example:</p>
+      <p class="prompt"><strong>Plan analog, execute digitally.</strong> Keep writing in your paper planner. Snap a photo instead of retyping it, check what Life.OS read, and it lands in your plan with reminders ready. Try an example:</p>
       <div class="chips">${IMPORT_EXAMPLES.map((x) => `<button type="button" class="chip${x.id === ex.id ? ' on' : ''}" data-act="demoImport" data-id="${x.id}" aria-pressed="${x.id === ex.id}">${esc(x.label)}</button>`).join('')}</div>
       <div class="imp-pair">${importPaper(ex)}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(ex)}</div>
       ${demo.impAdded ? `<p class="imp-done">✓ ${n} items added to your sample plan. On Today they show up as priorities, schedule items and tasks, ready to check off. <button type="button" class="linklike" data-act="demoImportAdd">Undo</button></p>`
@@ -3256,8 +3256,8 @@
       <p class="muted small">Works with Full Focus, Panda, Passion, Day Designer, Franklin Covey, bullet journals, Happy Planner, Erin Condren, Moleskine and more. You can also import a calendar screenshot, connect Google Calendar, or bring a file. Photo import is invite-only while we tune accuracy.</p></section>`;
   }
   const importLanding = () => `<section class="land-import">
-        <h2>Already have a planner? Bring it with you.</h2>
-        <p class="land-lead">No retyping. Take a photo of a page from the planner you use today. Life.OS reads it, you check it, and it lands in your plan: priorities, schedule, to-dos, even habit ticks.</p>
+        <h2>Here is what that looks like</h2>
+        <p class="land-lead">A page from your planner on the left, what Life.OS read from it on the right: priorities, schedule, to-dos, notes, even habit ticks. You review it, then it lands in your plan.</p>
         <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[0])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[0])}</div>
         <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[1])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[1])}</div>
         <div class="land-chips">${['Full Focus', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Franklin Covey', 'Bullet Journal', 'Happy Planner', 'Erin Condren', 'Moleskine', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
@@ -3279,9 +3279,10 @@
     return `<div class="landing">
       <section class="land-hero">
         <div class="land-copy">
-          <p class="land-kicker">Life.OS · purpose-based planning</p>
+          <p class="land-kicker">Life.OS · the companion to your paper planner</p>
           <h1>Build a life that matters, <em>not just a longer to-do list.</em></h1>
-          <p class="land-sub">Life.OS starts with what you want your life to stand for: the work you are called to, the people you love, the faith, health and community that sustain you. Then it turns that into goals, habits and a calendar you can actually follow, so the things you do add up to the life you want.</p>
+          <p class="land-tag">Plan analog. Execute digitally.</p>
+          <p class="land-sub">Life.OS starts with what you want your life to stand for: the work you are called to, the people you love, the faith, health and community that sustain you. Keep planning on paper if that is how you think best. Life.OS carries the plan into your day: snap a photo instead of retyping it, and get reminders so it actually happens.</p>
           ${cta()}
           <p class="land-note">No account needed. Your plan stays on your device, or in your own Google Drive if you sign in.</p>
         </div>
@@ -3297,6 +3298,21 @@
             <div class="lp-item"><i></i>Pay rent <span class="lp-tag">↻ monthly</span></div>
           </div>
         </div>
+      </section>
+
+      <section class="land-companion">
+        <h2>Keep your paper planner. Skip the re-entering.</h2>
+        <p class="land-lead">Paper is great for thinking and deciding. Phones are great for reminding and doing. Life.OS connects them, so you never copy a page by hand.</p>
+        <ol class="comp-flow">
+          <li><span class="comp-n">1</span><h3>Plan on paper</h3><p>Use the planner you love: Full Focus, Panda, Passion, a bullet journal, a plain notebook. Write the week the way you always have.</p></li>
+          <li><span class="comp-n">2</span><h3>Snap it. Don't retype it.</h3><p>Take a photo of the page. Life.OS reads the priorities, schedule and to-dos, and you check them before anything is added.</p></li>
+          <li><span class="comp-n">3</span><h3>Execute digitally</h3><p>Your day appears on Today with checkboxes and a calendar, and reminders nudge you when it is time.</p></li>
+        </ol>
+        <div class="comp-notes" aria-hidden="true">
+          <div class="notif"><b>Life.OS</b><span>9:20 AM</span><p>Team standup in 10 minutes</p></div>
+          <div class="notif"><b>Life.OS</b><span>8:30 AM</span><p>3 tasks for today: Finish the proposal, Call Dad, Pay rent</p></div>
+        </div>
+        <p class="land-note">Reminders for tasks, plus a morning digest, arrive on your phone when Life.OS is installed or open. Photo import is invite-only while we tune accuracy.</p>
       </section>
 
       <section class="land-work">
@@ -3460,7 +3476,7 @@
           </div></div>`;
     } else {
       body += `<section class="box demo-hero"><h2>5 · Make it yours</h2>
-          <p class="lead">Purpose, focus goals, a weekly plan, and a daily calendar, with a short review to keep it honest.</p>
+          <p class="lead">Plan on paper if you like, then snap a photo instead of retyping it. Purpose, focus goals, a weekly plan, a daily calendar and reminders keep it moving.</p>
           <div class="row"><button type="button" class="btn primary" data-act="demoStart" data-to="quick">Quick start (about 1 minute)</button>${signedIn() ? '' : '<button type="button" class="btn" data-act="signIn">Sign in with Google</button>'}<button type="button" class="btn ghost" data-act="demoStart" data-to="setup">Full guide (about 5 minutes)</button><a class="btn ghost" href="#/today">Skip, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
     }
     return page('Welcome to Life.OS', `Interactive demo · step ${n} of 5 · sample data only`, body + nav);
