@@ -32,7 +32,7 @@ test.before(async () => {
 });
 test.after(() => { srv.close(); google.close(); });
 
-test('CORS only allows the Life.OS site', async () => {
+test('CORS only allows the Telos site', async () => {
   const ok = await fetch(`${base}/health`, { headers: { Origin: 'https://testingrino.github.io' } });
   assert.equal(ok.headers.get('access-control-allow-origin'), 'https://testingrino.github.io');
   const bad = await fetch(`${base}/health`, { headers: { Origin: 'https://evil.example' } });

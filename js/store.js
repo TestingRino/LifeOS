@@ -1,4 +1,4 @@
-/* Life.OS — state, persistence and path helpers. */
+/* Telos — state, persistence and path helpers. */
 (function (root) {
   'use strict';
 
@@ -94,14 +94,14 @@
       const raw = localStorage.getItem(KEY);
       return raw ? migrate(JSON.parse(raw)) : defaultState();
     } catch (e) {
-      console.warn('Life.OS: could not read saved data', e);
+      console.warn('Telos: could not read saved data', e);
       return defaultState();
     }
   }
 
   function save(state) {
     try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
-    catch (e) { console.warn('Life.OS: could not save', e); return false; }
+    catch (e) { console.warn('Telos: could not save', e); return false; }
   }
 
   function emptyMonth() {

@@ -1,4 +1,4 @@
-/* Life.OS — pure planning logic: life areas, recurrence, quick-add parsing, rollover, search,
+/* Telos — pure planning logic: life areas, recurrence, quick-add parsing, rollover, search,
    summaries and templates. No DOM; usable in the browser and in Node tests. */
 (function (root) {
   'use strict';

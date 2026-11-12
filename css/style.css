@@ -1,4 +1,4 @@
-/* Life.OS: paper-and-ink styling inspired by a purpose planner */
+/* Telos: paper-and-ink styling inspired by a purpose planner */
 /* Palette: warm paper, ink-blue structure, one sage accent. Clay is reserved for things that need attention. */
 :root {
   --paper: #f6f0e4;
@@ -886,7 +886,7 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 
 .pick-card .steps { display: block; margin-top: .3rem; color: var(--ok); font-size: .74rem; line-height: 1.35; }
 
-/* importing: handwritten page -> what Life.OS read */
+/* importing: handwritten page -> what Telos read */
 .land-import h2 { font-size: clamp(1.5rem, 3vw, 2rem); color: var(--navy); margin: 0 0 1rem; text-align: center; font-family: Georgia, serif; }
 .imp-pair { display: grid; grid-template-columns: minmax(0, 1fr) 2.2rem minmax(0, 1fr); gap: .6rem; align-items: center; margin: 1rem 0; }
 .imp-arrow { text-align: center; font-size: 1.6rem; color: var(--ok); }

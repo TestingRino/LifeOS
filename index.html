@@ -7,19 +7,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Life.OS">
+  <meta name="apple-mobile-web-app-title" content="Telos">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <title>Life.OS</title>
-  <meta name="description" content="Plan analog, execute digitally. Life.OS is the companion to your paper planner: snap a photo instead of retyping, and get reminders so the plan happens.">
+  <title>Telos</title>
+  <meta name="description" content="Planning for what matters. Telos is the companion to your paper planner: snap a photo of the page, keep a searchable record, and let reminders carry the plan.">
   <meta name="theme-color" content="#2f3352">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3EL%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20261112150416">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f3352'/%3E%3Ctext x='16' y='22' font-family='Georgia' font-size='17' text-anchor='middle' fill='%23f1e3c4'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css?v=20261112173014">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#/today">Life<span>.</span>OS</a>
+    <a class="brand" href="#/today">Telos</a>
     <nav class="nav" aria-label="Main">
       <a href="#/today" data-route="today">Today</a>
       <a href="#/week" data-route="week">Week</a>
@@ -58,7 +58,7 @@
     <button type="button" id="moreBtn" aria-expanded="false" aria-controls="moreSheet" data-more-routes="foundation year calendar month session ideal wheel lists summary archive settings"><span class="ico" aria-hidden="true">⋯</span>More</button>
   </nav>
   <div id="moreSheet" class="more-sheet" hidden>
-    <a href="#" data-act="search">Search <small>everything in Life.OS</small></a>
+    <a href="#" data-act="search">Search <small>everything in Telos</small></a>
     <a href="#/month" data-route="month">Month <small>events and monthly priorities</small></a>
     <a href="#/summary" data-route="summary">What I finished <small>weekly to yearly summary</small></a>
     <a href="#/archive" data-route="archive">Archive <small>deleted items, finished work</small></a>
@@ -73,7 +73,7 @@
     <a href="#/welcome/1" data-route="welcome">Take the tour <small>interactive demo</small></a>
     <a href="#/settings" data-route="settings">Settings <small>planner, backup</small></a>
   </div>
-  <footer class="foot wrap"><span id="syncStatus" class="sync-status"></span><br><span id="quoteText"></span> <button type="button" class="quote-next" data-act="nextQuote" aria-label="Show another quote" title="Another quote">↻</button><br><a href="#/welcome/1">Take the tour</a> · <a href="#/landing">About Life.OS</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="#/setup/1">Setup guide</a> · <button type="button" class="linklike" data-act="shortcuts">Shortcuts</button><br><small class="muted" id="appVer"></small></footer>
+  <footer class="foot wrap"><span id="syncStatus" class="sync-status"></span><br><span id="quoteText"></span> <button type="button" class="quote-next" data-act="nextQuote" aria-label="Show another quote" title="Another quote">↻</button><br><a href="#/welcome/1">Take the tour</a> · <a href="#/landing">About Telos</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="#/setup/1">Setup guide</a> · <button type="button" class="linklike" data-act="shortcuts">Shortcuts</button><br><small class="muted" id="appVer"></small></footer>
 
   <dialog id="dlg">
     <form method="dialog">
@@ -87,7 +87,7 @@
   <dialog id="uploadDlg">
     <form method="dialog">
       <h2>Upload photo</h2>
-      <p class="muted small">Take a photo or screenshot of a calendar or planner page and Life.OS will read it. Choose several photos to read a whole week at once.</p>
+      <p class="muted small">Take a photo or screenshot of a calendar or planner page and Telos will read it. Choose several photos to read a whole week at once.</p>
       <label class="field">What is it?
         <select id="uploadType">
           <option value="auto">Auto-detect</option>
@@ -106,7 +106,7 @@
           <option value="journal">Journal or notes</option>
         </select></label>
       <label class="field" id="uploadPlannerWrap">Which planner? <small class="muted">(optional, helps it read the layout)</small>
-        <select id="uploadPlanner"><option value="">Not sure / auto-detect</option><option value="fullfocus">Full Focus Planner</option><option value="panda">Panda Planner</option><option value="passion">Passion Planner</option><option value="daydesigner">Day Designer</option><option value="franklin">Franklin Covey</option><option value="bujo">Bullet Journal (rapid logging)</option><option value="happyplanner">Happy Planner</option><option value="erincondren">Erin Condren LifePlanner</option><option value="moleskine">Moleskine / Leuchtturm1917 / weekly diary</option><option value="hobonichi">Hobonichi Techo</option><option value="cultivate">Cultivate What Matters (Powersheets)</option><option value="simplified">Simplified Planner / Ink+Volt / Clever Fox</option><option value="other">Another planner or notebook</option></select></label>
+        <select id="uploadPlanner"><option value="">Not sure / auto-detect</option><option value="fullfocus">Full Focus Planner</option><option value="panda">Panda Planner</option><option value="passion">Passion Planner</option><option value="daydesigner">Day Designer</option><option value="franklin">Franklin Covey</option><option value="bujo">Bullet Journal (rapid logging)</option><option value="happyplanner">Happy Planner</option><option value="erincondren">Erin Condren LifePlanner</option><option value="moleskine">Moleskine / Leuchtturm1917 / weekly diary</option><option value="roterunner">Roterunner</option><option value="monkmanual">Monk Manual</option><option value="hobonichi">Hobonichi Techo</option><option value="cultivate">Cultivate What Matters (Powersheets)</option><option value="simplified">Simplified Planner / Ink+Volt / Clever Fox</option><option value="other">Another planner or notebook</option></select></label>
       <label class="field" id="uploadCalWrap" hidden>Calendar name <small class="muted">(optional, e.g. Work or Family)</small>
         <input id="uploadCal" placeholder="Work"></label>
       <p class="muted small" id="uploadCalTip" hidden>Tip: include the hour labels down the left side so times are exact. You can choose several screenshots at once.</p>
@@ -145,7 +145,7 @@
 
   <dialog id="loginDlg">
     <form method="dialog">
-      <h2>Welcome to Life.OS</h2>
+      <h2>Welcome to Telos</h2>
       <p class="muted">Sign in with Google to keep your plan safe in your own Google Drive and open it on any device. New here? Your first sign-in creates your account. There is nothing else to fill in.</p>
       <div class="sync-choices">
         <button type="button" class="btn primary" id="loginGoogleBtn">Continue with Google</button>
@@ -173,14 +173,14 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <div id="tip" role="tooltip" hidden></div>
 
-  <script src="js/config.js?v=20261112150416"></script>
-  <script src="js/util.js?v=20261112150416"></script>
-  <script src="js/plan.js?v=20261112150416"></script>
-  <script src="js/library.js?v=20261112150416"></script>
-  <script src="js/store.js?v=20261112150416"></script>
-  <script src="js/features.js?v=20261112150416"></script>
-  <script src="js/vendor/supabase.js?v=20261112150416"></script>
-  <script src="js/auth.js?v=20261112150416"></script>
-  <script src="js/app.js?v=20261112150416"></script>
+  <script src="js/config.js?v=20261112173014"></script>
+  <script src="js/util.js?v=20261112173014"></script>
+  <script src="js/plan.js?v=20261112173014"></script>
+  <script src="js/library.js?v=20261112173014"></script>
+  <script src="js/store.js?v=20261112173014"></script>
+  <script src="js/features.js?v=20261112173014"></script>
+  <script src="js/vendor/supabase.js?v=20261112173014"></script>
+  <script src="js/auth.js?v=20261112173014"></script>
+  <script src="js/app.js?v=20261112173014"></script>
 </body>
 </html>

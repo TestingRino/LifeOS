@@ -1,4 +1,4 @@
-/* Life.OS public configuration. Everything here is safe to publish: the Supabase anon key only works through
+/* Telos public configuration. Everything here is safe to publish: the Supabase anon key only works through
    Row Level Security, and the PostHog key is a write-only project key.
    Leave supabaseUrl empty to run in the older Google-Drive mode; fill it in to switch to accounts (see DEPLOY.md). */
 window.LIFEOS_CONFIG = {

@@ -1,6 +1,6 @@
-# Life.OS — User Guide for Friends & Family
+# Telos — User Guide for Friends & Family
 
-Welcome! This guide explains how to use Life.OS.
+Welcome! This guide explains how to use Telos.
 
 ## Getting Started (30 seconds)
 
@@ -51,7 +51,7 @@ Supported photos:
 
 ### 📸 Photo import: which planners work
 
-Choose **Planner page** and (optionally) your planner brand: Full Focus, Panda, Passion, Day Designer, Franklin Covey, Bullet Journal, Happy Planner, Erin Condren, Moleskine / Leuchtturm, Hobonichi, Cultivate What Matters, Simplified / Ink+Volt / Clever Fox, or another. Life.OS reads priorities (your Big 3), the hourly schedule, to-dos with their checkboxes, notes and gratitude, and habit-tracker ticks. You can choose several photos at once, such as every day of a week. Bullet-journal symbols (•, ×, >, <, ○, –, *) are understood too.
+Choose **Planner page** and (optionally) your planner brand: Full Focus, Panda, Passion, Day Designer, Franklin Covey, Bullet Journal, Happy Planner, Erin Condren, Moleskine / Leuchtturm, Hobonichi, Cultivate What Matters, Simplified / Ink+Volt / Clever Fox, or another. Telos reads priorities (your Big 3), the hourly schedule, to-dos with their checkboxes, notes and gratitude, and habit-tracker ticks. You can choose several photos at once, such as every day of a week. Bullet-journal symbols (•, ×, >, <, ○, –, *) are understood too.
 
 Everything goes through a review screen first: fix anything misread and untick what you don't want. Reading handwriting is never perfect, so check the dates and times in particular.
 
@@ -61,7 +61,7 @@ Everything goes through a review screen first: fix anything misread and untick w
 2. Click **Connect Google Calendar**
 3. Log in to Google
 4. Grant permission
-5. Your calendar shows up in your Life.OS Week view ✅
+5. Your calendar shows up in your Telos Week view ✅
 
 ---
 
@@ -85,8 +85,8 @@ Important: **Export your data regularly**
 - **Plan by dragging.** Drag a task onto a day in the Week page to plan it for that day, or onto a time slot on the calendar to time-block it.
 - **Move undone to tomorrow.** On Today (and the Tasks page) one tap moves everything you did not finish: tasks, planned priorities and your Big 3. Repeating tasks and habits stay put, because they are not meant to pile up.
 - **Templates.** *From template* adds a ready-made checklist: weekly review, monthly money review, trip checklist (counted back from your departure date), project plan, hosting a gathering and more. Save any project as your own template.
-- **Reminders.** Set a reminder in a task, and turn on notifications in Settings. Reminders and a morning digest appear while Life.OS is open, or installed on your phone or computer and running in the background. A fully closed app cannot be woken without a push service.
-- **Works offline.** After the first visit Life.OS opens without a connection and syncs when you are back online.
+- **Reminders.** Set a reminder in a task, and turn on notifications in Settings. Reminders and a morning digest appear while Telos is open, or installed on your phone or computer and running in the background. A fully closed app cannot be woken without a push service.
+- **Works offline.** After the first visit Telos opens without a connection and syncs when you are back online.
 
 ## Search, undo and the Archive
 
@@ -177,7 +177,7 @@ Goals, the balance view and the Wheel of Life share ten areas: Career, Finances,
 - Make sure the photo clearly shows the data (schedule, goals, etc.)
 
 **"I want to use on my phone"**
-- Open Life.OS in Safari or Chrome
+- Open Telos in Safari or Chrome
 - Tap Share → Add to Home Screen
 - Now it's an app on your phone! 📱
 

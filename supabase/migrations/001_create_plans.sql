@@ -1,4 +1,4 @@
--- Life.OS: one private row per user holding their whole plan as JSON.
+-- Telos: one private row per user holding their whole plan as JSON.
 -- Users live in Supabase Auth (auth.users); this table only stores the plan.
 
 create table if not exists plans (

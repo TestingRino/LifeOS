@@ -1,6 +1,6 @@
-# Life.OS
+# Telos
 
-**Plan analog. Execute digitally.** Life.OS is a purpose-based life planning tool built as the
+**Planning for what matters.** Telos (Greek τέλος: “end, purpose, the goal toward which something aims”) is a purpose-based life planning tool built as the
 **companion to your paper planner**: keep planning on paper, snap a photo instead of retyping it
 (priorities, schedule and to-dos arrive after a quick review), and get built-in reminders so the plan
 happens. Start with who you want to become, pick a few goals (3 to 5 is plenty to begin), then revisit
@@ -37,7 +37,7 @@ Weeks follow the planner's convention: a week belongs to the month its last day 
 
 ## For Friends & Family
 
-**Open Life.OS:** https://testingrino.github.io/LifeOS/
+**Open Telos:** https://testingrino.github.io/LifeOS/
 
 It works with no account at all: your plan stays in your browser and works offline. Sign in with Google, Apple or email (when accounts are switched on) and your plan follows you to any device.
 
@@ -74,7 +74,7 @@ cd server && npm install && npm run dev  # Backend on port 3001
 
 ## On your phone
 
-Life.OS adapts to phones: a bottom tab bar (Today, Week, Month, Goals,
+Telos adapts to phones: a bottom tab bar (Today, Week, Month, Goals,
 Track, More), 16px fields so iOS doesn't zoom on every tap, touch-sized controls, and phone layouts for the
 calendar, schedule and habit tracker.
 

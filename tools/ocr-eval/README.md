@@ -1,6 +1,6 @@
 # Photo-reader accuracy harness
 
-Photo import is the feature that sets Life.OS apart, so measure it before you promise it.
+Photo import is the feature that sets Telos apart, so measure it before you promise it.
 
 1. Pick 3 to 5 planner layouts your first users actually own (for example Full Focus, Panda Planner, Bullet Journal spreads, an Outlook or Google week screenshot).
 2. For each layout, take 5 to 10 real photos in normal conditions (phone, desk light, slight angle).

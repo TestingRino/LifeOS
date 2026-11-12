@@ -1,7 +1,7 @@
 {
   "name": "lifeos-server",
   "version": "1.0.0",
-  "description": "Backend for Life.OS: Google Calendar sync + Photo OCR",
+  "description": "Backend for Telos: Google Calendar sync + Photo OCR",
   "main": "app.js",
   "type": "module",
   "scripts": {

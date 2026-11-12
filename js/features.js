@@ -1,4 +1,4 @@
-/* Life.OS — features plugin: unified tasks, recurrence, rollover, search, shortcuts, templates,
+/* Telos — features plugin: unified tasks, recurrence, rollover, search, shortcuts, templates,
    review summaries, print layouts, archive/trash and reminders. Loaded before app.js, which calls
    window.LifeFeatures(ctx) once everything it shares is ready. */
 window.LifeFeatures = function (c) {
@@ -420,7 +420,7 @@ window.LifeFeatures = function (c) {
     sSel = Math.min(sSel, Math.max(0, sResults.length - 1));
     const hi = (s) => { const w = q.trim().toLowerCase().split(/\s+/).filter(Boolean).filter((x) => !/:$/.test(x)); let out = esc(s); w.forEach((x) => { out = out.replace(new RegExp(`(${x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig'), '<mark>$1</mark>'); }); return out; };
     $('#sRes', sd).innerHTML = sResults.length ? sResults.map((r, i) => `<li role="option" class="${i === sSel ? 'sel' : ''}${r.done ? ' done' : ''}" data-i="${i}"><span class="s-type">${esc(r.type)}</span><span class="s-main"><strong>${hi(r.title)}</strong>${r.text ? `<small>${hi(P.snippet(r.text, q, 90))}</small>` : ''}</span></li>`).join('')
-      : `<li class="s-empty muted">${q.trim() ? 'No matches.' : 'Start typing to search everything in Life.OS.'}</li>`;
+      : `<li class="s-empty muted">${q.trim() ? 'No matches.' : 'Start typing to search everything in Telos.'}</li>`;
     const sel = $('#sRes li.sel', sd); if (sel) sel.scrollIntoView({ block: 'nearest' });
   }
   function openResult(r) {
@@ -661,7 +661,7 @@ window.LifeFeatures = function (c) {
   F.settingsExtra = () => {
     const s = st().settings, perm = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
     return `<section class="box"><h2>Reminders &amp; offline</h2>
-      <p class="muted">Life.OS works offline once it has loaded. Task reminders fire while Life.OS is open, or installed on your phone or computer and running in the background. They cannot wake an app that is fully closed (that needs a push service).</p>
+      <p class="muted">Telos works offline once it has loaded. Task reminders fire while Telos is open, or installed on your phone or computer and running in the background. They cannot wake an app that is fully closed (that needs a push service).</p>
       <p>Notifications: <strong>${perm === 'granted' && s.notificationsEnabled ? 'on' : perm === 'denied' ? 'blocked by the browser' : perm === 'unsupported' ? 'not supported here' : 'off'}</strong>
         ${perm !== 'unsupported' && perm !== 'denied' ? `<button type="button" class="btn ghost small" data-act="remindEnable">${perm === 'granted' && s.notificationsEnabled ? 'Send a test' : 'Turn on notifications'}</button>` : ''}</p>
       <div class="row"><label class="inline-check">${c.chk('settings.remindersOn', 'Task reminders')} Task reminders</label>
@@ -670,7 +670,7 @@ window.LifeFeatures = function (c) {
   };
   ACTS.remindEnable = () => {
     if (typeof Notification === 'undefined') return;
-    const go = () => { st().settings.notificationsEnabled = true; S.save(st()); notify('Life.OS reminders are on', 'You will see task reminders and a morning digest.', 'test', '#/tasks/today'); c.render(); };
+    const go = () => { st().settings.notificationsEnabled = true; S.save(st()); notify('Telos reminders are on', 'You will see task reminders and a morning digest.', 'test', '#/tasks/today'); c.render(); };
     if (Notification.permission === 'granted') go(); else Notification.requestPermission().then((p) => { if (p === 'granted') go(); else c.toast('Notifications were not allowed'); });
   };
 

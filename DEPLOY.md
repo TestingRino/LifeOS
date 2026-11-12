@@ -1,6 +1,6 @@
-# Deploying Life.OS
+# Deploying Telos
 
-One document for everything. Life.OS is a static website plus an optional small backend:
+One document for everything. Telos is a static website plus an optional small backend:
 
 ```
 Browser (GitHub Pages)            Supabase (optional, accounts)          Vercel backend (optional)
@@ -80,7 +80,7 @@ One admin screen (**More → Admin**, visible only to admins) shows people, the 
 **How access is decided:** `OCR_ALLOWED_EMAILS` still always allows (use it for yourself). Otherwise a person's override wins, then their plan's setting, then the global switch. A suspended person, or a Stripe subscription more than 3 days past due, loses photo import.
 
 **Subscriptions (Stripe)**
-1. In Stripe create a product and a recurring price for "Life.OS Plus" (you choose the price) and a webhook endpoint `https://<your-vercel-domain>/api/billing/webhook` for: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
+1. In Stripe create a product and a recurring price for "Telos Plus" (you choose the price) and a webhook endpoint `https://<your-vercel-domain>/api/billing/webhook` for: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
 2. Vercel environment variables: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PLUS` (the price id), `STRIPE_WEBHOOK_SECRET`, `SITE_URL` (the website URL).
 3. In `js/config.js` set `billing: true` and `plusPrice: '$X/month'`, run `npm run stamp`, push. **Settings → Your plan** now offers Upgrade (Stripe's hosted checkout) and Manage billing (Stripe's portal). The webhook updates the person's plan, and the admin screen shows it.
 4. Stripe's Customer Portal must be enabled in Stripe (Settings → Billing → Customer portal). Refunds and invoices are handled in the Stripe dashboard.
@@ -121,3 +121,15 @@ People who used the Drive mode keep their plan in the browser and in their Drive
 - **"Failed to start login"** (older mode): the backend is not reachable; check `GOOGLE_*` variables on Vercel.
 - **Sign-in returns to a blank page**: add the exact website URL to Supabase's redirect allow-list.
 - **Photo import says closed**: add the account to `OCR_ALLOWED_EMAILS`.
+
+## Telos cutover checklist (human steps, before merging the rebrand)
+
+The product name is now **Telos**. These URL-level items still say `LifeOS` on purpose and change only after the steps below are done:
+
+1. USPTO TESS search for TELOS in classes 9 and 42, then file an intent-to-use application.
+2. Secure a domain (`telos.app`, `usetelos.com` or `gettelos.com`).
+3. Rename the GitHub repo (the old URL redirects). Then update `<base href>` in `index.html`, `SITE_URL`, `GOOGLE_REDIRECT_URI`, `ALLOWED_ORIGINS`, the Supabase redirect allow-list, and the repo links in `privacy.html`, `terms.html`, README and USER_GUIDE.
+4. Rename the OAuth app in Google Cloud Console.
+5. Replace `icons/*.png` with Telos artwork.
+
+Internal identifiers (localStorage keys, Drive file names, service-worker cache names, `LIFEOS_CONFIG`) are unchanged so existing users keep their data.

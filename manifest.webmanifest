@@ -1,7 +1,7 @@
 {
-  "name": "Life.OS",
-  "short_name": "Life.OS",
-  "description": "Purpose-based life planning that works alongside a physical planner.",
+  "name": "Telos",
+  "short_name": "Telos",
+  "description": "Planning for what matters. A companion to your paper planner.",
   "start_url": "./index.html#/today",
   "scope": "./",
   "display": "standalone",

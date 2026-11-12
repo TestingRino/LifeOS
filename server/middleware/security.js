@@ -1,13 +1,13 @@
 import { recordUsage } from '../lib/entitlements.js';
 
-/* Browser and abuse protections for the Life.OS backend.
+/* Browser and abuse protections for the Telos backend.
    Limits are kept in memory. On a serverless host each warm instance counts separately, so treat them as a
    brake on accidents and casual abuse; put a shared store (Upstash, Vercel KV) behind them before a public launch. */
 
 const DEFAULT_ORIGINS = ['https://testingrino.github.io', 'http://localhost:8080', 'http://localhost:8099', 'http://127.0.0.1:8080'];
 export const allowedOrigins = () => (process.env.ALLOWED_ORIGINS ? String(process.env.ALLOWED_ORIGINS).split(/[,\s]+/).filter(Boolean) : DEFAULT_ORIGINS);
 
-/* cors() options: only the Life.OS site (and local development) may call this API from a browser. */
+/* cors() options: only the Telos site (and local development) may call this API from a browser. */
 export const corsOptions = {
   origin(origin, cb) { cb(null, !origin || allowedOrigins().includes(origin)); },
   methods: ['GET', 'POST', 'PUT', 'OPTIONS'],

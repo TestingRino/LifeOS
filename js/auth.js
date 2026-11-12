@@ -1,4 +1,4 @@
-/* Life.OS — accounts and cloud copy, via Supabase (hosted Postgres + Auth).
+/* Telos — accounts and cloud copy, via Supabase (hosted Postgres + Auth).
    Active only when js/config.js has a Supabase URL and anon key; otherwise window.LifeAuth.enabled is false and the
    app keeps working locally (and in the older Google Drive mode). Row Level Security means this file can talk to the
    database directly: the anon key can only ever reach the signed-in user's own row. */

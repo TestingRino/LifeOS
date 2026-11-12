@@ -1,4 +1,4 @@
-/* Life.OS — application: router, views and interactions. */
+/* Telos — application: router, views and interactions. */
 (function () {
   'use strict';
   const U = window.LifeUtil;
@@ -404,7 +404,7 @@
   const gcalConnected = () => !!localStorage.getItem('google_access_token') && (!gScope() || /auth\/calendar/.test(gScope())) && !localStorage.getItem('google_cal_off');
   const gcalSelectedIds = () => { const sel = (state.settings.gcalSelected || []).filter(Boolean); return (sel.length ? sel : ['primary']).slice(0, 10); };
   const gcalFriendly = (m) => (/insufficient authentication scopes|insufficientPermissions/i.test(m || '')
-    ? 'Google did not give Life.OS permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
+    ? 'Google did not give Telos permission to read your calendars. Reconnect and keep every permission box ticked on Google\'s screen.' : m);
   const gcalNeedsReconnect = (m) => /permission to read your calendars/.test(m || '');
   const gcalCanWrite = () => /auth\/calendar(\.events)?(\s|$)/.test(gScope());     // we only ask for write access when someone uses a feature that needs it
   const gcalWritable = (c) => ['owner', 'writer'].includes(c.accessRole);
@@ -551,7 +551,7 @@
     const token = localStorage.getItem('google_access_token');
     if (!token) { toast('Connect Google Calendar in Settings first'); return items.map(() => false); }
     if (!gcalCanWrite()) {
-      if (confirm('Adding events to Google Calendar needs one more permission. Life.OS only asks when you use a feature that needs it, and only for creating events. Allow it now? (You will return here afterwards; then try again.)')) startGoogleOAuth('calendarwrite');
+      if (confirm('Adding events to Google Calendar needs one more permission. Telos only asks when you use a feature that needs it, and only for creating events. Allow it now? (You will return here afterwards; then try again.)')) startGoogleOAuth('calendarwrite');
       return items.map(() => false);
     }
     const target = calendarId || gcalMasterMeta().id, targetName = (state.gcalCalendars.find((c) => c.id === target) || gcalMasterMeta()).name;
@@ -728,7 +728,7 @@
         <button class="btn primary" data-act="syncEnable">Turn on sync</button><button class="btn ghost" data-act="export">Download backup</button><button class="x" data-act="syncSnooze" aria-label="Remind me in a week" title="Remind me in a week">×</button></section>` : '';
     const blankPlan = !state.settings.setupDone && !state.settings.setupDismissed && !state.goals.length && !state.tasks.length && !state.big3.length;
     const firstDay = blankPlan ? firstDayCard() : '';
-    const setupBanner = !blankPlan && !state.settings.setupDone && !state.settings.setupDismissed && stNext ? `<section class="box setup-banner"><div class="grow"><strong>Finish setting up Life.OS</strong> <span class="muted">· ${stDone} of ${st.length} · next: ${esc(stNext.label)}</span><br>${progressBar((stDone / st.length) * 100)}</div><a class="btn primary" href="#/setup/${stNext.step}">Continue</a><button class="x" data-act="dismissSetup" aria-label="Hide setup">×</button></section>` : '';
+    const setupBanner = !blankPlan && !state.settings.setupDone && !state.settings.setupDismissed && stNext ? `<section class="box setup-banner"><div class="grow"><strong>Finish setting up Telos</strong> <span class="muted">· ${stDone} of ${st.length} · next: ${esc(stNext.label)}</span><br>${progressBar((stDone / st.length) * 100)}</div><a class="btn primary" href="#/setup/${stNext.step}">Continue</a><button class="x" data-act="dismissSetup" aria-label="Hide setup">×</button></section>` : '';
     const rv = state.reviews[iso] || {};
     const rvCount = ['purpose', 'goals', 'ideal'].filter((k) => rv[k]).length;
     let rvStreak = 0;
@@ -901,7 +901,7 @@
   function viewFoundation() {
     const f = 'foundation';
     const body = `
-      <p class="lead">Start with the end in mind. Everything else in Life.OS (roles, goals, monthly and weekly actions) should trace back to this page.</p>
+      <p class="lead">Start with the end in mind. Everything else in Telos (roles, goals, monthly and weekly actions) should trace back to this page.</p>
       <section class="box"><h2>The person I'm becoming <small class="muted">5–10 years</small></h2>
         <p class="prompt">Describe who you are in 5–10 years: character, relationships, health, faith, work. Write in the present tense.</p>
         ${ta(f + '.vision', 'I am…', 6)}</section>
@@ -1774,7 +1774,7 @@
       body += `
         <div class="grid2">
           <section class="box"><h2>Build a plan</h2>
-            <p class="prompt">Pick the days you train and for how many weeks. Life.OS schedules every session in advance; each appears on Today and the Week page.</p>
+            <p class="prompt">Pick the days you train and for how many weeks. Telos schedules every session in advance; each appears on Today and the Week page.</p>
             <form data-act-form="workoutPlan" class="wo-plan">
               <div class="row"><label>Plan name <input name="name" placeholder="e.g. Half-marathon base"></label>
                 <label>Start <input type="date" name="start" value="${iso}" required></label>
@@ -2107,7 +2107,7 @@
       ${state.gcalCalendars.length ? `<ul class="checks compact">${state.gcalCalendars.map((c) => `<li><input type="checkbox" data-act="gcalToggle" data-id="${esc(c.id)}" ${gcalIsSelected(c) ? 'checked' : ''} aria-label="Show ${esc(c.name)}">
         <span class="swatch" style="background:${esc(c.color)}"></span><span class="grow">${esc(c.name)}${c.primary ? ' <small class="muted">primary</small>' : ''}</span>
         ${c.id === gcalMasterMeta().id ? '<span class="chip on small">★ Master</span>' : gcalWritable(c) ? `<button type="button" class="chip small" data-act="gcalMaster" data-id="${esc(c.id)}">Make master</button>` : '<small class="muted">read-only</small>'}</li>`).join('')}</ul>
-      <p class="muted small">The <strong>master calendar</strong> is where Life.OS creates events: photo imports, scheduled tasks and your ideal week. Currently: <strong>${esc(gcalMasterMeta().name)}</strong>.</p>`
+      <p class="muted small">The <strong>master calendar</strong> is where Telos creates events: photo imports, scheduled tasks and your ideal week. Currently: <strong>${esc(gcalMasterMeta().name)}</strong>.</p>`
         : gcal.listError ? `<p class="nudge">${esc(gcal.listError)} ${gcalNeedsReconnect(gcal.listError) ? '<button class="btn small" data-act="reconnectCalendar">Reconnect Google</button>' : ''}</p>` : '<p class="muted small">Loading your calendars…</p>'}
       <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
@@ -2139,7 +2139,7 @@
         </div>` : notifPerm === 'denied' ? '<p class="muted small">⚠️ Notifications are blocked. Check your browser settings.</p>' : s.notificationsEnabled ? '<p class="muted small">Enable notifications for rituals due, habit milestones, and goal check-ins.</p>' : ''}
       </section>` : ''}
       <section class="box"><h2>Your data</h2>
-        <p>${signedIn() && state.settings.syncOn ? 'Your plan is on this device and in your own Google Drive (a hidden folder only Life.OS can open).' : 'Your plan is stored only in this browser. Sign in to keep a copy in your own Google Drive.'} Export a backup any time.</p>
+        <p>${signedIn() && state.settings.syncOn ? 'Your plan is on this device and in your own Google Drive (a hidden folder only Telos can open).' : 'Your plan is stored only in this browser. Sign in to keep a copy in your own Google Drive.'} Export a backup any time.</p>
         <div class="row wrap">
           <button class="btn" data-act="export">Export backup (.json)</button>
           <a class="btn ghost" href="#/welcome/1">Take the tour</a>
@@ -2151,7 +2151,7 @@
           <button class="btn ghost danger" data-act="deleteEverything">Delete everything, everywhere</button>
         </div>
         <label class="inline-check"><input type="checkbox" data-act="analyticsToggle" ${analyticsOn() ? 'checked' : ''}> Share anonymous usage events (milestones only, never your plan content)</label>
-        <p class="muted small">“Delete everything” removes your plan from this device, deletes the copy and backups in your Google Drive, and revokes Life.OS's access to your Google account. <a href="privacy.html">Privacy policy</a> · <a href="terms.html">Terms</a></p>
+        <p class="muted small">“Delete everything” removes your plan from this device, deletes the copy and backups in your Google Drive, and revokes Telos's access to your Google account. <a href="privacy.html">Privacy policy</a> · <a href="terms.html">Terms</a></p>
       </section>`;
     return page('Settings', '', body);
   }
@@ -2306,7 +2306,7 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
     reset() {
-      if (!confirm('Erase ALL Life.OS data in this browser? A backup file will be downloaded first.')) return;
+      if (!confirm('Erase ALL Telos data in this browser? A backup file will be downloaded first.')) return;
       ACTS.export();
       state = S.defaultState(); rebaseIds(); commit();
     },
@@ -2498,14 +2498,14 @@
     syncEnable() { if (syncHasScope()) { state.settings.syncOn = true; commit(); syncNow(); } else startGoogleOAuth('signin'); },
     syncNow() { if (!state.settings.syncOn) return; syncNow(); },
     async deleteEverything() {
-      if (!confirm('Delete EVERYTHING? This erases your plan on this device, deletes your Life.OS copy and backups from Google Drive, and removes Life.OS\'s access to your Google account. It cannot be undone. Download a backup first if you might want it.')) return;
+      if (!confirm('Delete EVERYTHING? This erases your plan on this device, deletes your Telos copy and backups from Google Drive, and removes Telos\'s access to your Google account. It cannot be undone. Download a backup first if you might want it.')) return;
       if ((prompt('Type DELETE to confirm') || '').trim() !== 'DELETE') { toast('Nothing was deleted'); return; }
       toast('Deleting…');
       clearTimeout(sync.timer); sync.epoch++;
       try {
         if (sbOn() && signedIn()) await window.LifeAuth.deleteAccount();
         else if (syncHasScope()) for (const f of [...await driveList(`name='${SYNC_FILE}' and trashed=false`), ...await driveList("name contains 'lifeos-backup-' and trashed=false")]) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
-      } catch (e) { toast(`Could not delete your Google Drive copy (${e.message}). Nothing was changed. Try again, or remove Life.OS in your Google account settings.`); return; }
+      } catch (e) { toast(`Could not delete your Google Drive copy (${e.message}). Nothing was changed. Try again, or remove Telos in your Google account settings.`); return; }
       const rt = localStorage.getItem('google_refresh_token') || localStorage.getItem('google_access_token');   // calendar access, if connected
       if (rt) { try { await fetch('https://oauth2.googleapis.com/revoke', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `token=${encodeURIComponent(rt)}` }); } catch (e) { /* the token also expires on its own */ } }
       try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* storage unavailable */ }
@@ -2518,7 +2518,7 @@
     syncRestore(el) { if (confirm('Replace this device\'s plan with that backup? It becomes your current copy everywhere.')) restoreBackup(el.dataset.id); },
     syncSnooze() { state.settings.syncNudgeUntil = U.toISO(U.addDays(today(), 7)); commit(); },
     async syncDelete() {
-      if (!confirm('Delete your Life.OS copy and all backups from Google Drive? Your data on this device is not touched.')) return;
+      if (!confirm('Delete your Telos copy and all backups from Google Drive? Your data on this device is not touched.')) return;
       try {
         for (const f of [...await driveList(`name='${SYNC_FILE}' and trashed=false`), ...await driveList("name contains 'lifeos-backup-' and trashed=false")]) await driveFetch(`${DRIVE}/${f.id}`, { method: 'DELETE' });
         state.settings.syncOn = false; state.syncMeta = {}; sync.backups = null; commit(); toast('Cloud copy deleted');
@@ -2807,7 +2807,7 @@
     r.onload = () => {
       try {
         const data = JSON.parse(r.result);
-        if (!data || typeof data !== 'object' || !('foundation' in data || 'goals' in data)) throw new Error('Not a Life.OS backup');
+        if (!data || typeof data !== 'object' || !('foundation' in data || 'goals' in data)) throw new Error('Not a Telos backup');
         if (!confirm('Replace all current data with this backup?')) return;
         state = S.migrate(data); rebaseIds(); commit(); toast('Imported');
       } catch (err) { alert(`Import failed: ${err.message}`); }
@@ -3066,7 +3066,7 @@
             <form class="add" data-add="idealWeek"><input type="hidden" name="dow" value="${d}"><input type="hidden" name="quarter" value="${quarterKey(todayISO())}"><input name="text" placeholder="Your own block…" required><button aria-label="Add">+</button></form></section>`;
         }).join('')}</div>`;
     }
-    return page('Set up Life.OS', `Step ${n} of 6 · about 5 minutes. Skip anything and come back later.`, body + nav);
+    return page('Set up Telos', `Step ${n} of 6 · about 5 minutes. Skip anything and come back later.`, body + nav);
   }
 
   /* ---------- guided planning sessions (yearly, quarterly, monthly, weekly, daily) ---------- */
@@ -3171,7 +3171,7 @@
       state.sessions[recKey] = Object.assign(state.sessions[recKey] || { steps: {} }, { done: c.iso }); S.save(state);
     }
     const body = `
-      <p class="lead">${esc(st.def.when)}. Work through each step. Steps tick themselves when Life.OS can see you did them; tick the rest yourself.</p>
+      <p class="lead">${esc(st.def.when)}. Work through each step. Steps tick themselves when Telos can see you did them; tick the rest yourself.</p>
       <section class="box"><h2>${esc(st.per.label)} <span class="muted">· ${st.doneN}/${st.steps.length}</span></h2>
         <p>${progressBar((st.doneN / st.steps.length) * 100)}</p>
         <ol class="session-steps">${st.steps.map((x) => `<li class="${x.done ? 'done' : ''}">
@@ -3197,9 +3197,9 @@
     return `<div class="landing">
       <section class="land-hero">
         <div class="land-copy">
-          <p class="land-kicker">Life.OS · purpose-based planning</p>
+          <p class="land-kicker">Telos · planning for what matters</p>
           <h1>Build a life that matters, <em>not just a longer to-do list.</em></h1>
-          <p class="land-sub">Most planners help you do more. Life.OS starts with what you want your life to stand for, then turns it into goals, habits and a calendar you can actually follow, so the things you do add up to the life you want.</p>
+          <p class="land-sub">Most planners help you do more. Telos starts with what you want your life to stand for, then turns it into goals, habits and a calendar you can actually follow, so the things you do add up to the life you want.</p>
           ${cta()}
           <p class="land-note">No account needed. Your plan stays on your device, or in your own Google Drive if you sign in.</p>
         </div>
@@ -3243,7 +3243,7 @@
 
       <section class="land-tools">
         <h2>And the planning tools to do it well</h2>
-        <p class="land-lead">Purpose gives the direction. Life.OS also gives you the everyday machinery to get there.</p>
+        <p class="land-lead">Purpose gives the direction. Telos also gives you the everyday machinery to get there.</p>
         <div class="land-feats">
           ${feat('✓', 'Tasks that fit your life', 'Due dates, priorities, projects, tags, subtasks, Waiting and Someday lists. Add them in plain words, like “pay rent monthly on the 1st”.')}
           ${feat('↻', 'Repeating tasks and habits', 'Chores, bills and routines repeat on their own. Habits show streaks instead of piling up as overdue.')}
@@ -3266,7 +3266,7 @@
 
 
   /* ---------- request an invite for photo import (email + planner brand = the waitlist) ---------- */
-  const PLANNER_CHOICES = [['fullfocus', 'Full Focus Planner'], ['panda', 'Panda Planner'], ['passion', 'Passion Planner'], ['daydesigner', 'Day Designer'], ['franklin', 'Franklin Covey'], ['bujo', 'Bullet Journal'], ['happyplanner', 'Happy Planner'], ['erincondren', 'Erin Condren LifePlanner'], ['moleskine', 'Moleskine / Leuchtturm / weekly diary'], ['hobonichi', 'Hobonichi Techo'], ['cultivate', 'Cultivate What Matters'], ['simplified', 'Simplified / Ink+Volt / Clever Fox'], ['other', 'Another planner or notebook']];
+  const PLANNER_CHOICES = [['fullfocus', 'Full Focus Planner'], ['panda', 'Panda Planner'], ['passion', 'Passion Planner'], ['daydesigner', 'Day Designer'], ['franklin', 'Franklin Covey'], ['bujo', 'Bullet Journal'], ['happyplanner', 'Happy Planner'], ['erincondren', 'Erin Condren LifePlanner'], ['moleskine', 'Moleskine / Leuchtturm / weekly diary'], ['roterunner', 'Roterunner'], ['monkmanual', 'Monk Manual'], ['hobonichi', 'Hobonichi Techo'], ['cultivate', 'Cultivate What Matters'], ['simplified', 'Simplified / Ink+Volt / Clever Fox'], ['other', 'Another planner or notebook']];
   const onList = () => { try { return localStorage.getItem('lifeos.invite') || ''; } catch (e) { return ''; } };
   const hasOcr = () => { try { return localStorage.getItem('lifeos.ocr') === '1'; } catch (e) { return false; } };
   const inviteForm = (source) => `<form class="invite-form" data-invite="${source}">
@@ -3305,11 +3305,11 @@
       read: { Schedule: ['Mon 6:30a  Gym', 'Tue 11:00a  Client call', 'Fri 6:00p  Dinner with Mom'], 'To-dos': ['Thu · Book flights'] } },
   ];
   const importPaper = (ex) => `<figure class="imp-paper"><figcaption>${esc(ex.label)}</figcaption><div class="hand">${ex.paper.map((l) => `<div>${l}</div>`).join('')}</div></figure>`;
-  const importRead = (ex) => `<div class="imp-read"><p class="imp-tag">Life.OS reads it in a few seconds</p>${Object.entries(ex.read).map(([h, items]) => `<h4>${esc(h)} <span>${items.length}</span></h4><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`).join('')}</div>`;
+  const importRead = (ex) => `<div class="imp-read"><p class="imp-tag">Telos reads it in a few seconds</p>${Object.entries(ex.read).map(([h, items]) => `<h4>${esc(h)} <span>${items.length}</span></h4><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`).join('')}</div>`;
   function importDemo() {
     const ex = IMPORT_EXAMPLES.find((x) => x.id === demo.imp) || IMPORT_EXAMPLES[0], n = Object.values(ex.read).reduce((a, l) => a + l.length, 0);
     return `<section class="box"><h2>Bring in what you already have</h2>
-      <p class="prompt"><strong>Plan analog, execute digitally.</strong> Keep writing in your paper planner. Snap a photo instead of retyping it, check what Life.OS read, and it lands in your plan with reminders ready. Try an example:</p>
+      <p class="prompt"><strong>Plan analog, execute digitally.</strong> Keep writing in your paper planner. Snap a photo instead of retyping it, check what Telos read, and it lands in your plan with reminders ready. Try an example:</p>
       <div class="chips">${IMPORT_EXAMPLES.map((x) => `<button type="button" class="chip${x.id === ex.id ? ' on' : ''}" data-act="demoImport" data-id="${x.id}" aria-pressed="${x.id === ex.id}">${esc(x.label)}</button>`).join('')}</div>
       <div class="imp-pair">${importPaper(ex)}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(ex)}</div>
       ${demo.impAdded ? `<p class="imp-done">✓ ${n} items added to your sample plan. On Today they show up as priorities, schedule items and tasks, ready to check off. <button type="button" class="linklike" data-act="demoImportAdd">Undo</button></p>`
@@ -3328,10 +3328,11 @@
     return `<div class="landing">
       <section class="land-hero">
         <div class="land-copy">
-          <p class="land-kicker">Life.OS · the companion to your paper planner</p>
+          <p class="land-kicker">Telos · the companion to your paper planner</p>
           <h1>Build a life that matters, <em>not just a longer to-do list.</em></h1>
-          <p class="land-tag">Plan analog. Execute digitally.</p>
-          <p class="land-sub">Life.OS starts with what you want your life to stand for: the work you are called to, the people you love, the faith, health and community that sustain you. Keep planning on paper if that is how you think best. Life.OS carries the plan into your day: snap a photo instead of retyping it, and get reminders so it actually happens.</p>
+          <p class="land-tag">Planning for what matters.</p>
+          <p class="land-note"><em>Telos</em> (τέλος): the end, the purpose, what something aims toward.</p>
+          <p class="land-sub">Telos starts with what you want your life to stand for: the work you are called to, the people you love, the faith, health and community that sustain you. Keep planning on paper if that is how you think best. Telos carries the plan into your day: snap a photo instead of retyping it, and get reminders so it actually happens.</p>
           ${cta()}
           <p class="land-note">No account needed. Your plan stays on your device, or in your own Google Drive if you sign in.</p>
         </div>
@@ -3351,26 +3352,26 @@
 
       <section class="land-companion" id="import">
         <h2>Keep your paper planner. Skip the re-entering.</h2>
-        <p class="land-lead">Paper is great for thinking and deciding. Phones are great for reminding and doing. Life.OS connects them, so you never copy a page by hand. Here is a page from a planner on the left, and what Life.OS read from it on the right.</p>
+        <p class="land-lead">Paper is great for thinking and deciding. Phones are great for reminding and doing. Telos connects them, so you never copy a page by hand. Here is a page from a planner on the left, and what Telos read from it on the right.</p>
         <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[0])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[0])}</div>
         <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[1])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[1])}</div>
         <div class="land-chips">${['Full Focus', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Franklin Covey', 'Bullet Journal', 'Happy Planner', 'Erin Condren', 'Moleskine', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
         ${inviteBlock('landing')}
         <ol class="comp-flow">
           <li><span class="comp-n">1</span><h3>Plan on paper</h3><p>Use the planner you love, or a plain notebook. Write the week the way you always have.</p></li>
-          <li><span class="comp-n">2</span><h3>Snap it. Don't retype it.</h3><p>Take a photo of the page. You check what Life.OS read before anything is added.</p></li>
+          <li><span class="comp-n">2</span><h3>Snap it. Don't retype it.</h3><p>Take a photo of the page. You check what Telos read before anything is added.</p></li>
           <li><span class="comp-n">3</span><h3>Execute digitally</h3><p>Your day appears on Today with checkboxes and a calendar, and reminders nudge you when it is time.</p></li>
         </ol>
         <div class="comp-notes" aria-hidden="true">
-          <div class="notif"><b>Life.OS</b><span>9:20 AM</span><p>Team standup in 10 minutes</p></div>
-          <div class="notif"><b>Life.OS</b><span>8:30 AM</span><p>3 tasks for today: Finish the proposal, Call Dad, Pay rent</p></div>
+          <div class="notif"><b>Telos</b><span>9:20 AM</span><p>Team standup in 10 minutes</p></div>
+          <div class="notif"><b>Telos</b><span>8:30 AM</span><p>3 tasks for today: Finish the proposal, Call Dad, Pay rent</p></div>
         </div>
-        <p class="land-note">Reminders arrive on your phone when Life.OS is installed or open. Calendar and file imports work for everyone today: connect Google Calendar, screenshot a week, or bring a workout file.</p>
+        <p class="land-note">Reminders arrive on your phone when Telos is installed or open. Calendar and file imports work for everyone today: connect Google Calendar, screenshot a week, or bring a workout file.</p>
       </section>
 
       <section class="land-work">
         <h2>Your work is part of the point</h2>
-        <p class="land-lead">The career you choose and the passions you pursue shape almost everything else: the time you have, the money you can give and keep, the energy you bring home, and the person you become. Meaning does not live only outside of work. Life.OS plans for both.</p>
+        <p class="land-lead">The career you choose and the passions you pursue shape almost everything else: the time you have, the money you can give and keep, the energy you bring home, and the person you become. Meaning does not live only outside of work. Telos plans for both.</p>
         <div class="land-three">
           <div class="land-card"><span class="ico" aria-hidden="true">⚒</span><h3>Work that makes room</h3><p>A good career is how you provide, grow your skills and earn the freedom to say yes to what matters most: family, faith, community, generosity.</p></div>
           <div class="land-card"><span class="ico" aria-hidden="true">✦</span><h3>Passion that gives it meaning</h3><p>The craft you love, the problem you care about, the business you are building. When your work and your values line up, effort stops feeling like a grind.</p></div>
@@ -3408,7 +3409,7 @@
 
       <section class="land-tools">
         <h2>And the planning tools to do it well</h2>
-        <p class="land-lead">Purpose gives the direction. Life.OS also gives you the everyday machinery for serious work and a full life.</p>
+        <p class="land-lead">Purpose gives the direction. Telos also gives you the everyday machinery for serious work and a full life.</p>
         <div class="land-feats">
           ${feat('✓', 'Tasks and projects for real work', 'Due dates, priorities, projects, tags, subtasks, and Waiting and Someday lists. Add them in plain words, like “send invoice friday !high +Client”.')}
           ${feat('↻', 'Repeating tasks and habits', 'Bills, reports and routines repeat on their own. Habits show streaks instead of piling up as overdue.')}
@@ -3530,7 +3531,7 @@
           <p class="lead">Plan on paper if you like, then snap a photo instead of retyping it. Purpose, focus goals, a weekly plan, a daily calendar and reminders keep it moving.</p>
           <div class="row"><button type="button" class="btn primary" data-act="demoStart" data-to="quick">Quick start (about 1 minute)</button>${signedIn() ? '' : '<button type="button" class="btn" data-act="signIn">Sign in with Google</button>'}<button type="button" class="btn ghost" data-act="demoStart" data-to="setup">Full guide (about 5 minutes)</button><a class="btn ghost" href="#/today">Skip, explore the app</a><button type="button" class="btn ghost" data-act="demoReset">Replay the demo</button></div></section>`;
     }
-    return page('Welcome to Life.OS', `Interactive demo · step ${n} of 5 · sample data only`, body + nav);
+    return page('Welcome to Telos', `Interactive demo · step ${n} of 5 · sample data only`, body + nav);
   }
   document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.demo === 'purpose') demo.purpose = e.target.value; });
 
@@ -3674,7 +3675,7 @@
     loadPlan();
     const r = planState.row, plus = r && r.tier === 'plus' && r.status !== 'canceled', price = (window.LIFEOS_CONFIG || {}).plusPrice || '';
     return `<section class="box"><h2>Your plan</h2>
-      <p>${plus ? `<strong>Life.OS Plus</strong>${r.status === 'past_due' ? ' · payment needs attention' : ''}${r.current_period_end ? ` · renews ${esc(new Date(r.current_period_end).toLocaleDateString())}` : ''}` : '<strong>Free</strong>'}</p>
+      <p>${plus ? `<strong>Telos Plus</strong>${r.status === 'past_due' ? ' · payment needs attention' : ''}${r.current_period_end ? ` · renews ${esc(new Date(r.current_period_end).toLocaleDateString())}` : ''}` : '<strong>Free</strong>'}</p>
       <p class="muted small">${plus ? 'Includes photo import for your planner pages.' : 'Plus adds photo import, so you can snap a page from your paper planner instead of retyping it.'}</p>
       <div class="row wrap">${plus || (r && r.stripe_customer_id) ? '<button type="button" class="btn" data-act="billingPortal">Manage billing</button>' : `<button type="button" class="btn primary" data-act="upgrade">Upgrade to Plus${price ? ` · ${esc(price)}` : ''}</button>`}</div></section>`;
   }
@@ -3693,7 +3694,7 @@
     return `<section class="box account-card"><h2>Account</h2>
       <p class="prompt">Sign in with Google to keep your plan safe in your own Drive and open it on any device. New here? Your first sign-in creates your account; there is nothing else to fill in.</p>
       <div class="row wrap"><button class="btn primary" data-act="signIn">Sign in with Google</button></div>
-      <p class="muted small">Prefer not to? Life.OS works without an account, and your plan then stays on this device only.</p></section>`;
+      <p class="muted small">Prefer not to? Telos works without an account, and your plan then stays on this device only.</p></section>`;
   }
   async function ocrAllowed() {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -3843,11 +3844,11 @@
     const on = syncEnabled(), email = accountEmail(), m = state.syncMeta || {};
     const backups = sync.backups ? (sync.backups.length ? `<ul class="backups">${sync.backups.map((f) => `<li><strong>${esc(f.name.replace(/^lifeos-backup-|\.json$/g, ''))}</strong><button type="button" class="btn ghost small" data-act="syncRestore" data-id="${esc(f.id)}">Restore</button></li>`).join('')}</ul>` : '<p class="muted small">No backup copies yet. One is saved each day you change your plan.</p>') : '';
     return `<section class="box sync-card"><h2>Protect my plan <small class="muted">· sync across devices</small></h2>
-      <p class="prompt">Your plan is saved in this browser. Turn on sync and it is also kept as one private file in <strong>your own Google Drive</strong> (a hidden app folder that only Life.OS can open), so a cleared browser or a lost phone can't erase it, and every device stays the same. A dated backup is saved daily.</p>
+      <p class="prompt">Your plan is saved in this browser. Turn on sync and it is also kept as one private file in <strong>your own Google Drive</strong> (a hidden app folder that only Telos can open), so a cleared browser or a lost phone can't erase it, and every device stays the same. A dated backup is saved daily.</p>
       ${on ? `<p>${sync.status === 'error' ? `<span class="nudge">⚠ ${esc(sync.msg)}</span>` : `✓ Syncing${email ? ` as <strong>${esc(email)}</strong>` : ''}${m.at ? ` · last synced ${esc(fmtClock(m.at))}` : ''}`}</p>
         <div class="row wrap"><button class="btn" data-act="syncNow">Sync now</button><button class="btn ghost" data-act="syncBackups">Cloud backups…</button><button class="btn ghost" data-act="export">Download a backup file</button><button class="btn ghost" data-act="syncOff">Turn off</button><button class="btn ghost danger" data-act="syncDelete">Delete cloud copy</button></div>${backups}`
       : `<div class="row wrap">${signedIn() ? '<button class="btn primary" data-act="syncEnable">Turn sync back on</button>' : '<span class="muted">Sign in above to turn this on.</span>'}<button class="btn ghost" data-act="export">Download a backup file</button></div>
-        <p class="muted small">Life.OS only asks Google for your email and its own private folder in Drive. It can't see your other files.</p>`}
+        <p class="muted small">Telos only asks Google for your email and its own private folder in Drive. It can't see your other files.</p>`}
     </section>`;
   }
 
@@ -4125,7 +4126,7 @@
     document.getElementById('routeButtons').innerHTML = !events.length ? '' : gcalConnected()
       ? `<label class="field">Create the meetings on <select id="revCal">${(writable.length ? writable : [{ id: 'primary', name: 'Primary calendar' }]).map((c) => `<option value="${esc(c.id)}"${c.id === masterId ? ' selected' : ''}>${esc(c.name)}${c.id === masterId ? ' (master)' : ''}</option>`).join('')}</select></label>
         <button type="button" class="btn primary" data-cal-act="google">Add to Google Calendar</button>
-        <button type="button" class="btn ghost" data-cal-act="local">Life.OS only</button>`
+        <button type="button" class="btn ghost" data-cal-act="local">Telos only</button>`
       : '<button type="button" class="btn primary" data-cal-act="local">Add selected to my calendar</button>';
     ocrSuggestions = [];
     uploadDlg.close(); ocrResultDlg.showModal();
@@ -4142,8 +4143,8 @@
     if (mode === 'google') {
       const sel = document.getElementById('revCal'), calId = sel ? sel.value : gcalMasterMeta().id;
       const results = await pushToGoogleCalendar(rows, calId);
-      toLocal = rows.filter((_, i) => !results[i]);           // anything Google refused is kept in Life.OS
-      if (toLocal.length) toast(`${results.length - toLocal.length} added to Google; ${toLocal.length} could not be, so they were saved in Life.OS instead`);
+      toLocal = rows.filter((_, i) => !results[i]);           // anything Google refused is kept in Telos
+      if (toLocal.length) toast(`${results.length - toLocal.length} added to Google; ${toLocal.length} could not be, so they were saved in Telos instead`);
     }
     let added = 0;
     toLocal.forEach((x) => {
@@ -4152,7 +4153,7 @@
     });
     ocrResultDlg.close();
     S.save(state);
-    if (mode !== 'google') toast(added ? `Added ${added} event${added === 1 ? '' : 's'} to Life.OS` : 'Those events were already on your calendar');
+    if (mode !== 'google') toast(added ? `Added ${added} event${added === 1 ? '' : 's'} to Telos` : 'Those events were already on your calendar');
     location.hash = `#/calendar/week:${U.weekKey(U.parseISO(rows[0].date), ws())}`;
     render();
   }

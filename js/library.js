@@ -1,4 +1,4 @@
-/* Life.OS — the suggestion library: who you might be (personas) and the roles, goals and habits we suggest.
+/* Telos — the suggestion library: who you might be (personas) and the roles, goals and habits we suggest.
    Pure data plus a one-time normalisation. Usable in the browser and in Node tests. */
 (function (root) {
   'use strict';

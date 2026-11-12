@@ -1,4 +1,4 @@
-/* Life.OS — pure date & planning helpers (no DOM). Usable in the browser and in Node tests. */
+/* Telos — pure date & planning helpers (no DOM). Usable in the browser and in Node tests. */
 (function (root) {
   'use strict';
 
