@@ -345,10 +345,10 @@ window.LifeFeatures = function (c) {
       ${projCard}
       ${tab === 'today' ? F.rolloverBar(today) : ''}
       ${groups.length ? groups.map(([h, l]) => `<section class="box tgroup">${h ? `<h3>${esc(h)} <small class="muted">${l.length}</small></h3>` : ''}${l.map((t) => row(t, { late: h === 'Overdue', noProject: !!tf.project })).join('')}</section>`).join('')
-        : `<section class="box"><p class="muted">${tab === 'today' ? 'Nothing on your plate for today. Add a task above, or look at Next.' : tab === 'done' ? 'Finished tasks appear here.' : 'Nothing here.'}</p></section>`}
+        : `<section class="box"><p class="muted">${tab === 'today' ? (window.TelosCopy ? window.TelosCopy.empty.tasksToday : 'Nothing on your plate for today.') : tab === 'done' ? 'Finished tasks appear here.' : 'Nothing here.'}</p></section>`}
       ${tab === 'done' ? '<p class="muted small"><a href="#/archive">Older finished tasks and deleted items are in the Archive →</a></p>' : ''}
       <p class="muted small">Tips: press <kbd>n</kbd> to add a task from anywhere, <kbd>/</kbd> to search, <kbd>?</kbd> for all shortcuts. Drag a task onto a day in the Week view, or onto a time on the calendar.</p>`;
-    return c.page('Tasks', 'One list for everything you need to do', body,
+    return c.page(window.TelosCopy ? window.TelosCopy.label('tasks') : 'Tasks', 'One list for everything you need to do', body,
       '<button class="btn ghost" data-act="tplOpen">From template</button> <button class="btn ghost" data-act="tasksCsv">Export CSV</button> <button class="btn primary" data-act="taskNew">New task</button>');
   }
   ROUTES.tasks = viewTasks;

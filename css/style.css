@@ -932,3 +932,25 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .adm-badge { display: inline-block; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; border-radius: 99px; padding: 0 .45rem; margin-left: .3rem; background: color-mix(in srgb, var(--navy) 10%, var(--paper)); color: var(--muted); } .adm-badge.warn { background: color-mix(in srgb, var(--red) 18%, var(--paper)); color: var(--red); }
 .adm-tabs { margin-bottom: .8rem; } .adm-dlg { width: min(560px, calc(100vw - 24px)); z-index: 20; position: fixed; top: 10vh; } .adm-dlg .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .5rem; } .adm-dlg label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); gap: .15rem; }
 @media (max-width: 640px) { .adm-bar { grid-template-columns: 7rem 1fr 2rem; } }
+
+/* ---- Telos: quiet voice, space on the page ---- */
+.land-name { font-family: Georgia, serif; font-weight: 600; letter-spacing: .01em; }
+.land-start, .land-who, .land-why { max-width: 38rem; margin: 3.4rem auto; text-align: center; }
+.land-start h2, .land-who h2, .land-why h2 { font-family: Georgia, serif; font-size: clamp(1.5rem, 3vw, 2rem); color: var(--navy); margin: 0 0 1rem; }
+.land-start .land-lead, .land-why .land-lead, .land-who .land-lead { margin: 0 auto 1rem; font-size: 1.05rem; text-align: left; }
+.land-who .land-lead { text-align: center; }
+.land-foot { text-align: center; color: var(--muted); margin: 2.6rem 0 1rem; font-family: Georgia, serif; }
+.land-foot a { color: var(--muted); }
+.begin { max-width: 34rem; margin: 3rem auto; text-align: center; }
+.begin h1 { font-family: Georgia, serif; font-size: clamp(1.7rem, 4vw, 2.3rem); color: var(--navy); margin: 0 0 1rem; line-height: 1.15; }
+.begin-lead { color: var(--muted); font-size: 1.05rem; line-height: 1.55; margin: 0 0 1rem; }
+.begin-step { display: flex; gap: .45rem; justify-content: center; margin: 0 0 2rem; }
+.begin-step i { width: .5rem; height: .5rem; border-radius: 50%; background: var(--dot); }
+.begin-step i.cur { background: var(--navy); } .begin-step i.ok { background: var(--ok); }
+.begin-in { display: block; width: 100%; margin: .5rem 0; font: inherit; font-size: 1.05rem; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.begin-role { display: block; text-align: left; margin: 1rem 0; } .begin-role span { font-family: Georgia, serif; font-weight: 600; color: var(--navy); }
+.begin-nav { justify-content: center; align-items: center; gap: 1.2rem; margin-top: 2rem; }
+.empty-note { font-family: Georgia, serif; font-style: italic; color: var(--muted); margin: 0 0 1rem; }
+.why.box h2 { font-family: Georgia, serif; color: var(--navy); } .why.box p { line-height: 1.65; max-width: 38rem; }
+.rename-note { display: flex; align-items: center; justify-content: space-between; gap: 1rem; background: var(--card); border-bottom: 1px solid var(--line); padding: .5rem 1rem; font-size: .92rem; }
+.rename-note p { margin: 0; } .rename-note .x { border: 0; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); }

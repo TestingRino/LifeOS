@@ -130,6 +130,13 @@ The product name is now **Telos**. These URL-level items still say `LifeOS` on p
 2. Secure a domain (`telos.app`, `usetelos.com` or `gettelos.com`).
 3. Rename the GitHub repo (the old URL redirects). Then update `<base href>` in `index.html`, `SITE_URL`, `GOOGLE_REDIRECT_URI`, `ALLOWED_ORIGINS`, the Supabase redirect allow-list, and the repo links in `privacy.html`, `terms.html`, README and USER_GUIDE.
 4. Rename the OAuth app in Google Cloud Console.
-5. Replace `icons/*.png` with Telos artwork.
+5. Replace the placeholder artwork in `icons/` (a plain serif τ, generated for this change) with designed Telos artwork: `icon-180/192/512.png`, `favicon-16/32.png`, and the 1200×630 `social.png`.
+6. After the domain exists, update the absolute URLs for link previews: `og:url`, `og:image` and `twitter:image` in `index.html`, and `homepage` in `package.json`.
+7. Google OAuth consent screen (Google Cloud Console, branding): app name **Telos**, and describe the Drive access as: “Telos would like to access your Google Drive. Telos uses your Drive to store your planner data privately in your own account. We don’t see it. We don’t keep a copy. Your telos is yours.” Link the privacy policy (`/privacy`) and terms (`/terms`).
+8. Set `supportEmail` in `js/config.js` so the Contact page shows an address (kept out of the repo until you choose one).
+9. `#/landing` now redirects on the client to the root (`/`); GitHub Pages cannot send a real 302. If you move to a host that can, add the redirect there.
+10. Claim social handles (X, Instagram, TikTok, Threads, Bluesky, Reddit, YouTube) and email existing users.
+
+Set `USE_LEGACY_LABELS: true` in `js/config.js` to bring back the old section names (Week, Tasks, Goals, Track, Lists) for one release; remove the flag after that.
 
 Internal identifiers (localStorage keys, Drive file names, service-worker cache names, `LIFEOS_CONFIG`) are unchanged so existing users keep their data.

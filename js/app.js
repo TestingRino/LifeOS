@@ -777,7 +777,7 @@
       <section class="box">
         <h2>${isToday ? "Today's" : `${U.DAYS[t.getDay()]}'s`} schedule <a class="more" href="#/calendar/day:${iso}">Full calendar →</a></h2>
         ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
-        ${iso >= realToday && !plannerEntries(iso).filter((e) => e.k !== 'task').length ? `<div class="empty-import"><div><strong>Nothing on the schedule yet.</strong> <span class="muted">${hasOcr() ? 'Planned your day on paper? Snap the page and it is here in seconds.' : 'Planned your day on paper? Photo import reads the page for you.'}</span></div>
+        ${iso >= realToday && !plannerEntries(iso).filter((e) => e.k !== 'task').length ? `<div class="empty-import"><div><strong>${esc(window.TelosCopy.empty.photos)}</strong></div>
           ${hasOcr() ? '<button type="button" class="btn primary" data-act="importPage">📸 Import today\'s page</button>' : (onList() ? '<span class="muted">✓ You are on the photo import list. We will email you.</span>' : '<button type="button" class="btn primary" data-act="inviteOpen">📸 Request photo import</button>')}</div>` : ''}
         <div class="chips style-toggle" role="group" aria-label="Schedule style"><button type="button" class="chip${state.settings.todayStyle === 'planner' ? '' : ' on'}" data-act="todayStyle" data-v="timeline" aria-pressed="${state.settings.todayStyle !== 'planner'}">Timeline</button><button type="button" class="chip${state.settings.todayStyle === 'planner' ? ' on' : ''}" data-act="todayStyle" data-v="planner" aria-pressed="${state.settings.todayStyle === 'planner'}">Planner</button></div>
         ${state.settings.todayStyle === 'planner' ? `<div class="pd-scroll" data-now="${isToday ? 'y' : ''}">${plannerHours(iso, { compact: true })}</div>` : dayTimeline(iso, { height: 560 })}
@@ -922,7 +922,7 @@
       </div>
       <section class="box"><h2>Roles <a class="more" href="#/goals">Edit roles & goals →</a></h2>
         ${state.roles.length ? `<ul class="roles-sum">${state.roles.map((r) => `<li><strong>${esc(r.name)}</strong>${r.why ? `: ${esc(r.why)}` : ''}</li>`).join('')}</ul>`
-          : '<p class="muted">No roles yet.</p>'}
+          : `<p class="muted">${esc(window.TelosCopy.empty.roles)}</p>`}
       </section>`;
     return page('Foundation', 'Purpose first. Revisit at every planning session.', body);
   }
@@ -931,7 +931,7 @@
     if (!state.cycles.length) {
       const t = today();
       const start = U.toISO(new Date(t.getFullYear(), t.getMonth(), 1));
-      return page('Roles & Goals', 'Your planning session', `
+      return page(window.TelosCopy.label('goals'), 'Your planning session', `
         <section class="box hero">
           <h2>Start your first planning session</h2>
           <ol class="steps"><li>Set out the roles that define your life (personal, professional, communal).</li>
@@ -1067,7 +1067,7 @@
           <button data-act="nextCycle" data-id="${cyc.id}" class="primary">Start next cycle →</button>
         </div>
       </section>`;
-    return page('Roles & Goals', 'Roles → WHY → goals → actions', body);
+    return page(window.TelosCopy.label('goals'), 'Roles → WHY → goals → actions', body);
   }
 
   function viewYear(y) {
@@ -1273,7 +1273,7 @@
       ${late.length ? `<h4 class="tl-h">Carried over</h4>${late.map((t) => `<div class="tray-item late">${chk(`${t.base}.done`, 'Done')}<span class="grow">${esc(t.text)} <small class="muted">from ${U.fmtDate(t.day, { weekday: 'short', month: 'short', day: 'numeric' })}</small></span>
         <button class="btn ghost small" data-act="assignTask" data-path="${t.base}" data-day="${iso}">› Today</button></div>`).join('')}` : ''}
       ${F.dayTasks ? F.dayTasks(iso) : ''}
-      ${mine.length ? mine.map((t) => taskRow(t, iso)).join('') : (F.dayTasks && F.dayTasksCount(iso) ? '' : '<p class="muted small">Nothing assigned to today yet. Add a task, or assign from your lists below.</p>')}
+      ${mine.length ? mine.map((t) => taskRow(t, iso)).join('') : (F.dayTasks && F.dayTasksCount(iso) ? '' : `<p class="muted small">${esc(iso === todayISO() ? window.TelosCopy.empty.tasksToday : 'Nothing assigned to this day yet.')}</p>`)}
       ${F.quickAdd ? F.quickAdd(iso, `Add a task for ${iso === todayISO() ? 'today' : U.DAYS[U.parseISO(iso).getDay()]}… (try "Pay rent monthly on the 1st !high")`) : ''}
       ${F.rolloverBar ? F.rolloverBar(iso) : ''}
       ${pool.length ? `<details data-keep="pool"><summary class="muted small">Assign from your lists (${pool.length})</summary>${pool.map((t) => poolRow(t, iso)).join('')}</details>` : ''}
@@ -1608,9 +1608,10 @@
       <a class="btn ghost" href="#/week/${next}" aria-label="Next week">→</a>
       <button class="btn" data-act="copyWeek" data-key="${wk}">Copy for planner</button>
       <a class="btn" href="#/print/week/${wk}">Print</a>`;
-    return page(`Week ${wom.n} of ${U.MONTHS[wom.month]}`,
+    const weekEmpty = !days.some((d) => scheduleOn(U.toISO(d)).length || U.eventsOn(state.events, U.toISO(d)).length) && !(w.big3 || []).some((b) => b.text) && !(state.tasks || []).some((t) => !t.done && t.due >= wk && t.due <= endIso);
+    return page(`${window.TelosCopy.label('week')}: week ${wom.n} of ${U.MONTHS[wom.month]}`,
       `${U.fmtDate(wk, { weekday: 'short', month: 'short', day: 'numeric' })} – ${U.fmtDate(endIso, { weekday: 'short', month: 'short', day: 'numeric' })} · <a href="#/month/${wom.monthKey}">Month view</a>`,
-      body, nav);
+      (weekEmpty ? `<p class="empty-note">${esc(window.TelosCopy.empty.weekOpen)}</p>` : '') + body, nav);
   }
 
   /* ---------- tracking helpers & charts ---------- */
@@ -1878,10 +1879,10 @@
               <td class="prog" data-label="Progress"><input type="range" min="0" max="100" step="5" data-bind="goals.@${g.id}.progress" data-type="number" value="${Number(g.progress) || 0}" aria-label="Progress"><output>${Number(g.progress) || 0}%</output></td>
               <td data-label="Trend">${sparkline(g.history)}</td>
               <td data-label="Actions">${a.done}/${a.total}</td></tr>`;
-          }).join('')}</tbody></table>` : '<p class="muted">No goals yet. <a href="#/goals">Hold a planning session →</a></p>'}
+          }).join('')}</tbody></table>` : `<p class="muted">${esc(window.TelosCopy.empty.goals)} <a href="#/goals">Begin →</a></p>`}
       </section>`;
     }
-    return page('Track', 'Weight, workouts, habits and goal momentum', body);
+    return page(window.TelosCopy.label('track'), 'Weight, workouts, habits and goal momentum', body);
   }
 
 
@@ -2094,7 +2095,7 @@
         </tbody></table>
         <form class="add" data-add="notesIndex"><input name="topic" placeholder="Topic" required><input name="page" class="num" placeholder="Pg"><button aria-label="Add">+</button></form></section>`;
     }
-    return page('Lists', '', body);
+    return page(window.TelosCopy.label('lists'), '', body);
   }
 
   function viewSettings() {
@@ -2482,6 +2483,20 @@
     async importPage() {      // the paper-to-digital bridge: opens the photo dialog already set to "planner page"
       await ACTS.uploadPhoto();
       const t = document.getElementById('uploadType'); if (t && document.getElementById('uploadDlg').open) { t.value = 'page'; t.dispatchEvent(new Event('change')); }
+    },
+    beginRoles() { location.hash = begin.roles.some((x) => x.trim()) ? '#/begin/3' : '#/begin/4'; },
+    scrollTo(el) { const t = document.getElementById(el.dataset.target); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+    beginFinish(el) {
+      const names = begin.roles.map((x) => x.trim()).filter(Boolean);
+      names.forEach((nm) => {
+        let r = state.roles.find((x) => x.name.toLowerCase() === nm.toLowerCase());
+        if (!r) { r = { id: S.uid(), name: nm, why: '' }; state.roles.push(r); }
+        if ((begin.why[nm] || '').trim()) r.why = begin.why[nm].trim();
+      });
+      begin = { roles: ['', '', '', ''], why: {} };
+      if (names.length) { track('setup_completed'); commit(); }
+      location.hash = '#/today';
+      if (el.dataset.camera) setTimeout(() => ACTS.importPage(), 50);
     },
     closeDialog(el) { const d = el.closest('dialog'); if (d) d.close(); },
     inviteOpen() { const d = document.getElementById('inviteDlg'); document.getElementById('inviteBody').innerHTML = inviteBlock('today'); d.showModal(); },
@@ -2943,15 +2958,6 @@
       <div class="row"><a class="btn primary" href="#/quick/1">Build my whole plan in a minute →</a><button type="button" class="btn ghost" data-act="fdDismiss">I'll explore on my own</button></div></section>`;
   }
 
-  function viewStart() {
-    return page('Set up your plan', 'Pick how much time you have. You can add detail any time.', `
-      <div class="grid2">
-        <a class="box start-card" href="#/quick/1"><h2>Quick start</h2><p class="muted">About 1 minute. Your why, goals across the main areas of life and a daily rhythm. Today fills itself in.</p><span class="btn primary">Start quick</span></a>
-        <a class="box start-card" href="#/setup/1"><h2>Guided setup</h2><p class="muted">About 5 minutes. Roles and their WHY, annual goals, habits and an ideal week, step by step.</p><span class="btn ghost">Start guided</span></a>
-      </div>
-      <p><a href="#/today">I'll explore on my own</a></p>`);
-  }
-
   function viewQuick(arg) {
     const n = Math.min(3, Math.max(1, Number(arg) || 1));
     const labels = ['You & your why', 'Your goals', 'Habits'];
@@ -3164,7 +3170,7 @@
           ${last ? `<p class="muted small">Last completed ${U.fmtDate(last, { month: 'short', day: 'numeric', year: 'numeric' })}</p>` : ''}
           <a class="btn ${st.complete ? 'ghost' : 'primary'}" href="#/session/${cad}">${st.complete ? 'Review' : st.doneN ? 'Continue' : 'Start'} →</a></section>`;
       }).join('');
-      return page('Planning sessions', 'A rhythm of review and planning: yearly, quarterly, monthly, weekly and daily', `<div class="grid2">${cards}</div>`);
+      return page(window.TelosCopy.label('plan'), 'A rhythm of review and planning: yearly, quarterly, monthly, weekly and daily', `<div class="grid2">${cards}</div>`);
     }
     const st = sessionStatus(arg, c), recKey = st.per.key;
     if (st.doneN === st.steps.length && !(state.sessions[recKey] && state.sessions[recKey].done)) {
@@ -3319,115 +3325,107 @@
   }
 
   function viewLanding() {
-    const cta = (primaryLabel) => `<div class="land-cta">
-      <button type="button" class="btn primary big" data-act="signIn">${primaryLabel || 'Continue with Google'}</button>
-      <a class="btn big" href="#/welcome/1">See how it works</a>
+    const TC = window.TelosCopy, L = TC.landing;
+    const cta = () => `<div class="land-cta">
+      <button type="button" class="btn primary big" data-act="signIn">${esc(L.hero.primary)}</button>
+      <button type="button" class="btn big" data-act="scrollTo" data-target="how">${esc(L.hero.secondary)}</button>
       ${isBlank() ? '<button type="button" class="linklike muted" data-act="landingSkip">or start without an account</button>' : '<a class="linklike muted" href="#/today">or go back to my plan</a>'}</div>`;
-    const chipsOf = (ids) => ids.map((id) => `<span class="land-chip">${esc(P.LIFE.find((a) => a.id === id).short)}</span>`).join('');
-    const feat = (ico, h, t) => `<div class="land-feat"><span class="ico" aria-hidden="true">${ico}</span><h3>${h}</h3><p>${t}</p></div>`;
+    const par = (a) => a.map((t) => `<p class="land-lead">${esc(t)}</p>`).join('');
+    const how = L.how.items;
     return `<div class="landing">
       <section class="land-hero">
         <div class="land-copy">
-          <p class="land-kicker">Telos · the companion to your paper planner</p>
-          <h1>Build a life that matters, <em>not just a longer to-do list.</em></h1>
-          <p class="land-tag">Planning for what matters.</p>
-          <p class="land-note"><em>Telos</em> (τέλος): the end, the purpose, what something aims toward.</p>
-          <p class="land-sub">Telos starts with what you want your life to stand for: the work you are called to, the people you love, the faith, health and community that sustain you. Keep planning on paper if that is how you think best. Telos carries the plan into your day: snap a photo instead of retyping it, and get reminders so it actually happens.</p>
+          <h1 class="land-name">${esc(L.hero.name)}</h1>
+          <p class="land-tag">${esc(L.hero.tagline)}</p>
+          <p class="land-sub">${esc(L.hero.body)}</p>
           ${cta()}
-          <p class="land-note">No account needed. Your plan stays on your device, or in your own Google Drive if you sign in.</p>
         </div>
         <div class="land-preview" aria-hidden="true">
           <div class="lp-card">
-            <div class="lp-purpose"><small>MY PURPOSE</small>To do work I am proud of, so I can love my family well and serve my community.</div>
+            <div class="lp-purpose"><small>MY TELOS</small>To do work I am proud of, so I can love my family well and serve my community.</div>
             <div class="lp-row"><b>Today's Big 3</b></div>
-            <div class="lp-item"><i class="on"></i>Draft the proposal <span class="lp-tag t2">Career</span></div>
-            <div class="lp-item"><i></i>Call Dad <span class="lp-tag t1">Family</span></div>
-            <div class="lp-item"><i></i>5K run <span class="lp-tag t3">Fitness</span></div>
-            <div class="lp-row"><b>Tasks</b></div>
-            <div class="lp-item"><i></i>Send invoice <span class="lp-tag">+Business</span></div>
-            <div class="lp-item"><i></i>Pay rent <span class="lp-tag">↻ monthly</span></div>
+            <div class="lp-item"><i class="on"></i>Draft the proposal <span class="lp-tag t2">Writer</span></div>
+            <div class="lp-item"><i></i>Call Dad <span class="lp-tag t1">Son</span></div>
+            <div class="lp-item"><i></i>5K run <span class="lp-tag t3">Runner</span></div>
           </div>
         </div>
       </section>
 
-      <section class="land-companion" id="import">
-        <h2>Keep your paper planner. Skip the re-entering.</h2>
-        <p class="land-lead">Paper is great for thinking and deciding. Phones are great for reminding and doing. Telos connects them, so you never copy a page by hand. Here is a page from a planner on the left, and what Telos read from it on the right.</p>
+      <section class="land-start">
+        <h2>${esc(L.start.h)}</h2>
+        ${par(L.start.p)}
+      </section>
+
+      <section class="land-companion" id="how">
+        <h2>${esc(L.how.h)}</h2>
+        <ol class="comp-flow">${how.map(([h, t], i) => `<li><span class="comp-n">${i + 1}</span><h3>${esc(h)}</h3><p>${esc(t)}</p></li>`).join('')}</ol>
         <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[0])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[0])}</div>
         <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[1])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[1])}</div>
-        <div class="land-chips">${['Full Focus', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Franklin Covey', 'Bullet Journal', 'Happy Planner', 'Erin Condren', 'Moleskine', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
         ${inviteBlock('landing')}
-        <ol class="comp-flow">
-          <li><span class="comp-n">1</span><h3>Plan on paper</h3><p>Use the planner you love, or a plain notebook. Write the week the way you always have.</p></li>
-          <li><span class="comp-n">2</span><h3>Snap it. Don't retype it.</h3><p>Take a photo of the page. You check what Telos read before anything is added.</p></li>
-          <li><span class="comp-n">3</span><h3>Execute digitally</h3><p>Your day appears on Today with checkboxes and a calendar, and reminders nudge you when it is time.</p></li>
-        </ol>
         <div class="comp-notes" aria-hidden="true">
           <div class="notif"><b>Telos</b><span>9:20 AM</span><p>Team standup in 10 minutes</p></div>
           <div class="notif"><b>Telos</b><span>8:30 AM</span><p>3 tasks for today: Finish the proposal, Call Dad, Pay rent</p></div>
         </div>
-        <p class="land-note">Reminders arrive on your phone when Telos is installed or open. Calendar and file imports work for everyone today: connect Google Calendar, screenshot a week, or bring a workout file.</p>
       </section>
 
-      <section class="land-work">
-        <h2>Your work is part of the point</h2>
-        <p class="land-lead">The career you choose and the passions you pursue shape almost everything else: the time you have, the money you can give and keep, the energy you bring home, and the person you become. Meaning does not live only outside of work. Telos plans for both.</p>
-        <div class="land-three">
-          <div class="land-card"><span class="ico" aria-hidden="true">⚒</span><h3>Work that makes room</h3><p>A good career is how you provide, grow your skills and earn the freedom to say yes to what matters most: family, faith, community, generosity.</p></div>
-          <div class="land-card"><span class="ico" aria-hidden="true">✦</span><h3>Passion that gives it meaning</h3><p>The craft you love, the problem you care about, the business you are building. When your work and your values line up, effort stops feeling like a grind.</p></div>
-          <div class="land-card"><span class="ico" aria-hidden="true">⚖</span><h3>Boundaries that protect the rest</h3><p>Ambition that eats your evenings is not success. Put deep work, rest, family time and workouts on the same calendar, so work serves your life instead of replacing it.</p></div>
-        </div>
-        <ol class="land-loop" aria-label="How the areas of life feed each other"><li>Purpose</li><li>Work &amp; passion</li><li>Income, skills &amp; energy</li><li>Family, faith, health &amp; community</li><li>Purpose</li></ol>
+      <section class="land-who">
+        <h2>${esc(L.who.h)}</h2>
+        <p class="land-lead">${esc(L.who.p)}</p>
+        <div class="land-chips">${['Full Focus', 'Franklin Covey', 'Roterunner', 'Monk Manual', 'Bullet Journal', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
       </section>
 
-      <section class="land-contrast">
-        <h2>Doing more is not the same as living well</h2>
-        <div class="land-two">
-          <div class="land-col muted-col"><h3>A busy life</h3><ul><li>A task list that never ends</li><li>Urgent things crowd out important things</li><li>Work for its own sake, or work you drifted into</li><li>Productive, but not sure it mattered</li></ul></div>
-          <div class="land-col good-col"><h3>A life that matters</h3><ul><li>Your purpose and values come first</li><li>Career and passions chosen on purpose</li><li>A few focus goals, not fifty</li><li>Time on the calendar for what counts</li></ul></div>
-        </div>
-      </section>
-
-      <section class="land-steps">
-        <h2>From purpose to Tuesday afternoon</h2>
-        <ol class="land-flow">
-          <li><b>1</b><h3>Know your why</h3><p>Write your purpose, vision and legacy. They return in your daily review so you never drift.</p></li>
-          <li><b>2</b><h3>Set goals that matter</h3><p>Choose goals for your career and passions as well as for home, health and faith, one set for each of your roles.</p></li>
-          <li><b>3</b><h3>Plan your week</h3><p>Pick 3 or 4 focus goals, a Big 3 for each day and tasks for the days they belong.</p></li>
-          <li><b>4</b><h3>Live it daily</h3><p>See your day by the 15 minutes, check off habits, and look back on what you finished.</p></li>
-        </ol>
-      </section>
-
-      <section class="land-balance">
-        <h2>A balanced life, in plain sight</h2>
-        <p>Goals, habits and the Wheel of Life share the same ten areas, so you can see what is getting your time and what is being neglected. Work and money are the foundation. The rest is what they make possible.</p>
-        <div class="land-groups">
-          <div><h3>Work &amp; means</h3><div class="land-chips">${chipsOf(['career', 'finances', 'learning'])}</div></div>
-          <div><h3>What it makes room for</h3><div class="land-chips">${chipsOf(['family', 'faith', 'fitness', 'mental', 'community', 'personal', 'home'])}</div></div>
-        </div>
-      </section>
-
-      <section class="land-tools">
-        <h2>And the planning tools to do it well</h2>
-        <p class="land-lead">Purpose gives the direction. Telos also gives you the everyday machinery for serious work and a full life.</p>
-        <div class="land-feats">
-          ${feat('✓', 'Tasks and projects for real work', 'Due dates, priorities, projects, tags, subtasks, and Waiting and Someday lists. Add them in plain words, like “send invoice friday !high +Client”.')}
-          ${feat('↻', 'Repeating tasks and habits', 'Bills, reports and routines repeat on their own. Habits show streaks instead of piling up as overdue.')}
-          ${feat('▦', 'A real daily calendar', 'An hour-by-hour day down to 15 minutes. Block time for deep work, drag tasks onto it, and see your Google Calendars beside them.')}
-          ${feat('☰', 'Weekly and daily planning', 'Guided sessions for the year, quarter, month, week and day, plus a Big 3 and a one-tap “move undone to tomorrow”.')}
-          ${feat('★', 'Review and reflect', '“What I finished” summaries by week, month, quarter or year you can copy, download or print, handy for career reviews too.')}
-          ${feat('⌘', 'Fast and forgiving', 'Search everything with one key, undo and restore deleted items, work offline, and print a clean page for your paper planner.')}
-        </div>
+      <section class="land-why">
+        <h2>${esc(L.why.h)}</h2>
+        ${par(L.why.p)}
       </section>
 
       <section class="land-final">
-        <h2>Choose work that matters. Build a life around it.</h2>
-        <p>Your first sign-in creates your account. There is nothing else to fill in. Or take the two-minute demo first.</p>
-        ${cta('Get started with Google')}
-        <p class="land-quote">“The key is not to prioritize what's on your schedule, but to schedule your priorities.” <span>Stephen Covey</span></p>
+        ${cta()}
+        <p class="land-note">No account needed. Your plan stays on your device unless you sign in.</p>
       </section>
+      <footer class="land-foot"><p>${esc(L.footer.tagline)}</p><p>${L.footer.links.map(([t, h]) => `<a href="${esc(h)}">${esc(t)}</a>`).join(' · ')}</p></footer>
     </div>`;
   }
+
+  /* ---------- Why Telos (the About page) ---------- */
+  function viewWhy() {
+    const TC = window.TelosCopy, L = TC.landing;
+    return page(TC.label('about'), esc(TC.TAGLINE), `<section class="box why">
+      <h2>${esc(L.start.h)}</h2>${L.start.p.map((t) => `<p>${esc(t)}</p>`).join('')}
+      <h2>${esc(L.why.h)}</h2>${L.why.p.map((t) => `<p>${esc(t)}</p>`).join('')}
+      <p><a class="btn" href="#/today">Back to my plan</a></p></section>`);
+  }
+
+  /* ---------- Begin: four quiet screens at the start ---------- */
+  let begin = { roles: ['', '', '', ''], why: {} };
+  function viewBegin(arg) {
+    const OB = window.TelosCopy.onboarding, n = Math.min(4, Math.max(1, Number(arg) || 1));
+    const names = begin.roles.map((r) => r.trim()).filter(Boolean);
+    const dots = `<p class="begin-step" aria-label="Step ${n} of 4">${[1, 2, 3, 4].map((i) => `<i class="${i === n ? 'cur' : i < n ? 'ok' : ''}"></i>`).join('')}</p>`;
+    const nav = (cont, skipHref, skipLabel, contHtml) => `<div class="row begin-nav">${contHtml || `<a class="btn primary" href="#/begin/${n + 1}">${esc(cont)}</a>`}${skipLabel ? `<a class="linklike muted" href="${skipHref}">${esc(skipLabel)}</a>` : ''}</div>`;
+    let body;
+    if (n === 1) {
+      body = `<h1>${esc(OB.s1.h)}</h1>${OB.s1.lines.map((l) => `<p class="begin-lead">${esc(l)}</p>`).join('')}${nav(OB.s1.next)}`;
+    } else if (n === 2) {
+      body = `<h1>${esc(OB.s2.h)}</h1><p class="begin-lead">${esc(OB.s2.lead)}</p><p>${esc(OB.s2.q)}</p><p class="muted small">${esc(OB.s2.eg)}</p>
+        ${begin.roles.map((r, i) => `<input class="begin-in" data-begin="role" data-i="${i}" value="${esc(r)}" maxlength="40" aria-label="Role ${i + 1}" placeholder="${['Parent', 'Partner', 'Writer', 'Friend'][i]}">`).join('')}
+        ${nav(OB.s2.next, '#/begin/4', OB.s2.skip, `<button type="button" class="btn primary" data-act="beginRoles">${esc(OB.s2.next)}</button>`)}`;
+    } else if (n === 3) {
+      body = names.length ? `<h1>${esc(OB.s3.h)}</h1><p class="begin-lead">${esc(OB.s3.lead)}</p>
+        ${names.map((nm) => `<label class="begin-role"><span>${esc(nm)}</span><textarea class="begin-in" data-begin="why" data-role="${esc(nm)}" rows="2" aria-label="A good year as ${esc(nm)}">${esc(begin.why[nm] || '')}</textarea></label>`).join('')}
+        ${nav(OB.s3.next, '#/begin/4', OB.s3.skip)}`
+        : `<h1>${esc(OB.s3.h)}</h1><p class="begin-lead">${esc(window.TelosCopy.empty.roles)}</p>${nav(OB.s3.next, '#/begin/4', OB.s3.skip)}`;
+    } else {
+      body = `<h1>${esc(OB.s4.h)}</h1><p class="begin-lead">${esc(OB.s4.lead)}</p>
+        ${nav('', '', '', `<button type="button" class="btn primary" data-act="beginFinish" data-camera="1">${esc(OB.s4.next)}</button><button type="button" class="linklike muted" data-act="beginFinish">${esc(OB.s4.skip)}</button>`)}`;
+    }
+    return `<div class="begin">${dots}${body}</div>`;
+  }
+  document.addEventListener('input', (e) => {
+    const d = e.target.dataset || {};
+    if (d.begin === 'role') begin.roles[Number(d.i)] = e.target.value;
+    else if (d.begin === 'why') begin.why[d.role] = e.target.value;
+  });
 
   /* ---------- welcome: an interactive demo with sample data (never touches your real data) ---------- */
   const DEMO_DEFAULT_GOALS = [
@@ -3692,7 +3690,7 @@
       <p>Signed in as <strong>${esc(accountEmail() || 'your account')}</strong>${sbOn() && window.LifeAuth.provider() ? ` with ${esc(window.LifeAuth.provider())}` : ''}. ${sbOn() ? 'Your plan is saved to your account and follows you to any device you sign in on.' : 'Your plan is saved to your own Google Drive and follows you to any device you sign in on.'}</p>
       <div class="row wrap"><button class="btn ghost" data-act="signOut" data-wipe="0">Sign out</button><button class="btn ghost danger" data-act="signOut" data-wipe="1">Sign out and clear this device</button></div></section>`;
     return `<section class="box account-card"><h2>Account</h2>
-      <p class="prompt">Sign in with Google to keep your plan safe in your own Drive and open it on any device. New here? Your first sign-in creates your account; there is nothing else to fill in.</p>
+      <p class="prompt">${esc(signInCopy())}</p>
       <div class="row wrap"><button class="btn primary" data-act="signIn">Sign in with Google</button></div>
       <p class="muted small">Prefer not to? Telos works without an account, and your plan then stays on this device only.</p></section>`;
   }
@@ -3871,10 +3869,12 @@
   document.addEventListener('toggle', (e) => { const k = e.target.dataset && e.target.dataset.keep; if (k) keepOpen[k] = e.target.open; }, true);
   const ROUTES = {
     today: viewToday, admin: viewAdmin, landing: viewLanding, 'landing-v1': viewLandingV1, foundation: viewFoundation, goals: viewGoals, year: viewYear,
-    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewStart, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
+    month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewBegin, begin: viewBegin, 'why-telos': viewWhy, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
-    const [, name = 'today', arg, arg2] = (location.hash || '#/today').split('/');
+    let [, name, arg, arg2] = (location.hash || '').split('/');
+    if (!name) name = !signedIn() && isBlank() && !localStorage.getItem('account_mode') && !localStorage.getItem('login_prompt_seen') ? 'landing' : 'today';
+    if (name === 'landing' && location.hash) history.replaceState(null, '', location.pathname + location.search);    // the marketing page lives at the root now
     const view = ROUTES[name] || viewToday;
     const y = window.scrollY;
     const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
@@ -3956,7 +3956,7 @@
         state.settings.syncOn = true; S.save(state); renderAccountChip();
         toast(`Signed in${localStorage.getItem('google_email') ? ` as ${localStorage.getItem('google_email')}` : ''}`);
         syncNow().then(() => {
-          if (isBlank() && !/^#\/(setup|quick|start)/.test(location.hash)) location.hash = '#/start';      // first sign-in: create the plan
+          if (isBlank() && !/^#\/(setup|quick|start|begin)/.test(location.hash)) location.hash = '#/start';      // first sign-in: create the plan
           else if (/^#\/(welcome|demo)/.test(location.hash)) location.hash = '#/today';
           render();
         });
@@ -3998,7 +3998,7 @@
   }
   /* Ask people to sign in (or choose no account) once, but never on top of the tour or the setup guide. */
   function maybePromptLogin(route) {
-    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(landing|landing-v1|welcome|demo|setup|quick|start)$/.test(route)) return;
+    if (!loginDlg || loginDlg.open || location.protocol === 'file:' || /^(landing|landing-v1|welcome|demo|setup|quick|start|begin|why-telos)$/.test(route)) return;
     let mode = '';
     try { mode = localStorage.getItem('account_mode') || localStorage.getItem('login_prompt_seen') || ''; } catch (e) { /* storage unavailable */ }
     if (mode || signedIn() || new URLSearchParams(location.search).get('code')) return;
@@ -4258,8 +4258,27 @@
   });
 
   if (state.idealWeek.some((i) => !i.quarter)) { state.idealWeek.forEach((i) => { if (!i.quarter) i.quarter = quarterKey(todayISO()); }); if (!firstRun) S.save(state); }
+  /* Section names come from copy.js. USE_LEGACY_LABELS=true (js/config.js) brings the old ones back for one release. */
+  function signInCopy() { const c = window.TelosCopy.signIn; return sbOn() ? c.account[1] : `${c.drive[0]} ${c.drive[1]}`; }
+  function applyLabels() {
+    const dlgP = document.querySelector('#loginDlg p.muted'); if (dlgP) dlgP.textContent = signInCopy();
+    const TC = window.TelosCopy; if (!TC) return;
+    document.querySelectorAll('[data-lbl]').forEach((el) => { el.textContent = TC.label(el.dataset.lbl); });
+  }
+  applyLabels();
+  /* One-time notice for people who used the app before the rename. */
+  try {
+    if (!firstRun && !localStorage.getItem('lifeos.telosNotice')) {
+      localStorage.setItem('lifeos.telosNotice', '1');
+      const n = window.TelosCopy.existingUserBanner, b = document.createElement('aside');
+      b.className = 'rename-note'; b.setAttribute('role', 'status');
+      b.innerHTML = `<p><strong>${esc(n.h)}</strong> ${esc(n.p)} <a href="${n.href}">${esc(n.link)}</a></p><button type="button" class="x" aria-label="Dismiss">×</button>`;
+      b.addEventListener('click', (e) => { if (e.target.closest('.x') || e.target.closest('a')) b.remove(); });
+      document.querySelector('.topbar').after(b);
+    }
+  } catch (e) { /* storage unavailable */ }
   const noAccountYet = (() => { try { return isBlank() && !signedIn() && !localStorage.getItem('account_mode') && !localStorage.getItem('login_prompt_seen'); } catch (e) { return firstRun; } })();
-  if (noAccountYet && !new URLSearchParams(location.search).get('code') && !/^#\/(landing|welcome|demo|setup|quick|start)/.test(location.hash)) location.hash = '#/landing';
+  if (noAccountYet && !new URLSearchParams(location.search).get('code') && !/^#\/(landing|welcome|demo|setup|quick|start|begin)/.test(location.hash)) location.hash = '#/landing';
   if (navigator.storage && navigator.storage.persist && !isBlank()) navigator.storage.persist().catch(() => {});
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   setInterval(syncNow, 5 * 60 * 1000);
@@ -4283,7 +4302,7 @@
       setAccountMode('google');
       if (ev === 'SIGNED_IN') track('signed_in');
       syncNow().then(() => {
-        if (ev === 'SIGNED_IN' && isBlank() && !/^#\/(setup|quick|start)/.test(location.hash)) location.hash = '#/start';
+        if (ev === 'SIGNED_IN' && isBlank() && !/^#\/(setup|quick|start|begin)/.test(location.hash)) location.hash = '#/start';
         else if (/^#\/(welcome|demo|landing)/.test(location.hash)) location.hash = '#/today';
         render();
       });

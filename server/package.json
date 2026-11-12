@@ -1,5 +1,5 @@
 {
-  "name": "lifeos-server",
+  "name": "telos-server",
   "version": "1.0.0",
   "description": "Backend for Telos: Google Calendar sync + Photo OCR",
   "main": "app.js",
