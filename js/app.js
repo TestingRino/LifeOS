@@ -80,7 +80,7 @@
      Off when the browser says Do Not Track or Global Privacy Control, or when you switch it off in Settings. */
   const BUILD = (() => { try { const m = /v=(\d+)/.exec([...document.scripts].map((x) => x.src).find((x) => /js\/app\.js/.test(x)) || ''); return m ? m[1] : ''; } catch (e) { return ''; } })();
   const analyticsOn = () => { try { return localStorage.getItem('lifeos.analytics') !== 'off' && navigator.doNotTrack !== '1' && !navigator.globalPrivacyControl && location.protocol !== 'file:'; } catch (e) { return false; } };
-  function track(event) {
+  function track(event, extra) {
     try {
       if (!analyticsOn()) return;
       const cfg = window.LIFEOS_CONFIG || {};
@@ -92,11 +92,11 @@
       let id = localStorage.getItem('lifeos.install'); if (!id) { id = S.uid() + S.uid(); localStorage.setItem('lifeos.install', id); }
       const who = window.LifeAuth && window.LifeAuth.user();
       if (cfg.posthogKey) {       // PostHog's capture endpoint directly: no script to load
-        const props = { app_version: BUILD, auth_provider: who ? window.LifeAuth.provider() : 'none' };
+        const props = { app_version: BUILD, auth_provider: who ? window.LifeAuth.provider() : 'none', ...(extra || {}) };
         if (who && cfg.identifyEmail) props.$set = { email: who.email };
         fetch(`${cfg.posthogHost || 'https://us.i.posthog.com'}/capture/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: cfg.posthogKey, event, distinct_id: who ? who.id : id, properties: props }), keepalive: true }).catch(() => {});
       } else {
-        fetch(`${API_BASE}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ e: event, id, v: BUILD }), keepalive: true }).catch(() => {});
+        fetch(`${API_BASE}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ e: event, id, v: BUILD, ...(extra && extra.planner ? { planner: extra.planner } : {}) }), keepalive: true }).catch(() => {});
       }
     } catch (e) { /* analytics must never break the app */ }
   }
@@ -777,6 +777,8 @@
       <section class="box">
         <h2>${isToday ? "Today's" : `${U.DAYS[t.getDay()]}'s`} schedule <a class="more" href="#/calendar/day:${iso}">Full calendar →</a></h2>
         ${gcalStatusLine(wk, U.toISO(U.addDays(U.parseISO(wk), 7)))}
+        ${iso >= realToday && !plannerEntries(iso).filter((e) => e.k !== 'task').length ? `<div class="empty-import"><div><strong>Nothing on the schedule yet.</strong> <span class="muted">${hasOcr() ? 'Planned your day on paper? Snap the page and it is here in seconds.' : 'Planned your day on paper? Photo import reads the page for you.'}</span></div>
+          ${hasOcr() ? '<button type="button" class="btn primary" data-act="importPage">📸 Import today\'s page</button>' : (onList() ? '<span class="muted">✓ You are on the photo import list. We will email you.</span>' : '<button type="button" class="btn primary" data-act="inviteOpen">📸 Request photo import</button>')}</div>` : ''}
         <div class="chips style-toggle" role="group" aria-label="Schedule style"><button type="button" class="chip${state.settings.todayStyle === 'planner' ? '' : ' on'}" data-act="todayStyle" data-v="timeline" aria-pressed="${state.settings.todayStyle !== 'planner'}">Timeline</button><button type="button" class="chip${state.settings.todayStyle === 'planner' ? ' on' : ''}" data-act="todayStyle" data-v="planner" aria-pressed="${state.settings.todayStyle === 'planner'}">Planner</button></div>
         ${state.settings.todayStyle === 'planner' ? `<div class="pd-scroll" data-now="${isToday ? 'y' : ''}">${plannerHours(iso, { compact: true })}</div>` : dayTimeline(iso, { height: 560 })}
       </section>
@@ -2457,6 +2459,12 @@
     },
     analyticsToggle(el) { try { localStorage.setItem('lifeos.analytics', el.checked ? 'on' : 'off'); } catch (e) { /* storage unavailable */ } toast(el.checked ? 'Anonymous usage events are on' : 'Anonymous usage events are off'); render(); },
     takePhoto() { document.getElementById('uploadCamera').click(); },
+    async importPage() {      // the paper-to-digital bridge: opens the photo dialog already set to "planner page"
+      await ACTS.uploadPhoto();
+      const t = document.getElementById('uploadType'); if (t && document.getElementById('uploadDlg').open) { t.value = 'page'; t.dispatchEvent(new Event('change')); }
+    },
+    closeDialog(el) { const d = el.closest('dialog'); if (d) d.close(); },
+    inviteOpen() { const d = document.getElementById('inviteDlg'); document.getElementById('inviteBody').innerHTML = inviteBlock('today'); d.showModal(); },
     pickPhotos() { document.getElementById('uploadInput').click(); },
     signIn() { if (sbOn()) openLogin(); else startGoogleOAuth('signin'); },
     landingSkip() { setAccountMode('local'); location.hash = '#/start'; },
@@ -3234,6 +3242,37 @@
   }
 
 
+
+  /* ---------- request an invite for photo import (email + planner brand = the waitlist) ---------- */
+  const PLANNER_CHOICES = [['fullfocus', 'Full Focus Planner'], ['panda', 'Panda Planner'], ['passion', 'Passion Planner'], ['daydesigner', 'Day Designer'], ['franklin', 'Franklin Covey'], ['bujo', 'Bullet Journal'], ['happyplanner', 'Happy Planner'], ['erincondren', 'Erin Condren LifePlanner'], ['moleskine', 'Moleskine / Leuchtturm / weekly diary'], ['hobonichi', 'Hobonichi Techo'], ['cultivate', 'Cultivate What Matters'], ['simplified', 'Simplified / Ink+Volt / Clever Fox'], ['other', 'Another planner or notebook']];
+  const onList = () => { try { return localStorage.getItem('lifeos.invite') || ''; } catch (e) { return ''; } };
+  const hasOcr = () => { try { return localStorage.getItem('lifeos.ocr') === '1'; } catch (e) { return false; } };
+  const inviteForm = (source) => `<form class="invite-form" data-invite="${source}">
+      <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" aria-label="Your email">
+      <select name="planner" required aria-label="Which planner do you use?"><option value="">Which planner do you use?</option>${PLANNER_CHOICES.map(([id, l]) => `<option value="${id}">${esc(l)}</option>`).join('')}</select>
+      <input name="other" class="invite-other" placeholder="Which one?" maxlength="60" aria-label="Which planner?" hidden>
+      <button class="btn primary">Request an invite</button>
+      <p class="invite-msg muted small" role="status"></p></form>`;
+  const inviteBlock = (source) => (onList()
+    ? '<div class="invite done"><strong>✓ You are on the list.</strong> We will email you when photo import is ready for your planner.</div>'
+    : `<div class="invite"><h3>Get early access to photo import</h3><p>Photo import is opening in waves. Tell us which planner you use and we will tune it first and invite you as soon as it is ready. We only email you about access.</p>${inviteForm(source)}</div>`);
+  async function submitInvite(form) {
+    const fd = new FormData(form), msg = form.querySelector('.invite-msg'), planner = String(fd.get('planner') || '');
+    const row = { email: String(fd.get('email') || '').trim().toLowerCase(), planner, other: planner === 'other' ? String(fd.get('other') || '').trim().slice(0, 60) : '', source: form.dataset.invite || '' };
+    msg.textContent = 'Sending…';
+    const viaBackend = async () => { const r = await fetch(`${API_BASE}/api/waitlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) }); if (!r.ok) { let m = ''; try { m = (await r.json()).error; } catch (e) { /* no body */ } throw new Error(m || 'Could not send that. Please try again.'); } };
+    try {
+      if (sbOn()) { try { await window.LifeAuth.joinWaitlist(row); } catch (e) { await viaBackend(); } } else await viaBackend();
+      try { localStorage.setItem('lifeos.invite', row.email); } catch (e) { /* storage unavailable */ }
+      track('invite_requested', { planner: row.planner });
+      document.querySelectorAll('.invite').forEach((el) => { el.outerHTML = inviteBlock(''); });
+      const dlg = document.getElementById('inviteDlg'); if (dlg && dlg.open) setTimeout(() => dlg.close(), 1600);
+      render();
+    } catch (e) { msg.textContent = e.message || 'Could not send that. Please try again.'; }
+  }
+  document.addEventListener('submit', (e) => { const f = e.target; if (f.dataset && f.dataset.invite !== undefined) { e.preventDefault(); submitInvite(f); } });
+  document.addEventListener('change', (e) => { if (e.target.matches && e.target.matches('.invite-form select[name=planner]')) { const o = e.target.closest('form').querySelector('.invite-other'); o.hidden = e.target.value !== 'other'; if (!o.hidden) o.focus(); } });
+
   /* ---------- importing what you already have: examples shown on the landing page and in the demo ---------- */
   const IMPORT_EXAMPLES = [
     { id: 'fullfocus', label: 'Full Focus daily page', paper: ['<b>Mon · Mar 2</b>', 'BIG 3', '☐ Finish the proposal', '☑ Call Dad', '☐ 5K run', '9:30  Team standup', 'TO-DO', '☐ Pay rent', '☐ Book dentist'],
@@ -3253,21 +3292,9 @@
       <div class="imp-pair">${importPaper(ex)}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(ex)}</div>
       ${demo.impAdded ? `<p class="imp-done">✓ ${n} items added to your sample plan. On Today they show up as priorities, schedule items and tasks, ready to check off. <button type="button" class="linklike" data-act="demoImportAdd">Undo</button></p>`
         : `<p><button type="button" class="btn primary" data-act="demoImportAdd">Add these ${n} items to my plan</button></p>`}
-      <p class="muted small">Works with Full Focus, Panda, Passion, Day Designer, Franklin Covey, bullet journals, Happy Planner, Erin Condren, Moleskine and more. You can also import a calendar screenshot, connect Google Calendar, or bring a file. Photo import is invite-only while we tune accuracy.</p></section>`;
+      <p class="muted small">Works with Full Focus, Panda, Passion, Day Designer, Franklin Covey, bullet journals, Happy Planner, Erin Condren, Moleskine and more. You can also import a calendar screenshot, connect Google Calendar, or bring a file.</p>
+      ${inviteBlock('demo')}</section>`;
   }
-  const importLanding = () => `<section class="land-import">
-        <h2>Here is what that looks like</h2>
-        <p class="land-lead">A page from your planner on the left, what Life.OS read from it on the right: priorities, schedule, to-dos, notes, even habit ticks. You review it, then it lands in your plan.</p>
-        <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[0])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[0])}</div>
-        <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[1])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[1])}</div>
-        <div class="land-chips">${['Full Focus', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Franklin Covey', 'Bullet Journal', 'Happy Planner', 'Erin Condren', 'Moleskine', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
-        <div class="land-three">
-          <div class="land-card"><span class="ico" aria-hidden="true">📸</span><h3>A photo of a page</h3><p>Daily pages, weekly spreads and rapid logs. Take several at once, such as a whole week.</p></div>
-          <div class="land-card"><span class="ico" aria-hidden="true">🗓</span><h3>Your calendars</h3><p>Connect Google Calendar to see your events beside your plan, or screenshot an Outlook or Apple week and import it after a quick review.</p></div>
-          <div class="land-card"><span class="ico" aria-hidden="true">⬆</span><h3>Files and backups</h3><p>Bring workout plans from a spreadsheet or calendar file, or restore a backup of your plan.</p></div>
-        </div>
-        <p class="land-note">Photo import is invite-only while we tune accuracy. Calendar and file imports are open to everyone. You always review before anything is added.</p>
-      </section>`;
 
   function viewLanding() {
     const cta = (primaryLabel) => `<div class="land-cta">
@@ -3300,19 +3327,23 @@
         </div>
       </section>
 
-      <section class="land-companion">
+      <section class="land-companion" id="import">
         <h2>Keep your paper planner. Skip the re-entering.</h2>
-        <p class="land-lead">Paper is great for thinking and deciding. Phones are great for reminding and doing. Life.OS connects them, so you never copy a page by hand.</p>
+        <p class="land-lead">Paper is great for thinking and deciding. Phones are great for reminding and doing. Life.OS connects them, so you never copy a page by hand. Here is a page from a planner on the left, and what Life.OS read from it on the right.</p>
+        <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[0])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[0])}</div>
+        <div class="imp-pair">${importPaper(IMPORT_EXAMPLES[1])}<div class="imp-arrow" aria-hidden="true">→</div>${importRead(IMPORT_EXAMPLES[1])}</div>
+        <div class="land-chips">${['Full Focus', 'Panda Planner', 'Passion Planner', 'Day Designer', 'Franklin Covey', 'Bullet Journal', 'Happy Planner', 'Erin Condren', 'Moleskine', 'Hobonichi'].map((n) => `<span class="land-chip">${n}</span>`).join('')}</div>
+        ${inviteBlock('landing')}
         <ol class="comp-flow">
-          <li><span class="comp-n">1</span><h3>Plan on paper</h3><p>Use the planner you love: Full Focus, Panda, Passion, a bullet journal, a plain notebook. Write the week the way you always have.</p></li>
-          <li><span class="comp-n">2</span><h3>Snap it. Don't retype it.</h3><p>Take a photo of the page. Life.OS reads the priorities, schedule and to-dos, and you check them before anything is added.</p></li>
+          <li><span class="comp-n">1</span><h3>Plan on paper</h3><p>Use the planner you love, or a plain notebook. Write the week the way you always have.</p></li>
+          <li><span class="comp-n">2</span><h3>Snap it. Don't retype it.</h3><p>Take a photo of the page. You check what Life.OS read before anything is added.</p></li>
           <li><span class="comp-n">3</span><h3>Execute digitally</h3><p>Your day appears on Today with checkboxes and a calendar, and reminders nudge you when it is time.</p></li>
         </ol>
         <div class="comp-notes" aria-hidden="true">
           <div class="notif"><b>Life.OS</b><span>9:20 AM</span><p>Team standup in 10 minutes</p></div>
           <div class="notif"><b>Life.OS</b><span>8:30 AM</span><p>3 tasks for today: Finish the proposal, Call Dad, Pay rent</p></div>
         </div>
-        <p class="land-note">Reminders for tasks, plus a morning digest, arrive on your phone when Life.OS is installed or open. Photo import is invite-only while we tune accuracy.</p>
+        <p class="land-note">Reminders arrive on your phone when Life.OS is installed or open. Calendar and file imports work for everyone today: connect Google Calendar, screenshot a week, or bring a workout file.</p>
       </section>
 
       <section class="land-work">
@@ -3343,8 +3374,6 @@
           <li><b>4</b><h3>Live it daily</h3><p>See your day by the 15 minutes, check off habits, and look back on what you finished.</p></li>
         </ol>
       </section>
-
-      ${importLanding()}
 
       <section class="land-balance">
         <h2>A balanced life, in plain sight</h2>
@@ -4191,8 +4220,14 @@
     const done = localStorage.getItem('lifeos.setupDoneAt');
     if (done && U.daysBetween(U.parseISO(done), today()) >= 7) track('day7_return');
   } catch (e) { /* storage unavailable */ }
+  function refreshOcrAccess() {      // remember whether this account can use photo import, so Today can offer it or the invite
+    if (!signedIn()) { try { if (localStorage.getItem('lifeos.ocr') === '1') { localStorage.removeItem('lifeos.ocr'); render(); } } catch (e) { /* storage unavailable */ } return; }
+    ocrAllowed().then((r) => { try { const v = r && r.allowed && !r.unknown ? '1' : '0'; if (localStorage.getItem('lifeos.ocr') !== v) { localStorage.setItem('lifeos.ocr', v); render(); } } catch (e) { /* storage unavailable */ } });
+  }
+  if (!sbOn()) refreshOcrAccess();
   if (sbOn()) {
     window.LifeAuth.onChange((ev) => {
+      refreshOcrAccess();
       renderAccountChip();
       if (!window.LifeAuth.session()) { render(); return; }
       setAccountMode('google');

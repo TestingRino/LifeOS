@@ -1,6 +1,6 @@
 /* Life.OS service worker: lets the app open offline, and shows notifications.
    Strategy: network first (so updates arrive right away), falling back to what was last cached. */
-const VERSION = '20261112043010';
+const VERSION = '20261112044444';
 const CACHE = `lifeos-shell-${VERSION}`;
 
 self.addEventListener('install', () => self.skipWaiting());

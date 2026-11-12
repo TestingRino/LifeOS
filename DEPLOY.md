@@ -55,10 +55,19 @@ Deploy the repo to Vercel (`vercel.json` routes everything to `api/index.mjs`, w
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Lets photo import accept Supabase session tokens |
 | `ALLOWED_ORIGINS` | Sites allowed to call the API from a browser (default: the GitHub Pages site and localhost) |
 | `ANALYTICS_WEBHOOK_URL` | Optional: forward first-party funnel events to a webhook |
+| `WAITLIST_WEBHOOK_URL` | Optional: forward photo-import waitlist sign-ups (email + planner brand) to a webhook, e.g. a Google Sheet script. They are always written to the Vercel log too, as `{"waitlist": {...}}` |
 
 Google Cloud Console (APIs & Services): enable the **Google Calendar API** (and **Drive API** only if you keep the older Drive mode). Add the website URL as an authorised redirect URI. The OAuth consent screen needs the privacy policy URL (`https://<user>.github.io/LifeOS/privacy.html`) before verification. The app asks for calendar *read-only* by default and for *create events* only when someone uses a feature that adds events.
 
 Local backend: `cd server && cp .env.example .env && npm install && npm start` (port 3001; the site uses it automatically on `localhost`).
+
+## Photo import waitlist
+
+The landing page, the demo and Today (when the schedule is empty) offer "Request an invite", which collects an email and the planner brand. Where it lands:
+- **Supabase configured:** run `supabase/migrations/002_waitlist.sql`. Sign-ups go to the `waitlist` table (insert-only for the public key; read it in the dashboard). If that table is missing the app falls back to the backend.
+- **Otherwise:** the Vercel backend logs each one and forwards it to `WAITLIST_WEBHOOK_URL` if set.
+- **Which planners to tune first:** count rows by `planner`. The app also sends an `invite_requested` analytics event with the planner brand (never the email).
+- **Granting access:** add the person's account email to `OCR_ALLOWED_EMAILS`.
 
 ## 4. Analytics
 

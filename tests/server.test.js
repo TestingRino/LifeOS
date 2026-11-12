@@ -119,3 +119,26 @@ test('every planner choice in the photo dialog has a layout hint, and the type i
   assert.equal(plannerHint('unknown'), '');
   assert.match(fs.readFileSync(require('node:path').join(__dirname, '..', 'server/routes/ocr.js'), 'utf8'), /type "page"|is type \\"page\\"/);
 });
+
+test('waitlist accepts a valid email with a known planner and rejects junk', async () => {
+  const post = (body) => fetch(`${base}/api/waitlist`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const lines = []; const orig = console.log; console.log = (...a) => { lines.push(a.join(' ')); };
+  try {
+    assert.equal((await post({ email: 'Pat@Example.com', planner: 'panda', source: 'landing' })).status, 204);
+    assert.equal((await post({ email: 'pat@example.com', planner: 'other', other: '  My   custom  planner ', source: 'demo' })).status, 204);
+  } finally { console.log = orig; }
+  const rows = lines.filter((l) => l.startsWith('{"waitlist"')).map((l) => JSON.parse(l).waitlist);
+  assert.deepEqual([rows[0].email, rows[0].planner, rows[0].other], ['pat@example.com', 'panda', '']);
+  assert.deepEqual([rows[1].planner, rows[1].other], ['other', 'My custom planner']);
+  assert.equal((await post({ email: 'not-an-email', planner: 'panda' })).status, 400);
+  assert.equal((await post({ planner: 'panda' })).status, 400);
+  const unknown = []; console.log = (...a) => { unknown.push(a.join(' ')); };
+  try { assert.equal((await post({ email: 'x@y.co', planner: 'evil<script>' })).status, 204); } finally { console.log = orig; }
+  assert.equal(JSON.parse(unknown.find((l) => l.startsWith('{"waitlist"'))).waitlist.planner, '');   // unknown brands are dropped, not stored
+});
+test('waitlist is rate limited per address', async () => {
+  const post = () => fetch(`${base}/api/waitlist`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9' }, body: JSON.stringify({ email: 'a@b.co' }) });
+  const orig = console.log; console.log = () => {};
+  let last; try { for (let i = 0; i < 7; i++) last = (await post()).status; } finally { console.log = orig; }
+  assert.equal(last, 429);
+});

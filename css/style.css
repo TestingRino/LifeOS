@@ -916,3 +916,12 @@ table.keys td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .notif { width: min(21rem, 100%); background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: .6rem .8rem; box-shadow: 0 8px 20px rgba(60, 45, 20, .12); display: grid; grid-template-columns: 1fr auto; column-gap: .6rem; font-size: .9rem; }
 .notif b { font-size: .78rem; color: var(--navy); } .notif span { font-size: .75rem; color: var(--muted); } .notif p { grid-column: 1 / -1; margin: .15rem 0 0; }
 @media (max-width: 760px) { .comp-flow { grid-template-columns: 1fr; } .comp-flow li:not(:last-child)::after { content: '↓'; right: auto; left: 50%; top: auto; bottom: -1.1rem; transform: translateX(-50%); } }
+
+/* request an invite + empty-schedule import */
+.invite { background: color-mix(in srgb, var(--gold) 12%, var(--card)); border: 1px solid var(--gold); border-radius: 14px; padding: 1rem 1.2rem; margin: 1.2rem auto; max-width: 40rem; }
+.invite h3 { margin: 0 0 .3rem; font-family: Georgia, serif; font-size: 1.15rem; } .invite p { margin: 0 0 .7rem; font-size: .92rem; line-height: 1.5; }
+.invite.done { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, var(--card)); font-size: .95rem; }
+.invite-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: .5rem; align-items: center; } .invite-form input, .invite-form select { width: 100%; box-sizing: border-box; min-width: 0; } .invite-form .invite-other { grid-column: 1 / 3; } .invite-form .invite-msg { grid-column: 1 / -1; margin: 0; min-height: 1.1rem; }
+@media (max-width: 640px) { .invite-form { grid-template-columns: 1fr; } .invite-form .invite-other { grid-column: auto; } }
+#inviteDlg { width: min(560px, calc(100vw - 24px)); } #inviteDlg .invite { margin: 0 0 .8rem; }
+.empty-import { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--gold) 12%, var(--card)); border: 1px dashed var(--gold); border-radius: 10px; padding: .7rem .9rem; margin: .4rem 0 .8rem; font-size: .92rem; }

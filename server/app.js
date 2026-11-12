@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import calendarRoutes from './routes/calendar.js';
 import ocrRoutes from './routes/ocr.js';
 import eventsRoutes from './routes/events.js';
+import waitlistRoutes from './routes/waitlist.js';
 import { corsOptions, securityHeaders, rateLimit } from './middleware/security.js';
 import { requireAllowedUser, identify, isAllowed } from './middleware/requireUser.js';
 
@@ -25,6 +26,7 @@ app.use(express.json({ limit: '1mb' }));          // photos arrive as multipart 
 app.use('/api/auth', rateLimit({ windowMs: 60e3, max: 30 }), authRoutes);
 app.use('/api/calendar', rateLimit({ windowMs: 60e3, max: 120 }), calendarRoutes);
 app.use('/api/events', rateLimit({ windowMs: 60e3, max: 30 }), eventsRoutes);
+app.use('/api/waitlist', rateLimit({ windowMs: 60e3, max: 5, message: 'Too many requests. Please try again in a minute.' }), waitlistRoutes);
 // Photo import is limited to whitelisted Google accounts (OCR_ALLOWED_EMAILS). This lets the app ask up front.
 app.get('/api/ocr/access', rateLimit({ windowMs: 60e3, max: 30 }), async (req, res) => {
   const who = await identify(req);

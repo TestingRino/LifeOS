@@ -52,6 +52,11 @@
       if (error) throw error;
       return data && data.length ? data[0].updated_at : null;
     },
+    /* Photo import waitlist: insert-only through Row Level Security. A duplicate email counts as success. */
+    async joinWaitlist(row) {
+      const { error } = await need().from('waitlist').insert(row);
+      if (error && error.code !== '23505') throw error;
+    },
     /* Removes the plan row, then the account itself through the delete-user Edge Function. */
     async deleteAccount() {
       const c = need();
