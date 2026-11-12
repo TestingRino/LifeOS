@@ -1,3 +1,5 @@
+import { recordUsage } from '../lib/entitlements.js';
+
 /* Browser and abuse protections for the Life.OS backend.
    Limits are kept in memory. On a serverless host each warm instance counts separately, so treat them as a
    brake on accidents and casual abuse; put a shared store (Upstash, Vercel KV) behind them before a public launch. */
@@ -8,7 +10,7 @@ export const allowedOrigins = () => (process.env.ALLOWED_ORIGINS ? String(proces
 /* cors() options: only the Life.OS site (and local development) may call this API from a browser. */
 export const corsOptions = {
   origin(origin, cb) { cb(null, !origin || allowedOrigins().includes(origin)); },
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 600,
 };
@@ -42,9 +44,10 @@ export function ocrQuota(req, res, next) {
     if (!h || h.reset <= now) { map.set(who, { n: 1, reset: now + windowMs }); return true; }
     h.n += 1; return h.n <= max;
   };
-  const maxH = Number(process.env.OCR_HOURLY_LIMIT) || 20, maxD = Number(process.env.OCR_DAILY_LIMIT) || 60;
+  const lim = req.user && req.user.limits ? req.user.limits : null;      // per-person limits from the entitlement, else the global ones
+  const maxH = lim && Number.isFinite(lim.hourly) ? lim.hourly : Number(process.env.OCR_HOURLY_LIMIT) || 20, maxD = lim && Number.isFinite(lim.daily) ? lim.daily : Number(process.env.OCR_DAILY_LIMIT) || 60;
   const hOk = bump(hourly, 3600e3, maxH), dOk = bump(daily, 86400e3, maxD);
-  if (hOk && dOk) return next();
+  if (hOk && dOk) { if (req.user && req.user.email) recordUsage(req.user.email); return next(); }
   res.set('Retry-After', String(hOk ? 3600 : 600));
   res.status(429).json({ error: `You have reached the photo import limit (${maxH} per hour, ${maxD} per day). Try again later.` });
 }

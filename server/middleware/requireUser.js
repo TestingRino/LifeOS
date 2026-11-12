@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { decide, envAllowList, inEnvList } from '../lib/entitlements.js';
 
 /* Identifies the caller by asking Google who owns their access token, then checks the owner's
    whitelist (OCR_ALLOWED_EMAILS, comma separated). Fails closed: no whitelist means no access. */
@@ -6,8 +7,8 @@ const USERINFO_URL = () => process.env.GOOGLE_USERINFO_URL || 'https://openidcon
 const TTL = 5 * 60 * 1000;
 const cache = new Map();   // token -> { email, exp }
 
-export const allowList = () => String(process.env.OCR_ALLOWED_EMAILS || '').split(/[,\s;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
-export const isAllowed = (email) => { const list = allowList(); return list.includes('*') || list.includes(String(email || '').toLowerCase()); };
+export const allowList = envAllowList;
+export const isAllowed = inEnvList;      // the environment list only; full decisions (tiers, overrides) are in lib/entitlements.js
 
 export async function identify(req) {
   const m = /^Bearer (.+)$/i.exec(req.headers.authorization || '');
@@ -34,13 +35,12 @@ export async function identify(req) {
   }
 }
 
+const REQUEST_MSG = 'Photo import is by invitation. Request an invite in the app and we will email you when it is ready.';
 export async function requireAllowedUser(req, res, next) {
   const who = await identify(req);
   if (who.error) return res.status(who.status).json({ error: who.error });
-  if (!isAllowed(who.email)) {
-    if (!allowList().length) console.warn('OCR_ALLOWED_EMAILS is not set, so photo import is closed to everyone.');
-    return res.status(403).json({ error: `Photo import is limited to approved accounts. Ask the owner to add ${who.email}.` });
-  }
-  req.user = { email: who.email };
+  const d = await decide(who.email);
+  if (!d.allowed) return res.status(403).json({ error: d.reason && d.reason !== 'request' ? d.reason : REQUEST_MSG, tier: d.tier });
+  req.user = { email: who.email, tier: d.tier, limits: { hourly: d.hourly, daily: d.daily } };
   next();
 }

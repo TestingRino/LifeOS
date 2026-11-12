@@ -8,8 +8,10 @@ import calendarRoutes from './routes/calendar.js';
 import ocrRoutes from './routes/ocr.js';
 import eventsRoutes from './routes/events.js';
 import waitlistRoutes from './routes/waitlist.js';
+import adminRoutes from './routes/admin.js';
 import { corsOptions, securityHeaders, rateLimit } from './middleware/security.js';
-import { requireAllowedUser, identify, isAllowed } from './middleware/requireUser.js';
+import { requireAllowedUser, identify } from './middleware/requireUser.js';
+import { decide } from './lib/entitlements.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: `${__dirname}/.env` });
@@ -26,12 +28,14 @@ app.use(express.json({ limit: '1mb' }));          // photos arrive as multipart 
 app.use('/api/auth', rateLimit({ windowMs: 60e3, max: 30 }), authRoutes);
 app.use('/api/calendar', rateLimit({ windowMs: 60e3, max: 120 }), calendarRoutes);
 app.use('/api/events', rateLimit({ windowMs: 60e3, max: 30 }), eventsRoutes);
+app.use('/api/admin', rateLimit({ windowMs: 60e3, max: 60 }), adminRoutes);
 app.use('/api/waitlist', rateLimit({ windowMs: 60e3, max: 5, message: 'Too many requests. Please try again in a minute.' }), waitlistRoutes);
 // Photo import is limited to whitelisted Google accounts (OCR_ALLOWED_EMAILS). This lets the app ask up front.
 app.get('/api/ocr/access', rateLimit({ windowMs: 60e3, max: 30 }), async (req, res) => {
   const who = await identify(req);
   if (who.error) return res.json({ allowed: false, signedIn: false, reason: who.error });
-  res.json({ allowed: isAllowed(who.email), signedIn: true, email: who.email });
+  const d = await decide(who.email);
+  res.json({ allowed: d.allowed, signedIn: true, email: who.email, tier: d.tier, reason: d.allowed ? '' : d.reason === 'request' ? 'request' : d.reason });
 });
 app.use('/api/ocr', rateLimit({ windowMs: 60e3, max: 20 }), requireAllowedUser, ocrRoutes);
 
