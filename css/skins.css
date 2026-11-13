@@ -1,0 +1,125 @@
+/* Telos skins. The default ("classic") is the look in style.css and has no rules here.
+   A skin is a set of colour/type variables on <html data-skin="..."> plus a few surface touches (top bar, page, tab bar).
+   All screen-only: printing always uses the plain print layouts. */
+@media screen {
+
+/* ============ Leather planner: brown grained cover with gold stitching, cream paper pages ============ */
+html[data-skin="leather"] {
+  --paper: #eadfc4; --card: #fbf5e4; --ink: #2e2118; --muted: #6c5844; --line: #d8c8a0; --dot: #cbb88d;
+  --navy: #4a2c1a; --gold: #b8872b; --ok: #5c6e36; --red: #a24a2a; --warn: #a24a2a; --focus: #5c6e36; --slate: #7b7466;
+  --radius: 6px; --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+}
+html[data-skin="leather"] body {
+  background-color: var(--paper);
+  background-image: radial-gradient(rgba(120, 90, 40, .06) 1px, transparent 1.3px), radial-gradient(rgba(255, 255, 255, .35) 1px, transparent 1.4px);
+  background-size: 6px 6px, 9px 9px; background-position: 0 0, 3px 4px;
+}
+html[data-skin="leather"] .topbar {
+  background: linear-gradient(180deg, rgba(255,255,255,.1), rgba(0,0,0,.2)),
+    radial-gradient(rgba(0,0,0,.28) 1px, transparent 1.4px) 0 0 / 5px 5px,
+    radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.5px) 2px 3px / 7px 7px, #4a2c1a;
+  border-bottom: 3px solid #2d190d; box-shadow: 0 6px 14px -8px rgba(40, 20, 8, .6); color: #f0dcb4;
+}
+html[data-skin="leather"] .topbar::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 4px; border-bottom: 2px dashed rgba(230, 192, 120, .75); pointer-events: none; }
+html[data-skin="leather"] .brand { color: #f0d9a6; letter-spacing: .04em; text-shadow: 0 1px 0 rgba(0,0,0,.45); }
+html[data-skin="leather"] .nav-menu { background: #3d2415; border: 1px solid #6a4528; }
+html[data-skin="leather"] .nav-menu a strong { color: #f0dcb4; }
+html[data-skin="leather"] .nav-acct.on { background: #b8872b; color: #2d190d; }
+html[data-skin="leather"] .box {
+  background: var(--card); border: 1px solid var(--line); border-left: 3px double #c9b684;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 10px 18px -14px rgba(74, 44, 26, .55);
+}
+html[data-skin="leather"] h1, html[data-skin="leather"] .page-head h1 { color: #3a2113; text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+html[data-skin="leather"] .btn, html[data-skin="leather"] button.primary, html[data-skin="leather"] .add button { background: #4a2c1a; border-color: #2d190d; color: #f3e3bd; box-shadow: 0 1px 0 rgba(255,255,255,.18) inset; }
+html[data-skin="leather"] .btn.ghost, html[data-skin="leather"] button.ghost { background: transparent; color: #4a2c1a; border-color: #cdbb8f; box-shadow: none; }
+html[data-skin="leather"] .chip.on { background: #4a2c1a; border-color: #2d190d; color: #f3e3bd; }
+html[data-skin="leather"] dialog { border-color: #cdbb8f; box-shadow: 0 20px 50px rgba(40, 20, 8, .35); }
+@media (max-width: 760px) {
+  html[data-skin="leather"] .topbar { position: relative; }
+  html[data-skin="leather"] .tabbar { background: #4a2c1a; border-top: 2px solid #2d190d; }
+  html[data-skin="leather"] .tabbar a, html[data-skin="leather"] .tabbar button { color: #d9c29a; }
+  html[data-skin="leather"] .tabbar .sel { color: #fff; }
+  html[data-skin="leather"] .tabbar .sel .ico { color: #e6b865; }
+}
+
+/* ============ Fabric planner: woven slate cover, linen pages, stitched edges ============ */
+html[data-skin="fabric"] {
+  --paper: #e8e5de; --card: #faf8f4; --ink: #24282b; --muted: #5f656a; --line: #d7d2c8; --dot: #cdc7bb;
+  --navy: #2f4350; --gold: #c08a3a; --ok: #3d7a70; --red: #b5533c; --warn: #b5533c; --focus: #3d7a70; --slate: #6d7f8c;
+  --radius: 14px; --serif: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+html[data-skin="fabric"] body {
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.028) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,.4) 0 1px, transparent 1px 3px);
+}
+html[data-skin="fabric"] h1, html[data-skin="fabric"] h2, html[data-skin="fabric"] h3 { font-weight: 650; letter-spacing: -.01em; }
+html[data-skin="fabric"] .topbar {
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.055) 0 2px, transparent 2px 4px), repeating-linear-gradient(-45deg, rgba(0,0,0,.1) 0 2px, transparent 2px 4px), #2f4350;
+  box-shadow: 0 8px 18px -12px rgba(20, 35, 45, .7); color: #eef0ee;
+}
+html[data-skin="fabric"] .topbar::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 4px; border-bottom: 2px dashed rgba(255, 255, 255, .3); pointer-events: none; }
+html[data-skin="fabric"] .brand { color: #f5f1e6; letter-spacing: .01em; }
+html[data-skin="fabric"] .nav a, html[data-skin="fabric"] .nav-btn { color: #d3dbd9; }
+html[data-skin="fabric"] .nav-menu { background: #263642; }
+html[data-skin="fabric"] .nav-menu a strong { color: #f1f3ef; }
+html[data-skin="fabric"] .nav-menu a small { color: #a9b6b6; }
+html[data-skin="fabric"] .brand span { color: #e3b46e; }
+html[data-skin="fabric"] .box {
+  background: var(--card); border: 1px solid var(--line); outline: 1px dashed rgba(47, 67, 80, .2); outline-offset: -7px;
+  box-shadow: 0 10px 22px -16px rgba(30, 45, 55, .5);
+}
+html[data-skin="fabric"] .btn, html[data-skin="fabric"] button.primary, html[data-skin="fabric"] .add button { border-radius: 10px; }
+html[data-skin="fabric"] .btn.ghost, html[data-skin="fabric"] button.ghost { border-color: #c9c3b6; }
+html[data-skin="fabric"] .chip { border-style: solid; }
+html[data-skin="fabric"] .nav-acct.on { background: #c08a3a; color: #1f2a31; }
+@media (max-width: 760px) {
+  html[data-skin="fabric"] .topbar { position: relative; }
+  html[data-skin="fabric"] .tabbar { background: #2f4350; border-top: 0; }
+  html[data-skin="fabric"] .tabbar a, html[data-skin="fabric"] .tabbar button { color: #c4cfce; }
+  html[data-skin="fabric"] .tabbar .sel { color: #fff; }
+  html[data-skin="fabric"] .tabbar .sel .ico { color: #e3b46e; }
+}
+
+/* ============ Calm: quiet, airy, very little decoration ============ */
+html[data-skin="minimal"] {
+  --paper: #f8f8f5; --card: #ffffff; --ink: #2b3330; --muted: #707a76; --line: #e7e9e4; --dot: #dde0da;
+  --navy: #3f504b; --gold: #b79a5c; --ok: #6f9488; --red: #b0614f; --warn: #b0614f; --focus: #6f9488; --slate: #8b9894;
+  --radius: 14px; --serif: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+html[data-skin="minimal"] body { background: var(--paper); line-height: 1.6; }
+html[data-skin="minimal"] h1, html[data-skin="minimal"] h2, html[data-skin="minimal"] h3 { font-weight: 500; letter-spacing: -.005em; }
+html[data-skin="minimal"] h1 { font-size: 1.8rem; }
+html[data-skin="minimal"] .topbar { background: var(--card); color: var(--ink); border-bottom: 1px solid var(--line); }
+html[data-skin="minimal"] .brand { color: var(--navy); font-weight: 500; letter-spacing: .02em; }
+html[data-skin="minimal"] .nav a, html[data-skin="minimal"] .nav-btn { color: var(--muted); }
+html[data-skin="minimal"] .nav a:hover, html[data-skin="minimal"] .nav-btn:hover { background: rgba(63, 80, 75, .06); }
+html[data-skin="minimal"] .nav a.sel, html[data-skin="minimal"] .nav-btn.sel, html[data-skin="minimal"] .nav-btn[aria-expanded=true] { background: rgba(111, 148, 136, .14); color: var(--navy); }
+html[data-skin="minimal"] .nav-menu { background: var(--card); border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(40, 55, 50, .12); }
+html[data-skin="minimal"] .nav-menu a strong { color: var(--ink); font-weight: 500; }
+html[data-skin="minimal"] .nav-menu a small { color: var(--muted); }
+html[data-skin="minimal"] .nav-menu a:hover { background: rgba(63, 80, 75, .05); }
+html[data-skin="minimal"] .nav-acct { color: var(--navy); border-color: var(--line); }
+html[data-skin="minimal"] .nav-acct:hover { background: rgba(63, 80, 75, .06); }
+html[data-skin="minimal"] .box { border: 1px solid var(--line); box-shadow: none; padding: 1.15rem 1.3rem; }
+html[data-skin="minimal"] textarea { background-image: none; }
+html[data-skin="minimal"] .btn, html[data-skin="minimal"] button.primary, html[data-skin="minimal"] .add button { border-radius: 99px; padding: .42rem 1rem; }
+html[data-skin="minimal"] .btn.ghost, html[data-skin="minimal"] button.ghost { border-color: #d6dad4; }
+html[data-skin="minimal"] .foot { font-style: normal; color: #9aa39f; }
+html[data-skin="minimal"] dialog { box-shadow: 0 24px 60px rgba(40, 55, 50, .16); }
+html[data-skin="minimal"] dialog::backdrop { background: rgba(40, 52, 48, .28); }
+
+/* ============ the picker in Settings ============ */
+.skin-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; margin: .6rem 0 .2rem; }
+@media (max-width: 700px) { .skin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.skin-card { position: relative; text-align: left; padding: .5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; font: inherit; color: var(--ink); }
+.skin-card strong { display: block; margin: .45rem .1rem 0; font-size: .92rem; }
+.skin-card small { display: block; margin: 0 .1rem .1rem; color: var(--muted); font-size: .76rem; line-height: 1.3; }
+.skin-card[aria-pressed="true"] { border-color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok); }
+.skin-card[aria-pressed="true"]::after { content: "✓"; position: absolute; top: .5rem; right: .65rem; color: #fff; font-weight: 700; text-shadow: 0 0 3px rgba(0,0,0,.5); }
+.skin-prev { height: 4.4rem; border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,.1); display: flex; flex-direction: column; }
+.skin-prev i { display: block; height: 1.1rem; }
+.skin-prev b { flex: 1; display: flex; gap: .3rem; align-items: center; padding: 0 .5rem; }
+.skin-prev b em { display: block; height: .8rem; border-radius: 3px; flex: 1; }
+.skin-prev b em:first-child { flex: 2; }
+
+}

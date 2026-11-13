@@ -2119,6 +2119,7 @@
       <button class="btn ghost small" data-act="gcalLoadCalendars">↻ Reload list</button></div>` : '';
     const body = `
       ${accountCard()}
+      ${skinCard()}
       ${syncCard()}
       <section class="box"><h2>Integrations</h2>
         <div class="row wrap">
@@ -2493,6 +2494,7 @@
       const t = document.getElementById('uploadType'); if (t && document.getElementById('uploadDlg').open) { t.value = 'page'; t.dispatchEvent(new Event('change')); }
     },
     beginRoles() { location.hash = begin.roles.some((x) => x.trim()) ? '#/begin/3' : '#/begin/4'; },
+    setSkin(el) { state.settings.skin = el.dataset.id; applySkin(el.dataset.id); commit(); },
     icsRange(el) { const n = Number(el.dataset.days) || 90; downloadICS('telos-calendar.ics', icsItems(todayISO(), U.toISO(U.addDays(today(), n))), 'Telos'); },
     icsWeek(el) { const wk = el.dataset.key; downloadICS(`telos-week-${wk}.ics`, icsItems(wk, U.toISO(U.addDays(U.parseISO(wk), 6))), 'Telos week'); },
     icsWorkouts() { downloadICS('telos-workouts.ics', icsItems(todayISO(), U.toISO(U.addDays(today(), 120))).filter((x) => state.workouts.some((w) => w.id === x.id)), 'Telos workouts'); },
@@ -3884,6 +3886,7 @@
     month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewBegin, begin: viewBegin, 'why-telos': viewWhy, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
+    if (state.settings.skin && document.documentElement.getAttribute('data-skin') !== state.settings.skin) applySkin(state.settings.skin);
     let [, name, arg, arg2] = (location.hash || '').split('/');
     if (!name) name = !signedIn() && isBlank() && !localStorage.getItem('account_mode') && !localStorage.getItem('login_prompt_seen') ? 'landing' : 'today';
     if (name === 'landing' && location.hash) history.replaceState(null, '', location.pathname + location.search);    // the marketing page lives at the root now
@@ -4110,6 +4113,25 @@
     document.getElementById('uploadCalWrap').hidden = !cal; document.getElementById('uploadCalTip').hidden = !cal;
     document.getElementById('uploadPlannerWrap').hidden = !['page', 'auto'].includes(uploadType.value);
   });
+
+  /* ---------- skins: four looks, same app ---------- */
+  const SKINS = [
+    { id: 'classic', name: 'Classic', note: 'Warm paper and ink blue. The original.', top: '#2f3352', page: '#f6f0e4', card: '#fffaf0', acc: '#547354' },
+    { id: 'leather', name: 'Leather planner', note: 'Brown grained cover, gold stitching, cream pages.', top: '#4a2c1a', page: '#eadfc4', card: '#fbf5e4', acc: '#b8872b' },
+    { id: 'fabric', name: 'Fabric planner', note: 'Woven slate cover, linen pages, stitched edges.', top: '#2f4350', page: '#e8e5de', card: '#faf8f4', acc: '#3d7a70' },
+    { id: 'minimal', name: 'Calm', note: 'Quiet and airy, with very little decoration.', top: '#ffffff', page: '#f8f8f5', card: '#ffffff', acc: '#6f9488' },
+  ];
+  function applySkin(id) {
+    const sk = SKINS.find((x) => x.id === id) || SKINS[0];
+    document.documentElement.setAttribute('data-skin', sk.id);
+    try { localStorage.setItem('lifeos.skin', sk.id); } catch (e) { /* storage unavailable */ }
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', sk.top);
+  }
+  const skinCard = () => `<section class="box"><h2>Look and feel</h2>
+    <p class="prompt">Pick the planner that feels right. Only the look changes; your plan stays exactly the same.</p>
+    <div class="skin-grid" role="group" aria-label="Skin">${SKINS.map((k) => `<button type="button" class="skin-card" data-act="setSkin" data-id="${k.id}" aria-pressed="${(document.documentElement.getAttribute('data-skin') || 'classic') === k.id}">
+      <span class="skin-prev" aria-hidden="true"><i style="background:${k.top}"></i><b style="background:${k.page}"><em style="background:${k.card};border:1px solid rgba(0,0,0,.1)"></em><em style="background:${k.acc}"></em></b></span>
+      <strong>${esc(k.name)}</strong><small>${esc(k.note)}</small></button>`).join('')}</div></section>`;
 
   /* ---------- calendar files (.ics): export to Outlook / Apple Calendar / anything, and import from them ---------- */
   const ICS = window.LifeICS;
