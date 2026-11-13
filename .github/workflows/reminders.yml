@@ -1,0 +1,22 @@
+# Triggers the reminder scheduler (morning digest, email digest, event reminders) every 15 minutes.
+# Needs two repository secrets: REMINDERS_URL (e.g. https://your-server.vercel.app/api/cron/digest) and CRON_SECRET.
+# Without them it does nothing and succeeds. GitHub may delay scheduled runs by several minutes.
+name: reminders
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the scheduler
+        env:
+          REMINDERS_URL: ${{ secrets.REMINDERS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$REMINDERS_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::REMINDERS_URL or CRON_SECRET is not set, so reminders are not being triggered."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 60 -X POST -H "x-cron-secret: $CRON_SECRET" "$REMINDERS_URL"
