@@ -927,6 +927,9 @@
     return page('Foundation', 'Purpose first. Revisit at every planning session.', body);
   }
 
+  /* Focus goals are a suggestion, not a limit: three or four tends to work best, but any number can be chosen. */
+  const FOCUS_SUGGEST = 4;
+  const focusHint = (n) => (n > FOCUS_SUGGEST ? `<p class="nudge small">That is ${n}. Three or four tends to work best, but you decide. Keep them all, or set a few aside for later.</p>` : '');
   function viewGoals(cid) {
     if (!state.cycles.length) {
       const t = today();
@@ -1043,8 +1046,8 @@
       ${state.foundation.vision ? `<blockquote class="vision small"><span>Who I'm becoming</span>${esc(state.foundation.vision.split('\n')[0])}</blockquote>` : `<p class="nudge">Tip: <a href="#/foundation">write your vision & eulogy</a> first. Goals should flow from them.</p>`}
       <section class="box"><h2>Your balance</h2>${balanceStrip(all.filter((g) => g.status === 'active').map(goalDomain), 'Active goals and habits by area. Aim for something in each.')}</section>
       <section class="box focus-pick">
-        <h2>This quarter's focus <small class="muted">${quarterLabel(todayISO())} · choose 3–4 · ${focusGoals(todayISO()).length}/4 selected</small></h2>
-        <p class="prompt">You can't give ten goals your best energy at once. Choose the few that matter most right now. They appear on Today with your Big 3 and habits.</p>
+        <h2>This quarter's focus <small class="muted">${quarterLabel(todayISO())} · ${focusGoals(todayISO()).length} selected</small></h2>
+        <p class="prompt">You can't give ten goals your best energy at once. Three or four is a good number to aim for. They appear on Today with your Big 3 and habits.</p>${focusHint(focusGoals(todayISO()).length)}
         <div class="chips">${all.filter((g) => g.kind !== 'habit' && g.status === 'active').map((g) => { const on = focusGoals(todayISO()).some((f) => f.id === g.id);
           return `<button type="button" class="chip${on ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('') || '<span class="muted">Add some goals below first.</span>'}</div>
       </section>
@@ -2352,7 +2355,7 @@
     clearInbox() { state.inbox = state.inbox.filter((x) => !x.done); commit(); },
     demoFocus(el) {
       const id = el.dataset.id, i = demo.focus.indexOf(id);
-      if (i >= 0) demo.focus.splice(i, 1); else if (demo.focus.length >= 4) { toast('Focus on 3–4 goals. Untick one first.'); return; } else demo.focus.push(id);
+      if (i >= 0) demo.focus.splice(i, 1); else demo.focus.push(id);
       render();
     },
     demoAssign(el) { const { id, day } = el.dataset; demo.assigned[id] = demo.assigned[id] === Number(day) ? 0 : Number(day); render(); },
@@ -2594,8 +2597,7 @@
       const list = (state.focus[qk] = (state.focus[qk] || []).filter((id) => state.goals.some((g) => g.id === id)));
       const i = list.indexOf(el.dataset.goal);
       if (i >= 0) list.splice(i, 1);
-      else if (list.length >= 4) { toast('Focus on 3–4 goals per quarter. Remove one first.'); return; }
-      else list.push(el.dataset.goal);
+      else { list.push(el.dataset.goal); if (list.length === FOCUS_SUGGEST + 1) toast('That is 5 focus goals. Three or four tends to work best, but it is your call.'); }
       commit();
     },
     focusToBig3(el) {
@@ -3043,8 +3045,8 @@
     } else if (n === 4) {
       const gl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind !== 'habit' && g.status === 'active');
       const sel = focusGoals(todayISO());
-      body += `<section class="box"><h2>This quarter's focus <span class="muted">· ${quarterLabel(todayISO())} · ${sel.length}/4</span></h2>
-        <p class="prompt">You cannot give ten goals your best energy at once. Choose the <strong>3 or 4</strong> that matter most right now. Their next steps will be pre-filled on Today each morning.</p>
+      body += `<section class="box"><h2>This quarter's focus <span class="muted">· ${quarterLabel(todayISO())} · ${sel.length} chosen</span></h2>
+        <p class="prompt">You cannot give ten goals your best energy at once. We suggest the <strong>3 or 4</strong> that matter most right now. Their next steps will be pre-filled on Today each morning.</p>${focusHint(sel.length)}
         <div class="chips">${gl.map((g) => { const on = sel.some((f) => f.id === g.id); return `<button type="button" class="chip${on ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('') || '<p class="muted">Add some goals in step 3 first.</p>'}</div></section>`;
     } else if (n === 5) {
       const hl = state.goals.filter((g) => g.cycleId === cyc.id && g.kind === 'habit' && g.status === 'active');
@@ -3491,7 +3493,7 @@
       body += `<section class="box"><h2>Your purpose and your focus goals</h2>
           <p class="prompt">A two-minute tour with sample data. Nothing here is saved.</p>
           <h3>Your purpose</h3><textarea data-demo="purpose" rows="2">${esc(demo.purpose)}</textarea>
-          <h3>Choose this quarter's focus <span class="muted">· ${fg.length} of 4</span></h3>
+          <h3>Choose this quarter's focus <span class="muted">· ${fg.length} chosen, 3 or 4 works best</span></h3>
           <div class="chips">${demo.goals.map((g) => { const on = demo.focus.includes(g.id); return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${g.color}" data-act="demoFocus" data-id="${g.id}" aria-pressed="${on}">${esc(g.title)}</button>`; }).join('')}</div>
           ${fg.length ? `<ul class="plain-list">${fg.map((g) => `<li>${gtag(g)}<small class="muted">${esc(g.why)}</small></li>`).join('')}</ul>` : '<p class="muted">Pick at least one to continue.</p>'}
         </section>`;
