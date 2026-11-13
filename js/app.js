@@ -589,7 +589,7 @@
           (data.priorities || []).forEach((p) => {
             if (!p.text) return;
             const date = day(p.date);
-            if (state.big3.filter((b) => b.date === date).length < 3 && !state.big3.some((b) => b.date === date && b.text.toLowerCase() === p.text.toLowerCase())) state.big3.push({ ...mk(), date, text: p.text, goalId: '', stepRef: '', done: !!p.done, doneAt: p.done ? date : '' });
+            if (!state.big3.some((b) => b.date === date && b.text.toLowerCase() === p.text.toLowerCase())) state.big3.push({ ...mk(), date, text: p.text, goalId: '', stepRef: '', done: !!p.done, doneAt: p.done ? date : '' });
             else if (F.newTask) F.newTask({ title: p.text, day: date, priority: 'high', status: p.done ? 'done' : 'next', doneAt: p.done ? date : '' });
           });
           (data.schedule || []).forEach((e) => { if (e.date && e.text) addScheduleItem({ text: e.text, date: e.date, time: e.time || '', mins: Number(e.mins) || 30, src: 'photo' }); });
@@ -801,10 +801,11 @@
           <div class="grow"><input class="inline" data-bind="big3.@${b.id}.text" value="${esc(b.text)}" aria-label="Big 3 task">
           ${b.goalId && state.goals.some((g) => g.id === b.goalId) ? `<small class="muted">${esc(state.goals.find((g) => g.id === b.goalId).title)}</small>` : ''}</div>
           ${schedBtn(b.text)}<button class="x" data-act="del" data-path="big3" data-id="${b.id}" aria-label="Remove">×</button></li>`).join('')}</ul>` : '<p class="muted">What are the three most important things to finish today? Do these first.</p>'}
-        ${bigToday.length < 3 ? `<form class="add" data-add="big3"><input type="hidden" name="date" value="${iso}"><input name="text" placeholder="Most important task…" required aria-label="Big 3 task">
-          <select name="goalId" aria-label="Linked goal">${goalOpts(fgoals.length ? fgoals : goals, '')}</select><button aria-label="Add">+</button></form>` : '<p class="muted small">Big 3 set. Finish these before anything else.</p>'}
+        <form class="add" data-add="big3"><input type="hidden" name="date" value="${iso}"><input name="text" placeholder="${bigToday.length >= BIG3_SUGGEST ? 'Add another priority…' : 'Most important task…'}" required aria-label="Big 3 task">
+          <select name="goalId" aria-label="Linked goal">${goalOpts(fgoals.length ? fgoals : goals, '')}</select><button aria-label="Add">+</button></form>
+        ${bigToday.length === BIG3_SUGGEST ? '<p class="muted small">Big 3 set. Finish these before anything else.</p>' : bigToday.length > BIG3_SUGGEST ? `<p class="nudge small">That is ${bigToday.length}. Three keeps a day focused, but it is your call.</p>` : ''}
         ${carry.length ? `<h3>Unfinished from earlier <small class="muted">move forward or let go</small></h3><ul class="checks compact">${carry.map((b) => `<li><span class="grow">${esc(b.text)} <small class="muted">${U.fmtDate(b.date, { month: 'short', day: 'numeric' })}</small></span>
-          <button class="btn ghost" data-act="migrateBig3" data-id="${b.id}" ${bigToday.length >= 3 ? 'disabled title="Today already has 3"' : ''}>› Today</button>
+          <button class="btn ghost" data-act="migrateBig3" data-id="${b.id}">› Today</button>
           <button class="x" data-act="dropBig3" data-id="${b.id}" aria-label="Let go">×</button></li>`).join('')}</ul>` : ''}
       </section>
       ${otherTasksHtml(iso)}
@@ -930,6 +931,9 @@
 
   /* Focus goals are a suggestion, not a limit: three or four tends to work best, but any number can be chosen. */
   const FOCUS_SUGGEST = 4;
+  /* The other "limits" are suggestions too: three Big 3 priorities a day, three goals and four habits to start. Nothing blocks you. */
+  const BIG3_SUGGEST = 3, QUICK_GOALS_SUGGEST = 3, QUICK_HABITS_SUGGEST = 4;
+  const nudgeOver = (n, max, what, why) => { if (n === max + 1) toast(`That is ${n} ${what}. ${why}, but it is your call.`); };
   const focusHint = (n) => (n > FOCUS_SUGGEST ? `<p class="nudge small">That is ${n}. Three or four tends to work best, but you decide. Keep them all, or set a few aside for later.</p>` : '');
   const STATUS_LABEL = { active: 'Active', paused: 'Paused', done: 'Done', dropped: 'Dropped' };
   let goalFilter = 'active';
@@ -2469,24 +2473,21 @@
       quick.touched = true;
       const id = el.dataset.id, i = quick.goals.indexOf(id);
       if (i >= 0) quick.goals.splice(i, 1);
-      else if (quick.goals.length >= 3) { toast('Three is plenty to start. You can add more any time.'); return; }
-      else quick.goals.push(id);
+      else { quick.goals.push(id); nudgeOver(quick.goals.length, QUICK_GOALS_SUGGEST, 'goals', 'Three is plenty to start'); }
       render();
     },
     quickHabit(el) {
       quick.touched = true;
       const id = el.dataset.id, i = quick.habits.indexOf(id);
       if (i >= 0) quick.habits.splice(i, 1);
-      else if (quick.habits.length >= 4) { toast('Four habits is a good start. You can add more any time.'); return; }
-      else quick.habits.push(id);
+      else { quick.habits.push(id); nudgeOver(quick.habits.length, QUICK_HABITS_SUGGEST, 'habits', 'Four is a good start'); }
       render();
     },
     quickRhythm() { quick.rhythm = !quick.rhythm; render(); },
     quickAddCustom() {
       const inp = document.getElementById('quickCustom'), t = inp ? inp.value.trim() : '';
       if (!t) return;
-      if (quick.goals.length >= 3) { toast('Three is plenty to start. You can add more any time.'); return; }
-      quick.touched = true; quick.custom.push(t); quick.goals.push(`c${quick.custom.length - 1}`); render();
+      quick.touched = true; quick.custom.push(t); quick.goals.push(`c${quick.custom.length - 1}`); nudgeOver(quick.goals.length, QUICK_GOALS_SUGGEST, 'goals', 'Three is plenty to start'); render();
     },
     quickBuild() {
       const goals = quickGoalList().filter((g) => quick.goals.includes(g.id)), habits = quickHabitList().filter((h) => quick.habits.includes(h.id));
@@ -2636,19 +2637,20 @@
     },
     focusToBig3(el) {
       const iso = todayISO();
-      if (state.big3.filter((b) => b.date === iso).length >= 3) { toast('Today already has 3. Finish or remove one first.'); return; }
+      const have = state.big3.filter((b) => b.date === iso).length;
       const g = state.goals.find((x) => x.id === el.dataset.goal);
       const ns = g && nextStep(g, new Set(state.big3.filter((b) => b.stepRef && (b.done || b.date === iso)).map((b) => b.stepRef)));
       state.big3.push({ id: S.uid(), date: iso, text: ns ? ns.text : `Make progress on: ${g.title}`, goalId: g.id, stepRef: ns ? ns.ref : '', done: false });
-      commit();
+      commit(); nudgeOver(have + 1, BIG3_SUGGEST, 'priorities for today', 'Three keeps a day focused');
     },
     migrateBig3(el) {
       const iso = todayISO();
       const b = state.big3.find((x) => x.id === el.dataset.id);
-      if (!b || state.big3.filter((x) => x.date === iso).length >= 3) return;
+      if (!b) return;
+      const have = state.big3.filter((x) => x.date === iso).length;
       b.migrated = true;
       state.big3.push({ id: S.uid(), date: iso, text: b.text, goalId: b.goalId, stepRef: b.stepRef, done: false });
-      commit();
+      commit(); nudgeOver(have + 1, BIG3_SUGGEST, 'priorities for today', 'Three keeps a day focused');
     },
     dropBig3(el) { const b = state.big3.find((x) => x.id === el.dataset.id); if (b) b.migrated = true; commit(); },
     addSuggestedRole(el) {
@@ -3012,8 +3014,9 @@
         <div class="chips">${purposeIdeas().slice(0, 3).map((t, i) => `<button type="button" class="chip" data-act="quickPurpose" data-idx="${i}">${esc(t)}</button>`).join('')}</div></section>`;
     } else if (n === 2) {
       const sh = quickShown(quickGoalList(), 'g', quick.goals, 'goals', 8), picked = quickGoalList().filter((g) => quick.goals.includes(g.id));
-      body += `<section class="box"><h2>Start with up to 3 goals <span class="muted">· ${quick.goals.length} of 3</span></h2>
+      body += `<section class="box"><h2>Start with a few goals <span class="muted">· ${quick.goals.length} chosen, 3 is plenty</span></h2>
         <p class="prompt">${personas().length ? 'Chosen to fit you. Untap any that are not right.' : 'Tap what you want to move forward.'} We fill in a reason and the first two steps for each. Add more any time.</p>
+        ${quick.goals.length > QUICK_GOALS_SUGGEST ? `<p class="nudge small">That is ${quick.goals.length}. Three is plenty to start, but you decide.</p>` : ''}
         ${picked.length ? balanceStrip(picked.map((g) => domainOf(g.role, g.area, g.title))) : ''}
         <p><button type="button" class="btn ghost small" data-act="quickBalance">Pick for me</button></p>
         <div class="pick-grid">${sh.items.map((g) => card('quickGoal', g.id, quick.goals.includes(g.id), g.title, g.why, g.role, quick.goals.includes(g.id) && (g.steps || []).length ? `<small class="steps">First steps: ${esc((g.steps || []).slice(0, 2).join(' → '))}</small>` : '')).join('')}</div>
@@ -3024,6 +3027,7 @@
       const sh = quickShown(quickHabitList(), 'h', quick.habits, 'habits', 8);
       body += `<section class="box"><h2>Pick a few habits <span class="muted">· ${quick.habits.length} chosen</span></h2>
         <p class="prompt">Habits appear on Today as a checkbox. Three or four is plenty.</p>
+        ${quick.habits.length > QUICK_HABITS_SUGGEST ? `<p class="nudge small">That is ${quick.habits.length}. Four is a good start, but you decide.</p>` : ''}
         <div class="pick-grid">${sh.items.map((h) => card('quickHabit', h.id, quick.habits.includes(h.id), h.title, h.perWeek === 7 ? 'every day' : h.perWeek === 1 ? 'once a week' : `${h.perWeek}× a week`, '')).join('')}</div>
         ${showMoreBtn('habits', sh.hidden)}
         ${card('quickRhythm', 'rhythm', quick.rhythm, 'Add a starter week', 'Workouts and a theme for each weekday on your calendar. Change it later.', '')}</section>`;
