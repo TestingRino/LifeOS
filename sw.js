@@ -1,6 +1,6 @@
 /* Telos service worker: lets the app open offline, and shows notifications.
    Strategy: network first (so updates arrive right away), falling back to what was last cached. */
-const VERSION = '20261112173946';
+const VERSION = '20261113123255';
 const CACHE = `lifeos-shell-${VERSION}`;
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -44,6 +44,15 @@ self.addEventListener('notificationclick', (e) => {
     for (const c of all) { if (c.url.startsWith(self.registration.scope)) { await c.focus(); c.postMessage({ type: 'goto', url: hash }); return; } }
     await self.clients.openWindow(self.registration.scope + hash);
   })());
+});
+
+/* Real push: the server (web-push) sends { title, body, url, tag } and this shows it even when the app is closed. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Telos', {
+    body: d.body || '', tag: d.tag || 'telos', icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', data: { url: d.url || '#/today' },
+  }));
 });
 
 /* Best effort for browsers that support periodic background sync: fire reminders that are due. */

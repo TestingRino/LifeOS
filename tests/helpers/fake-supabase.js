@@ -2,10 +2,10 @@
    PostgREST (filters with eq., order, limit, upsert, patch, delete, one rpc). Good enough to test our logic. */
 const http = require('node:http');
 
-const KEYS = { entitlements: ['email'], app_settings: ['key'], usage_daily: ['email', 'day'], waitlist: ['id'], admins: ['user_id'] };
+const KEYS = { entitlements: ['email'], app_settings: ['key'], usage_daily: ['email', 'day'], waitlist: ['id'], admins: ['user_id'], reminder_profiles: ['email'], push_subscriptions: ['endpoint'] };
 
 function start({ serviceKey = 'service-key', anonKey = 'anon' } = {}) {
-  const db = { entitlements: [], app_settings: [], usage_daily: [], waitlist: [], admins: [] };
+  const db = { entitlements: [], app_settings: [], usage_daily: [], waitlist: [], admins: [], reminder_profiles: [], push_subscriptions: [] };
   const sessions = {};                 // access token -> { id, email, confirmed }
   const authUsers = [];
   const calls = [];
@@ -41,6 +41,7 @@ function start({ serviceKey = 'service-key', anonKey = 'anon' } = {}) {
       if (req.method === 'GET') {
         let out = rows.filter((r) => matches(r, u.searchParams));
         const order = u.searchParams.get('order'); if (order) { const [f, dir] = order.split('.'); out = out.slice().sort((a, b) => (a[f] > b[f] ? 1 : a[f] < b[f] ? -1 : 0) * (dir === 'desc' ? -1 : 1)); }
+        const off = Number(u.searchParams.get('offset')) || 0; if (off) out = out.slice(off);
         const lim = Number(u.searchParams.get('limit')); if (lim) out = out.slice(0, lim);
         return send(200, out);
       }

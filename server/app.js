@@ -9,6 +9,7 @@ import ocrRoutes from './routes/ocr.js';
 import eventsRoutes from './routes/events.js';
 import waitlistRoutes from './routes/waitlist.js';
 import adminRoutes from './routes/admin.js';
+import remindersRoutes, { cronRouter } from './routes/reminders.js';
 import billingRoutes, { webhook as stripeWebhook } from './routes/billing.js';
 import { corsOptions, securityHeaders, rateLimit } from './middleware/security.js';
 import { requireAllowedUser, identify } from './middleware/requireUser.js';
@@ -32,6 +33,8 @@ app.use('/api/calendar', rateLimit({ windowMs: 60e3, max: 120 }), calendarRoutes
 app.use('/api/events', rateLimit({ windowMs: 60e3, max: 30 }), eventsRoutes);
 app.use('/api/billing', rateLimit({ windowMs: 60e3, max: 20 }), billingRoutes);
 app.use('/api/admin', rateLimit({ windowMs: 60e3, max: 60 }), adminRoutes);
+app.use('/api/reminders', rateLimit({ windowMs: 60e3, max: 60 }), remindersRoutes);
+app.use('/api/cron', cronRouter);       // called by a scheduler, not a browser: protected by CRON_SECRET, not an IP rate limit
 app.use('/api/waitlist', rateLimit({ windowMs: 60e3, max: 5, message: 'Too many requests. Please try again in a minute.' }), waitlistRoutes);
 // Photo import is limited to whitelisted Google accounts (OCR_ALLOWED_EMAILS). This lets the app ask up front.
 app.get('/api/ocr/access', rateLimit({ windowMs: 60e3, max: 30 }), async (req, res) => {

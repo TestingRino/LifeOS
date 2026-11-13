@@ -98,6 +98,7 @@ window.LifeFeatures = function (c) {
       return (late.length ? `<h4 class="tl-h">Overdue</h4>${late.map((t) => row(t, { late: true })).join('')}` : '')
         + (mine.length ? `${late.length && !compact ? '<h4 class="tl-h">Today</h4>' : ''}${mine.map((t) => row(t)).join('')}` : '');
     },
+    snapshotTasks: (iso) => (iso === iso0() ? lateTasks(iso) : []).concat(tasksOn(iso)).map((t) => t.title),
     dayTasksCount: (iso) => tasksOn(iso).length + (iso === iso0() ? lateTasks(iso).length : 0),
     dayTasksDone: (iso, mine) => {
       const dayDone = T().filter((t) => t.status === 'done' && (t.doneAt === iso || t.day === iso)).length, total = tasksOn(iso).length + dayDone + mine.length;

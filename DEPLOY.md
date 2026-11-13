@@ -140,3 +140,38 @@ The product name is now **Telos**. These URL-level items still say `LifeOS` on p
 Set `USE_LEGACY_LABELS: true` in `js/config.js` to bring back the old section names (Week, Tasks, Goals, Track, Lists) for one release; remove the flag after that.
 
 Internal identifiers (localStorage keys, Drive file names, service-worker cache names, `LIFEOS_CONFIG`) are unchanged so existing users keep their data.
+
+## Reminders: push and email
+
+Real reminders work even when the app is closed: a morning digest ("3 tasks for today: …"), event reminders ("Team standup in 10 minutes") and an optional morning email. They need the server, Supabase and a scheduler.
+
+How it works: the app uploads a small snapshot of the next few days (Big 3, tasks, events, and upcoming times, never the whole plan) whenever your plan changes. A scheduler calls `/api/cron/digest` every few minutes. The server sends whatever has come due, once.
+
+1. **Apply the migration.** Run `supabase/migrations/004_reminders.sql` in the Supabase SQL editor. It adds `reminder_profiles` and `push_subscriptions`, both server-only (row-level security on, no policies). Reminders also need `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` on the server.
+2. **Generate VAPID keys** (the identity your server presents to browsers' push services):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+   Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (`mailto:you@example.com` or your site's https address) in the server environment. Keep the private key secret; the public key is sent to browsers by `/api/reminders/config`.
+3. **Email (optional, for people who decline push).** Create a [Resend](https://resend.com) account, verify a sending domain, and set `RESEND_API_KEY` and `DIGEST_FROM` (for example `Telos <digest@yourdomain.com>`). Every email carries a signed unsubscribe link.
+4. **Set the scheduler secret.** Choose a long random `CRON_SECRET`. The scheduler sends it as `Authorization: Bearer <secret>` or `x-cron-secret: <secret>`. It also signs unsubscribe links unless you set `REMINDER_SECRET`. Optionally set `PUBLIC_API_URL` (your server's public address) for those links.
+5. **Trigger `/api/cron/digest` every 15 minutes.** Pick one:
+
+   **(a) Supabase `pg_cron` + `pg_net`** (free, reliable). Enable both extensions (Database → Extensions), then in the SQL editor:
+   ```sql
+   select cron.schedule('telos-reminders', '*/15 * * * *', $$
+     select net.http_post(
+       url := 'https://YOUR-SERVER.vercel.app/api/cron/digest',
+       headers := jsonb_build_object('x-cron-secret', 'YOUR_CRON_SECRET')
+     );
+   $$);
+   ```
+   Remove it later with `select cron.unschedule('telos-reminders');`.
+
+   **(b) Vercel Cron.** Only on a plan that allows it. **Vercel Hobby allows a cron job to run at most once per day, and an invalid schedule makes the deployment fail.** That is why `vercel.json` has no `crons` entry. On Pro, add `"crons": [{ "path": "/api/cron/digest", "schedule": "*/15 * * * *" }]` and set `CRON_SECRET` (Vercel sends it as the bearer token). On Hobby, use (a) or (c).
+
+   **(c) GitHub Actions.** `.github/workflows/reminders.yml` calls the endpoint every 15 minutes. Add repository secrets `REMINDERS_URL` (the full `/api/cron/digest` address) and `CRON_SECRET`. Without them it does nothing and passes. GitHub can delay scheduled runs by several minutes, and pauses them on inactive repositories.
+
+**Precision.** A digest or reminder goes out on the first run after it comes due, so delivery is only as precise as the trigger: every 15 minutes means up to 15 minutes late. Each digest goes out once per local day and each reminder once, however often the endpoint runs.
+
+**Check it.** `curl -X POST -H "x-cron-secret: $CRON_SECRET" https://YOUR-SERVER/api/cron/digest` returns counts (`digestsPush`, `digestsEmail`, `reminders`, `skipped`, `errors`, `subsRemoved`). `401` means a wrong secret, `503` means `CRON_SECRET` or Supabase is not set. In the app, the "Send a test" button calls `/api/reminders/test`.
