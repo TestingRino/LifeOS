@@ -61,11 +61,12 @@
   const get = (path) => S.getPath(state, path);
 
   let saveTimer;
+  let R = null;      // reminders (js/remind.js), created once the app is ready
   function persist() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => { if (S.save(state)) toast('Saved'); }, 300);
+    saveTimer = setTimeout(() => { if (S.save(state)) toast('Saved'); if (R) R.touch(); }, 300);
   }
-  function commit() { S.save(state); render(); }
+  function commit() { S.save(state); render(); if (R) R.touch(); }
 
   let toastTimer, toastAct = null;
   function toast(msg, action) {
@@ -1610,6 +1611,7 @@
       <a class="btn ghost" href="#/week/${U.weekKey(today(), ws())}">This week</a>
       <a class="btn ghost" href="#/week/${next}" aria-label="Next week">→</a>
       <button class="btn" data-act="copyWeek" data-key="${wk}">Copy for planner</button>
+      <button type="button" class="btn" data-act="icsWeek" data-key="${wk}">Download .ics</button>
       <a class="btn" href="#/print/week/${wk}">Print</a>`;
     const weekEmpty = !days.some((d) => scheduleOn(U.toISO(d)).length || U.eventsOn(state.events, U.toISO(d)).length) && !(w.big3 || []).some((b) => b.text) && !(state.tasks || []).some((t) => !t.done && t.due >= wk && t.due <= endIso);
     return page(`${window.TelosCopy.label('week')}: week ${wom.n} of ${U.MONTHS[wom.month]}`,
@@ -1990,7 +1992,8 @@
       ${state.idealCarried[qk] ? `<p class="nudge">Copied from ${qLabel(state.idealCarried[qk])}. Adjust it for ${qLabel(qk)}, then <button class="chip" data-act="idealReviewed" data-q="${qk}">Looks good ✓</button></p>` : ''}
       ${!mine.length && prevQ ? `<p class="nudge">Nothing set for ${qLabel(qk)} yet. <button class="chip" data-act="copyIdeal" data-from="${prevQ}" data-to="${qk}">Copy from ${qLabel(prevQ)}</button></p>` : ''}
       <div class="row"><button class="btn ghost" data-act="pushIdeal" data-q="${qk}">Add to Google Calendar (repeats weekly until ${U.fmtDate(qEnd(qk), { month: 'short', day: 'numeric' })})</button>
-        <a class="btn ghost" href="#/week">See this week →</a></div>
+        <a class="btn ghost" href="#/week">See this week →</a>
+        <button type="button" class="btn ghost" data-act="icsIdeal" data-q="${qk}">Download .ics</button></div>
       <div class="ideal-grid">${order.map(day).join('')}</div>`;
     return page('Ideal Week', `${qLabel(qk)} · a purposeful rhythm for every day`, body);
   }
@@ -2124,6 +2127,8 @@
         </div>
         ${calPicker}
       </section>
+      ${calFileCard()}
+      ${R ? R.card() : ''}
       <section class="box"><h2>Planner</h2>
         <div class="row wrap">
           <label>Planner year starts in <select data-bind="settings.plannerStartMonth" data-type="number" data-rerender>${opts(U.MONTHS.map((m, i) => ({ v: i, l: m })), s.plannerStartMonth)}</select></label>
@@ -2488,6 +2493,10 @@
       const t = document.getElementById('uploadType'); if (t && document.getElementById('uploadDlg').open) { t.value = 'page'; t.dispatchEvent(new Event('change')); }
     },
     beginRoles() { location.hash = begin.roles.some((x) => x.trim()) ? '#/begin/3' : '#/begin/4'; },
+    icsRange(el) { const n = Number(el.dataset.days) || 90; downloadICS('telos-calendar.ics', icsItems(todayISO(), U.toISO(U.addDays(today(), n))), 'Telos'); },
+    icsWeek(el) { const wk = el.dataset.key; downloadICS(`telos-week-${wk}.ics`, icsItems(wk, U.toISO(U.addDays(U.parseISO(wk), 6))), 'Telos week'); },
+    icsWorkouts() { downloadICS('telos-workouts.ics', icsItems(todayISO(), U.toISO(U.addDays(today(), 120))).filter((x) => state.workouts.some((w) => w.id === x.id)), 'Telos workouts'); },
+    icsIdeal(el) { const qk = (el && el.dataset.q) || quarterKey(todayISO()); downloadICS(`telos-ideal-week-${qk}.ics`, idealItems(qk), 'Telos ideal week'); },
     scrollTo(el) { const t = document.getElementById(el.dataset.target); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
     beginFinish(el) {
       const names = begin.roles.map((x) => x.trim()).filter(Boolean);
@@ -2707,6 +2716,7 @@
     const el = e.target;
     if (el.matches('[data-nav]')) { location.hash = el.value; return; }
     if (el.matches('[data-import]')) { importFile(el.files[0]); return; }
+    if (el.matches('[data-icsfile]')) { importICSFile(el.files[0]); el.value = ''; return; }
     if (el.matches('[data-wofile]')) {
       const f = el.files[0]; if (!f) return;
       f.text().then((t) => { const ta2 = el.closest('form').querySelector('textarea'); ta2.value = t; toast(`Loaded ${f.name}. Review, then Import.`); });
@@ -4101,6 +4111,54 @@
     document.getElementById('uploadPlannerWrap').hidden = !['page', 'auto'].includes(uploadType.value);
   });
 
+  /* ---------- calendar files (.ics): export to Outlook / Apple Calendar / anything, and import from them ---------- */
+  const ICS = window.LifeICS;
+  const quarterBounds = (qk) => { const y = +qk.slice(0, 4), q = +qk.slice(6); return { start: U.toISO(new Date(y, (q - 1) * 3, 1)), end: U.toISO(new Date(y, q * 3, 0)) }; };
+  function icsItems(from, to) {
+    const items = [];
+    state.schedule.forEach((x) => { if (x.date >= from && x.date <= to) items.push({ id: x.id, text: x.text, date: x.date, time: x.time || '', mins: x.mins }); });
+    for (let d = U.parseISO(from); U.toISO(d) <= to; d = U.addDays(d, 1)) {
+      const iso = U.toISO(d);
+      U.eventsOn(state.events, iso).forEach((e) => items.push({ id: e.id, text: e.text, date: iso, allDay: true }));
+    }
+    state.workouts.forEach((w) => { if (w.date >= from && w.date <= to) items.push({ id: w.id, text: w.type || 'Workout', date: w.date, time: w.time || '', mins: w.minutes, notes: w.details || '' }); });
+    return items;
+  }
+  function idealItems(qk) {
+    const { start, end } = quarterBounds(qk);
+    return idealFor(qk).filter((i) => i.text).map((i) => {
+      let d = U.parseISO(start); while (d.getDay() !== Number(i.dow)) d = U.addDays(d, 1);
+      return { id: `ideal-${i.id}`, text: i.text, date: U.toISO(d), time: i.time || '', mins: i.mins || 60, weekly: { byday: ICS.DAY_CODES[Number(i.dow)], until: end } };
+    });
+  }
+  function downloadICS(name, items, calName) {
+    if (!items.length) { toast('Nothing to export for that range yet'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([ICS.build(items, { name: calName })], { type: 'text/calendar;charset=utf-8' }));
+    a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast(`Downloaded ${items.length} item${items.length === 1 ? '' : 's'}. Open the file in Outlook, Apple Calendar or any calendar app.`);
+    track('ics_exported');
+  }
+  const calFileCard = () => `<section class="box"><h2>Calendar files <small class="muted">· Outlook, Apple Calendar and others</small></h2>
+    <p class="prompt">Not on Google? Move events in and out with a standard .ics file. Every calendar app can open and export them.</p>
+    <div class="row wrap">
+      <button type="button" class="btn" data-act="icsRange" data-days="90">Download next 90 days (.ics)</button>
+      <button type="button" class="btn ghost" data-act="icsIdeal">Download ideal week (.ics)</button>
+      <button type="button" class="btn ghost" data-act="icsWorkouts">Download workouts (.ics)</button>
+      <label class="btn ghost file">Import a calendar file…<input type="file" accept=".ics,text/calendar" data-icsfile hidden></label></div>
+    <p class="muted small">Importing shows every event first so you can untick anything. Events in a named time zone keep the clock time written in the file.</p></section>`;
+  async function importICSFile(file) {
+    if (!file) return;
+    let text; try { text = await file.text(); } catch (e) { toast('Could not read that file'); return; }
+    if (!/BEGIN:VCALENDAR/i.test(text)) { toast('That does not look like a calendar (.ics) file'); return; }
+    const from = todayISO(), to = U.toISO(U.addDays(today(), 366));
+    const r = ICS.parse(text, { from, to });
+    if (!r.events.length) { toast('No upcoming events were found in that file'); return; }
+    if (r.truncated) toast('Some repeating events were shortened to keep the list manageable');
+    track('ics_imported');
+    showCalendarReview(r.events.map((e) => ({ date: e.date, endDate: e.endDate, time: e.time, mins: e.mins, text: e.text, allDay: e.allDay })), file.name.replace(/\.ics$/i, ''));
+  }
+
   function showCalendarReview(rawEvents, calName) {
     calReviewName = calName || '';
     const events = [];
@@ -4316,6 +4374,11 @@
     undo, redo, trashItem, trashLabel, sendNotification, progressBar, weekText, monthText, balanceStrip, goalDomain, history: hist,
   };
   if (window.LifeFeatures) window.LifeFeatures(ctx);
+  if (window.LifeRemind) {
+    R = window.LifeRemind({ state: () => state, apiBase: API_BASE, token: authToken, signedIn, email: accountEmail, toast, todayISO, U, esc, save: () => S.save(state), render, entries: plannerEntries, tasksFor: (iso) => (F.snapshotTasks ? F.snapshotTasks(iso) : []) });
+    Object.assign(ACTS, R.acts);
+    R.touch();
+  }
   render();
   checkNotifications();
   syncNow();

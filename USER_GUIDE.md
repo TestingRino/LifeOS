@@ -63,6 +63,21 @@ Everything goes through a review screen first: fix anything misread and untick w
 4. Grant permission
 5. Your calendar shows up in your Telos Week view ✅
 
+### 🗓 Outlook, Apple Calendar and other calendars (.ics files)
+
+Not on Google? Use a calendar file. Everything is in **Settings → Calendar files**.
+
+- **Import:** export an .ics file from Outlook, Apple Calendar or any calendar app, choose **Import a calendar file**, then untick anything you don't want.
+- **Export:** download the next 90 days, your ideal week or your workouts, then open the file in your calendar app. The Week and Ideal Week pages have a **Download .ics** button too.
+
+### 🔔 Reminders on your phone
+
+**Settings → Reminders on your phone** (you need to be signed in).
+
+1. Turn on **Notifications on this device** and allow them. On iPhone or iPad, add Telos to your Home Screen first and open it from there.
+2. Pick the time for your **morning summary** (your Big 3, tasks and first event) and how long before each event you want a nudge.
+3. Prefer email? Turn on **Email me the same summary**. Press **Send a test** to check.
+
 ---
 
 ## Backup Your Data
