@@ -135,8 +135,7 @@ window.LifeFeatures = function (c) {
     const today = iso0(), target = tomorrow();
     let n = P.rollTasks(T(), today, target);
     plannedActions(today).forEach((a) => { a.day = target; n++; });
-    const room = 3 - st().big3.filter((b) => b.date === target).length;
-    bigUndone(today).slice(0, Math.max(0, room)).forEach((b) => { b.migrated = true; st().big3.push({ id: S.uid(), date: target, text: b.text, goalId: b.goalId, stepRef: b.stepRef, done: false }); n++; });
+    bigUndone(today).forEach((b) => { b.migrated = true; st().big3.push({ id: S.uid(), date: target, text: b.text, goalId: b.goalId, stepRef: b.stepRef, done: false }); n++; });
     c.commit(); c.toast(n ? `Moved ${n} item${n === 1 ? '' : 's'} to tomorrow` : 'Nothing to move', n ? { label: 'Undo', fn: c.undo } : null);
   };
 
