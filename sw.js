@@ -1,6 +1,6 @@
 /* Telos service worker: lets the app open offline, and shows notifications.
    Strategy: network first (so updates arrive right away), falling back to what was last cached. */
-const VERSION = '20261113145107';
+const VERSION = '20261113145623';
 const CACHE = `lifeos-shell-${VERSION}`;
 
 self.addEventListener('install', () => self.skipWaiting());

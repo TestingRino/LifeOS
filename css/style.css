@@ -292,8 +292,8 @@ input.title-sm { font-weight: 600; width: auto; max-width: 9rem; }
 dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); width: min(560px, calc(100vw - 32px)); padding: 1.2rem; }
 dialog::backdrop { background: rgba(20, 20, 30, .45); }
 dialog textarea { font: .88rem/1.5 ui-monospace, Menlo, monospace; background-image: none; }
-#toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%) translateY(150%); background: var(--navy); color: var(--card); padding: .4rem 1rem; border-radius: 99px; font-size: .85rem; transition: transform .2s; pointer-events: none; }
-#toast.show { transform: translateX(-50%) translateY(0); }
+#toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%) translateY(calc(100% + 3rem)); visibility: hidden; background: var(--navy); color: var(--card); padding: .4rem 1rem; border-radius: 99px; font-size: .85rem; transition: transform .2s, visibility 0s .2s; pointer-events: none; }
+#toast.show { transform: translateX(-50%) translateY(0); visibility: visible; transition: transform .2s, visibility 0s; }
 .foot { color: var(--muted); font: italic .85rem var(--serif); text-align: center; padding: 2rem 16px; }
 
 /* ---------- mobile ---------- */
