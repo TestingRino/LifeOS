@@ -931,6 +931,8 @@
   /* Focus goals are a suggestion, not a limit: three or four tends to work best, but any number can be chosen. */
   const FOCUS_SUGGEST = 4;
   const focusHint = (n) => (n > FOCUS_SUGGEST ? `<p class="nudge small">That is ${n}. Three or four tends to work best, but you decide. Keep them all, or set a few aside for later.</p>` : '');
+  const STATUS_LABEL = { active: 'Active', paused: 'Paused', done: 'Done', dropped: 'Dropped' };
+  let goalFilter = 'active';
   function viewGoals(cid) {
     if (!state.cycles.length) {
       const t = today();
@@ -952,10 +954,13 @@
     const cyc = state.cycles.find((c) => c.id === cid) || currentCycle();
     const cp = `cycles.@${cyc.id}`;
     const all = cycleGoals(cyc.id, true);
-    const n = all.filter((g) => g.kind !== 'habit').length;
+    const n = all.filter((g) => g.kind !== 'habit' && g.status === 'active').length;
+    const counts = { active: 0, paused: 0, done: 0, dropped: 0 }; all.forEach((g) => { counts[g.status] = (counts[g.status] || 0) + 1; });
+    if (goalFilter !== 'all' && !counts[goalFilter] && goalFilter !== 'active') goalFilter = 'active';
+    const shown = goalFilter === 'all' ? all : all.filter((g) => g.status === goalFilter);
     const meterCls = n >= 3 && n <= 12 ? 'ok' : n > 12 ? 'over' : '';
-    const groups = state.roles.map((r) => ({ role: r, goals: all.filter((g) => g.roleId === r.id) }));
-    const orphan = all.filter((g) => !state.roles.some((r) => r.id === g.roleId));
+    const groups = state.roles.map((r) => ({ role: r, goals: shown.filter((g) => g.roleId === r.id) }));
+    const orphan = shown.filter((g) => !state.roles.some((r) => r.id === g.roleId));
 
     const goalRow = (g) => {
       const p = `goals.@${g.id}`;
@@ -965,13 +970,14 @@
           <select data-bind="${p}.kind" data-rerender class="tier" aria-label="Goal type">${opts([{ v: 'achievement', l: 'Achievement' }, { v: 'habit', l: 'Habit' }], g.kind || 'achievement')}</select>
           <input class="inline title" data-bind="${p}.title" value="${esc(g.title)}" aria-label="Goal">
           ${g.kind === 'habit' ? '' : `<button type="button" class="chip${focusGoals(todayISO()).some((f) => f.id === g.id) ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" title="Quarterly focus">⚑ Focus</button>`}
+          ${g.status === 'active' ? `<button type="button" class="chip" data-act="goalStatus" data-id="${g.id}" data-v="paused" title="Hide it from Today and planning without deleting anything">Pause</button>` : `<button type="button" class="chip on" data-act="goalStatus" data-id="${g.id}" data-v="active">Resume</button>`}
           ${schedBtn(`Work on: ${g.title}`, 60)}<button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete goal">×</button>
         </div>
         <div class="goal-meta">
           <label>Area <select data-bind="${p}.area" data-rerender aria-label="Area">${lifeOpts(g.area)}</select></label>
           <label>Target <input type="date" data-bind="${p}.target" value="${esc(g.target)}"></label>
           <label>Done by <input type="date" data-bind="${p}.doneBy" value="${esc(g.doneBy)}"></label>
-          <label>Status <select data-bind="${p}.status" data-rerender>${opts([{ v: 'active', l: 'Active' }, { v: 'done', l: 'Done ✓' }, { v: 'dropped', l: 'Dropped' }], g.status)}</select></label>
+          <label>Status <select data-bind="${p}.status" data-rerender>${opts([{ v: 'active', l: 'Active' }, { v: 'paused', l: 'Paused' }, { v: 'done', l: 'Done ✓' }, { v: 'dropped', l: 'Dropped' }], g.status)}</select></label>
           <label class="prog">Progress <input type="range" min="0" max="100" step="5" data-bind="${p}.progress" data-type="number" value="${Number(g.progress) || 0}"><output>${Number(g.progress) || 0}%</output></label>
         </div>
         <input class="inline measure" data-bind="${p}.measure" value="${esc(g.measure)}" placeholder="${g.kind === 'habit' ? 'What counts? (e.g. 20+ minutes, no phone)' : 'What does done look like? (be specific)'}">
@@ -1052,6 +1058,8 @@
         <div class="chips">${all.filter((g) => g.kind !== 'habit' && g.status === 'active').map((g) => { const on = focusGoals(todayISO()).some((f) => f.id === g.id);
           return `<button type="button" class="chip${on ? ' on' : ''}" data-act="toggleFocus" data-goal="${g.id}" aria-pressed="${on}">${on ? '⚑ ' : ''}${esc(g.title)}</button>`; }).join('') || '<span class="muted">Add some goals below first.</span>'}</div>
       </section>
+      <div class="chips goal-filter" role="group" aria-label="Show goals and habits">${[['active', 'Active'], ['paused', 'Paused'], ['done', 'Done'], ['dropped', 'Dropped'], ['all', 'All']].filter(([k]) => k === 'active' || k === 'all' || counts[k]).map(([k, l]) => `<button type="button" class="chip${goalFilter === k ? ' on' : ''}" data-act="goalFilter" data-v="${k}" aria-pressed="${goalFilter === k}">${l}${k === 'all' ? ` · ${all.length}` : ` · ${counts[k] || 0}`}</button>`).join('')}</div>
+      ${shown.length ? '' : `<p class="muted">${goalFilter === 'active' ? 'Nothing active right now.' : `Nothing ${goalFilter === 'all' ? 'here' : goalFilter} yet.`}${all.length ? ' Pick another view above to find the rest.' : ''}</p>`}
       ${groups.map(roleCard).join('')}
       ${orphan.length ? `<section class="box role"><h3>Goals without a role</h3>${orphan.map(goalRow).join('')}</section>` : ''}
       <section class="box">
@@ -1864,6 +1872,11 @@
             return `<tr><th>${esc(nm)}</th>${cells.map((c) => c.html).join('')}<td>${streak} wk</td><td>${rate}%</td></tr>`;
           }).join('')}</tbody></table></div>` : '<p class="muted">Add habits on the <a href="#/week">Week</a> page to start tracking.</p>'}
       </section>`;
+      const mine = state.goals.filter((g) => g.kind === 'habit');
+      if (mine.length) body += `<section class="box"><h2>Manage habits <small class="muted">pause one to take it off Today without losing its history</small></h2>
+        <ul class="checks compact">${mine.map((g) => `<li class="${g.status === 'active' ? '' : 'inactive'}"><span class="grow">${esc(g.title)} <small class="muted">${g.perWeek === 7 ? 'every day' : `${g.perWeek || 5}× a week`}${g.status === 'active' ? '' : ` · ${STATUS_LABEL[g.status] || g.status}`}</small></span>
+          ${g.status === 'active' ? `<button type="button" class="chip small" data-act="goalStatus" data-id="${g.id}" data-v="paused">Pause</button>` : `<button type="button" class="chip small on" data-act="goalStatus" data-id="${g.id}" data-v="active">Resume</button>`}
+          <button class="x" data-act="del" data-path="goals" data-id="${g.id}" aria-label="Delete habit">×</button></li>`).join('')}</ul></section>`;
     } else {
       const cyc = currentCycle();
       const goals = cyc ? cycleGoals(cyc.id, true) : [];
@@ -2495,6 +2508,16 @@
     },
     beginRoles() { location.hash = begin.roles.some((x) => x.trim()) ? '#/begin/3' : '#/begin/4'; },
     setSkin(el) { state.settings.skin = el.dataset.id; applySkin(el.dataset.id); commit(); },
+    goalFilter(el) { goalFilter = el.dataset.v; render(); },
+    goalStatus(el) {      // pause, resume, finish or drop a goal or habit; nothing is deleted and it can be undone
+      const g = state.goals.find((x) => x.id === el.dataset.id); if (!g) return;
+      const prev = { status: g.status, doneAt: g.doneAt }, v = el.dataset.v;
+      g.status = v; if (v === 'done') g.doneAt = todayISO(); else if (v === 'active') g.doneAt = '';
+      const what = g.kind === 'habit' ? 'habit' : 'goal', t = g.title.length > 32 ? `${g.title.slice(0, 32)}…` : g.title;
+      commit();
+      toast(v === 'paused' ? `Paused “${t}”. It is off Today and your plan. Find it under Paused.` : v === 'active' ? `“${t}” is active again` : `Marked ${what} “${t}” ${v}`,
+        { label: 'Undo', fn: () => { g.status = prev.status; g.doneAt = prev.doneAt; commit(); } });
+    },
     icsRange(el) { const n = Number(el.dataset.days) || 90; downloadICS('telos-calendar.ics', icsItems(todayISO(), U.toISO(U.addDays(today(), n))), 'Telos'); },
     icsWeek(el) { const wk = el.dataset.key; downloadICS(`telos-week-${wk}.ics`, icsItems(wk, U.toISO(U.addDays(U.parseISO(wk), 6))), 'Telos week'); },
     icsWorkouts() { downloadICS('telos-workouts.ics', icsItems(todayISO(), U.toISO(U.addDays(today(), 120))).filter((x) => state.workouts.some((w) => w.id === x.id)), 'Telos workouts'); },
@@ -3886,9 +3909,9 @@
     month: viewMonth, week: viewWeek, ideal: viewIdeal, setup: viewSetup, welcome: viewWelcome, demo: viewWelcome, quick: viewQuick, start: viewBegin, begin: viewBegin, 'why-telos': viewWhy, session: viewSession, calendar: viewCalendar, track: viewTrack, wheel: viewWheel, lists: viewLists, settings: viewSettings,
   };
   function render() {
-    if (state.settings.skin && document.documentElement.getAttribute('data-skin') !== state.settings.skin) applySkin(state.settings.skin);
     let [, name, arg, arg2] = (location.hash || '').split('/');
     if (!name) name = !signedIn() && isBlank() && !localStorage.getItem('account_mode') && !localStorage.getItem('login_prompt_seen') ? 'landing' : 'today';
+    syncSkin(name);
     if (name === 'landing' && location.hash) history.replaceState(null, '', location.pathname + location.search);    // the marketing page lives at the root now
     const view = ROUTES[name] || viewToday;
     const y = window.scrollY;
@@ -4121,15 +4144,27 @@
     { id: 'fabric', name: 'Fabric planner', note: 'Woven slate cover, linen pages, stitched edges.', top: '#2f4350', page: '#e8e5de', card: '#faf8f4', acc: '#3d7a70' },
     { id: 'minimal', name: 'Calm', note: 'Quiet and airy, with very little decoration.', top: '#ffffff', page: '#f8f8f5', card: '#ffffff', acc: '#6f9488' },
   ];
-  function applySkin(id) {
+  /* The chosen skin applies to the pages you work in. The landing page and the first-run, tour and setup pages always keep the classic look. */
+  const NEUTRAL_ROUTES = /^(landing|landing-v1|welcome|demo|setup|quick|start|begin|why-telos)$/;
+  const chosenSkin = () => { let c = state.settings.skin; if (!c) { try { c = localStorage.getItem('lifeos.skin'); } catch (e) { /* storage unavailable */ } } return SKINS.some((x) => x.id === c) ? c : 'classic'; };
+  function showSkin(id) {
     const sk = SKINS.find((x) => x.id === id) || SKINS[0];
     document.documentElement.setAttribute('data-skin', sk.id);
-    try { localStorage.setItem('lifeos.skin', sk.id); } catch (e) { /* storage unavailable */ }
     const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', sk.top);
+  }
+  function applySkin(id) {      // remember the choice, then show it
+    const sk = SKINS.find((x) => x.id === id) || SKINS[0];
+    try { localStorage.setItem('lifeos.skin', sk.id); } catch (e) { /* storage unavailable */ }
+    showSkin(sk.id);
+  }
+  function syncSkin(route) {
+    const want = NEUTRAL_ROUTES.test(route) ? 'classic' : chosenSkin();
+    if (document.documentElement.getAttribute('data-skin') !== want) showSkin(want);
+    if (state.settings.skin) { try { if (localStorage.getItem('lifeos.skin') !== state.settings.skin) localStorage.setItem('lifeos.skin', state.settings.skin); } catch (e) { /* storage unavailable */ } }
   }
   const skinCard = () => `<section class="box"><h2>Look and feel</h2>
     <p class="prompt">Pick the planner that feels right. Only the look changes; your plan stays exactly the same.</p>
-    <div class="skin-grid" role="group" aria-label="Skin">${SKINS.map((k) => `<button type="button" class="skin-card" data-act="setSkin" data-id="${k.id}" aria-pressed="${(document.documentElement.getAttribute('data-skin') || 'classic') === k.id}">
+    <div class="skin-grid" role="group" aria-label="Skin">${SKINS.map((k) => `<button type="button" class="skin-card" data-act="setSkin" data-id="${k.id}" aria-pressed="${chosenSkin() === k.id}">
       <span class="skin-prev" aria-hidden="true"><i style="background:${k.top}"></i><b style="background:${k.page}"><em style="background:${k.card};border:1px solid rgba(0,0,0,.1)"></em><em style="background:${k.acc}"></em></b></span>
       <strong>${esc(k.name)}</strong><small>${esc(k.note)}</small></button>`).join('')}</div></section>`;
 

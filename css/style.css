@@ -171,6 +171,9 @@ select.link { border: 0; background: transparent; font-size: .78rem; color: var(
 .goal { border: 1px solid var(--line); border-radius: 8px; padding: .5rem .6rem; margin-bottom: .5rem; background: var(--paper); }
 .goal.done { opacity: .7; } .goal.done .title { text-decoration: line-through; }
 .goal.dropped { opacity: .45; }
+.goal.paused { opacity: .7; border-style: dashed; }
+li.inactive { opacity: .65; }
+.goal-filter { margin: 1rem 0 .6rem; }
 .goal-main { display: flex; gap: .4rem; align-items: center; }
 .goal-main .title { font-weight: 600; font-size: 1rem; }
 select.tier { font-size: .8rem; padding: .2rem .3rem; }
